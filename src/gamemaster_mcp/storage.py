@@ -225,6 +225,10 @@ class DnDStorage:
                 logger.warning(f"⚠️ Character not found by ID: {name_or_id}, trying name")
                 pass
 
+        # Return early if found by ID
+        if character:
+            return character
+
         # Search by name
         try:
             character = self._current_campaign.characters.get(name_or_id)
