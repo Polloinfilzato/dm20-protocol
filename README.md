@@ -320,6 +320,7 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 - `bulk_update_characters` - Update multiple characters at once (e.g., apply damage to all).
 - `add_item_to_character` - Add items to inventory
 - `list_characters` - List all characters
+- `delete_character` - Remove a character from the campaign
 
 ### NPC Management
 

@@ -1,6 +1,7 @@
 dev.bat
 dev.sh
 demo.py
+GUIDA_DM.md
 
 # Python
 __pycache__/
