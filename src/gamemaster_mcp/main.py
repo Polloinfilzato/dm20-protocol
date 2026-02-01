@@ -164,9 +164,9 @@ def create_character(
 
 @mcp.tool
 def get_character(
-    name_or_id: Annotated[str, Field(description="Character name or ID")]
+    name_or_id: Annotated[str, Field(description="Character name, ID, or player name")]
 ) -> str:
-    """Get detailed character information."""
+    """Get detailed character information. Accepts character name, ID, or player name."""
     character = storage.get_character(name_or_id)
     if not character:
         return f"❌ Character '{name_or_id}' not found."
@@ -200,7 +200,7 @@ Level {character.character_class.level} {character.race.name} {character.charact
 
 @mcp.tool
 def update_character(
-    name_or_id: Annotated[str, Field(description="The name or ID of the character to update.")],
+    name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")],
     name: Annotated[str | None, Field(description="New character name. If you change this, you must use the character's ID to identify them.")] = None,
     player_name: Annotated[str | None, Field(description="The name of the player in control of this character")] = None,
     description: Annotated[str | None, Field(description="A brief description of the character's appearance and demeanor.")] = None,
@@ -237,7 +237,7 @@ def update_character(
 
 @mcp.tool
 def bulk_update_characters(
-    names_or_ids: Annotated[list[str], Field(description="List of character names or IDs to update.")],
+    names_or_ids: Annotated[list[str], Field(description="List of character names, IDs, or player names to update.")],
     hp_change: Annotated[int | None, Field(description="Amount to change current HP by (positive or negative).")] = None,
     temp_hp_change: Annotated[int | None, Field(description="Amount to change temporary HP by (positive or negative).")] = None,
     strength_change: Annotated[int | None, Field(description="Amount to change strength by.")] = None,
@@ -267,49 +267,52 @@ def bulk_update_characters(
     if not active_changes:
         return "No changes specified."
 
-    for name_or_id in names_or_ids:
-        character = storage.get_character(name_or_id)
-        if not character:
-            not_found_log.append(name_or_id)
-            continue
+    # Use batch mode for single save at the end instead of N saves
+    with storage.batch_update():
+        for name_or_id in names_or_ids:
+            character = storage.get_character(name_or_id)
+            if not character:
+                not_found_log.append(name_or_id)
+                continue
 
-        char_updates = {}
-        char_log = [f"{character.name}:"]
+            char_updates = {}
+            char_log = [f"{character.name}:"]
 
-        if hp_change is not None:
-            new_hp = character.hit_points_current + hp_change
-            # Clamp HP between 0 and max HP
-            new_hp = max(0, min(new_hp, character.hit_points_max))
-            char_updates['hit_points_current'] = new_hp
-            char_log.append(f"HP -> {new_hp}")
+            if hp_change is not None:
+                new_hp = character.hit_points_current + hp_change
+                # Clamp HP between 0 and max HP
+                new_hp = max(0, min(new_hp, character.hit_points_max))
+                char_updates['hit_points_current'] = new_hp
+                char_log.append(f"HP -> {new_hp}")
 
-        if temp_hp_change is not None:
-            new_temp_hp = character.temporary_hit_points + temp_hp_change
-            # Temp HP cannot be negative
-            new_temp_hp = max(0, new_temp_hp)
-            char_updates['temporary_hit_points'] = new_temp_hp
-            char_log.append(f"Temp HP -> {new_temp_hp}")
+            if temp_hp_change is not None:
+                new_temp_hp = character.temporary_hit_points + temp_hp_change
+                # Temp HP cannot be negative
+                new_temp_hp = max(0, new_temp_hp)
+                char_updates['temporary_hit_points'] = new_temp_hp
+                char_log.append(f"Temp HP -> {new_temp_hp}")
 
-        abilities_updated = False
-        ability_changes = {
-            "strength": strength_change, "dexterity": dexterity_change,
-            "constitution": constitution_change, "intelligence": intelligence_change,
-            "wisdom": wisdom_change, "charisma": charisma_change
-        }
-        for ability, change in ability_changes.items():
-            if change is not None:
-                new_score = character.abilities[ability].score + change
-                new_score = max(1, min(new_score, 30)) # Clamp score
-                character.abilities[ability].score = new_score
-                abilities_updated = True
-                char_log.append(f"{ability.capitalize()} -> {new_score}")
+            abilities_updated = False
+            ability_changes = {
+                "strength": strength_change, "dexterity": dexterity_change,
+                "constitution": constitution_change, "intelligence": intelligence_change,
+                "wisdom": wisdom_change, "charisma": charisma_change
+            }
+            for ability, change in ability_changes.items():
+                if change is not None:
+                    new_score = character.abilities[ability].score + change
+                    new_score = max(1, min(new_score, 30)) # Clamp score
+                    character.abilities[ability].score = new_score
+                    abilities_updated = True
+                    char_log.append(f"{ability.capitalize()} -> {new_score}")
 
-        if abilities_updated:
-            char_updates['abilities'] = character.abilities
+            if abilities_updated:
+                char_updates['abilities'] = character.abilities
 
-        if char_updates:
-            storage.update_character(str(character.id), **char_updates)
-            updates_log.append(" ".join(char_log))
+            if char_updates:
+                storage.update_character(str(character.id), **char_updates)
+                updates_log.append(" ".join(char_log))
+    # Single save happens here when exiting batch_update context
 
     response_parts = []
     if updates_log:
@@ -321,7 +324,7 @@ def bulk_update_characters(
 
 @mcp.tool
 def add_item_to_character(
-    character_name_or_id: Annotated[str, Field(description="Name or ID of the character to receive the item.")],
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")],
     item_name: Annotated[str, Field(description="Item name")],
     description: Annotated[str | None, Field(description="Item description")] = None,
     quantity: Annotated[int, Field(description="Quantity", ge=1)] = 1,
@@ -351,23 +354,22 @@ def add_item_to_character(
 @mcp.tool
 def list_characters() -> str:
     """List all characters in the current campaign."""
-    characters = storage.list_characters()
+    characters = storage.list_characters_detailed()  # O(n) instead of O(2n)
     if not characters:
         return "No characters in the current campaign."
 
-    char_list = []
-    for char_name in characters:
-        char = storage.get_character(char_name)
-        if char:
-            char_list.append(f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})")
+    char_list = [
+        f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
+        for char in characters
+    ]
 
     return "**Characters:**\n" + "\n".join(char_list)
 
 @mcp.tool
 def delete_character(
-    name_or_id: Annotated[str, Field(description="Character name or ID to delete")]
+    name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")]
 ) -> str:
-    """Delete a character from the current campaign."""
+    """Delete a character from the current campaign. Accepts character name, ID, or player name."""
     character = storage.get_character(name_or_id)
     if not character:
         return f"❌ Character '{name_or_id}' not found."
@@ -429,16 +431,14 @@ def get_npc(
 @mcp.tool
 def list_npcs() -> str:
     """List all NPCs in the current campaign."""
-    npcs = storage.list_npcs()
+    npcs = storage.list_npcs_detailed()  # O(n) instead of O(2n)
     if not npcs:
         return "No NPCs in the current campaign."
 
-    npc_list = []
-    for npc_name in npcs:
-        npc = storage.get_npc(npc_name)
-        if npc:
-            location = f" ({npc.location})" if npc.location else ""
-            npc_list.append(f"• {npc.name}{location}")
+    npc_list = [
+        f"• {npc.name}{f' ({npc.location})' if npc.location else ''}"
+        for npc in npcs
+    ]
 
     return "**NPCs:**\n" + "\n".join(npc_list)
 
@@ -494,15 +494,14 @@ def get_location(
 @mcp.tool
 def list_locations() -> str:
     """List all locations in the current campaign."""
-    locations = storage.list_locations()
+    locations = storage.list_locations_detailed()  # O(n) instead of O(2n)
     if not locations:
         return "No locations in the current campaign."
 
-    loc_list = []
-    for loc_name in locations:
-        loc = storage.get_location(loc_name)
-        if loc:
-            loc_list.append(f"• {loc.name} ({loc.location_type})")
+    loc_list = [
+        f"• {loc.name} ({loc.location_type})"
+        for loc in locations
+    ]
 
     return "**Locations:**\n" + "\n".join(loc_list)
 

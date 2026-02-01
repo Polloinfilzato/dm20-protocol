@@ -6,7 +6,9 @@ Handles persistence of campaign data to JSON files.
 import logging
 import shortuuid
 import json
+from contextlib import contextmanager
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
 from .models import (
@@ -42,6 +44,16 @@ class DnDStorage:
         self._current_campaign: Campaign | None = None
         self._events: list[AdventureEvent] = []
 
+        # Performance optimization: indexes for O(1) character lookups
+        self._character_id_index: dict[str, str] = {}  # id -> character_name
+        self._player_name_index: dict[str, str] = {}  # player_name (lowercase) -> character_name
+
+        # Batch mode flag to defer saves during bulk operations
+        self._batch_mode: bool = False
+
+        # Dirty tracking: hash of last saved campaign state
+        self._campaign_hash: str = ""
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -62,11 +74,56 @@ class DnDStorage:
         """Get the file path for adventure events."""
         return self.data_dir / "events" / "adventure_log.json"
 
-    def _save_campaign(self):
-        """Save the current campaign to disk."""
+    def _rebuild_character_index(self) -> None:
+        """Rebuild character indexes for O(1) lookups by ID or player name."""
+        self._character_id_index.clear()
+        self._player_name_index.clear()
+        if self._current_campaign:
+            for name, char in self._current_campaign.characters.items():
+                self._character_id_index[char.id] = name
+                if char.player_name:
+                    # Index by lowercase player name for case-insensitive matching
+                    self._player_name_index[char.player_name.lower()] = name
+            logger.debug(f"🔄 Character index rebuilt with {len(self._character_id_index)} ID entries, {len(self._player_name_index)} player entries")
+
+    def _compute_campaign_hash(self) -> str:
+        """Compute hash of campaign data for dirty tracking."""
+        if not self._current_campaign:
+            return ""
+        campaign_data = self._current_campaign.model_dump(mode='json')
+        return sha256(json.dumps(campaign_data, sort_keys=True).encode()).hexdigest()
+
+    @contextmanager
+    def batch_update(self):
+        """Context manager for batch operations - defers saves until exit."""
+        self._batch_mode = True
+        try:
+            yield
+            self._save_campaign(force=True)  # Single save at the end
+        finally:
+            self._batch_mode = False
+
+    def _save_campaign(self, force: bool = False) -> None:
+        """Save the current campaign to disk.
+
+        Args:
+            force: If True, bypass batch mode and dirty checking.
+        """
         if not self._current_campaign:
             logger.debug("❌ No current campaign to save.")
             return
+
+        # Skip save if in batch mode (unless forced)
+        if self._batch_mode and not force:
+            logger.debug("⏳ Batch mode active, deferring save...")
+            return
+
+        # Dirty tracking: skip save if unchanged (unless forced)
+        if not force:
+            current_hash = self._compute_campaign_hash()
+            if current_hash == self._campaign_hash:
+                logger.debug("✅ Campaign unchanged, skipping save.")
+                return
 
         campaign_file = self._get_campaign_file()
         logger.debug(f"💾 Saving campaign '{self._current_campaign.name}' to {campaign_file}")
@@ -75,6 +132,9 @@ class DnDStorage:
 
         with open(campaign_file, 'w', encoding='utf-8') as f:
             json.dump(campaign_data, f, default=str)
+
+        # Update hash after successful save
+        self._campaign_hash = self._compute_campaign_hash()
         logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully.")
 
     def _load_current_campaign(self):
@@ -99,6 +159,8 @@ class DnDStorage:
             with open(latest_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             self._current_campaign = Campaign.model_validate(data)
+            self._rebuild_character_index()
+            self._campaign_hash = self._compute_campaign_hash()
             logger.info(f"✅ Successfully loaded campaign: {self._current_campaign.name}")
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"❌ Error loading campaign from {latest_file}: {e}")
@@ -144,7 +206,10 @@ class DnDStorage:
         )
 
         self._current_campaign = campaign
-        self._save_campaign()
+        self._character_id_index.clear()  # New campaign, empty indexes
+        self._player_name_index.clear()
+        self._save_campaign(force=True)  # Force save for new campaign
+        self._campaign_hash = self._compute_campaign_hash()
         logger.info(f"✅ Campaign '{name}' created and set as active.")
         return campaign
 
@@ -174,6 +239,8 @@ class DnDStorage:
             data = json.load(f)
 
         self._current_campaign = Campaign.model_validate(data)
+        self._rebuild_character_index()
+        self._campaign_hash = self._compute_campaign_hash()
         logger.info(f"✅ Successfully loaded campaign '{name}'.")
         return self._current_campaign
 
@@ -200,43 +267,43 @@ class DnDStorage:
 
         logger.info(f"➕ Adding character '{character.name}' to campaign '{self._current_campaign.name}'.")
         self._current_campaign.characters[character.name] = character
+        # Update indexes for O(1) lookup by ID and player name
+        self._character_id_index[character.id] = character.name
+        if character.player_name:
+            self._player_name_index[character.player_name.lower()] = character.name
         self._current_campaign.updated_at = datetime.now()
         self._save_campaign()
         logger.debug(f"✅ Character '{character.name}' added to campaign: '{self._current_campaign.name}'.")
 
-    def _find_character(self, name_or_id: str) -> Character | None:
-        """Find a character by name or ID."""
+    def _find_character(self, name_or_id_or_player: str) -> Character | None:
+        """Find a character by name, ID, or player name using O(1) index lookup.
+
+        Lookup priority:
+        1. Character name (exact match)
+        2. Character ID (8-char UUID)
+        3. Player name (case-insensitive)
+        """
         if not self._current_campaign:
             e = ValueError("❌ No active campaign! Wtf???")
             logger.error(e)
             raise e
 
-        character: Character | None = None
+        # Direct character name lookup - O(1)
+        if name_or_id_or_player in self._current_campaign.characters:
+            return self._current_campaign.characters[name_or_id_or_player]
 
-        # Try searching by ID first if appropriate
-        if len(name_or_id) == 8:
-            try:
-                char_id = name_or_id
-                for char in self._current_campaign.characters.values():
-                    if char.id == char_id:
-                        character = char
-            except (ValueError, TypeError):
-                # Not a UUID, so it's a name
-                logger.warning(f"⚠️ Character not found by ID: {name_or_id}, trying name")
-                pass
+        # ID lookup via index - O(1)
+        if name_or_id_or_player in self._character_id_index:
+            char_name = self._character_id_index[name_or_id_or_player]
+            return self._current_campaign.characters.get(char_name)
 
-        # Return early if found by ID
-        if character:
-            return character
+        # Player name lookup (case-insensitive) - O(1)
+        player_key = name_or_id_or_player.lower()
+        if player_key in self._player_name_index:
+            char_name = self._player_name_index[player_key]
+            return self._current_campaign.characters.get(char_name)
 
-        # Search by name
-        try:
-            character = self._current_campaign.characters.get(name_or_id)
-        except (ValueError, TypeError) as e:
-            logger.error(e)
-            return None
-
-        return character
+        return None
 
     def get_character(self, name_or_id: str) -> Character | None:
         """Get a character by name or ID."""
@@ -260,7 +327,9 @@ class DnDStorage:
             raise e
 
         original_name = character.name
+        original_player_name = character.player_name
         new_name = kwargs.get("name")
+        new_player_name = kwargs.get("player_name")
 
         for key, value in kwargs.items():
             if hasattr(character, key):
@@ -269,10 +338,24 @@ class DnDStorage:
 
         character.updated_at = datetime.now()
 
+        # Update character name in dict and indexes if changed
         if new_name and new_name != original_name:
-            # If name changed, update the dictionary key
             logger.debug(f"🏷️ Character name changed from '{original_name}' to '{new_name}'. Updating dictionary key.")
             self._current_campaign.characters[new_name] = self._current_campaign.characters.pop(original_name)
+            self._character_id_index[character.id] = new_name
+            # Update player name index to point to new character name
+            if character.player_name:
+                self._player_name_index[character.player_name.lower()] = new_name
+
+        # Update player name index if player_name changed
+        if new_player_name != original_player_name:
+            # Remove old player name from index
+            if original_player_name:
+                self._player_name_index.pop(original_player_name.lower(), None)
+            # Add new player name to index
+            if new_player_name:
+                char_name = new_name or original_name
+                self._player_name_index[new_player_name.lower()] = char_name
 
         self._current_campaign.updated_at = datetime.now()
         self._save_campaign()
@@ -287,9 +370,14 @@ class DnDStorage:
         character_to_remove = self._find_character(name_or_id)
         if character_to_remove:
             char_name = character_to_remove.name
+            char_id = character_to_remove.id
+            player_name = character_to_remove.player_name
             logger.debug(f"🗑️ Found character '{char_name}' to remove.")
-            # We need the name to delete from the dict
+            # Remove from dict and all indexes
             del self._current_campaign.characters[char_name]
+            self._character_id_index.pop(char_id, None)
+            if player_name:
+                self._player_name_index.pop(player_name.lower(), None)
             self._current_campaign.updated_at = datetime.now()
             self._save_campaign()
             logger.info(f"✅ Character '{char_name}' removed successfully.")
@@ -301,6 +389,12 @@ class DnDStorage:
         if not self._current_campaign:
             return []
         return list(self._current_campaign.characters.keys())
+
+    def list_characters_detailed(self) -> list[Character]:
+        """Return all characters without redundant lookups - O(n) instead of O(2n)."""
+        if not self._current_campaign:
+            return []
+        return list(self._current_campaign.characters.values())
 
     # NPC Management
     def add_npc(self, npc: NPC) -> None:
@@ -324,6 +418,12 @@ class DnDStorage:
             return []
         return list(self._current_campaign.npcs.keys())
 
+    def list_npcs_detailed(self) -> list[NPC]:
+        """Return all NPCs without redundant lookups."""
+        if not self._current_campaign:
+            return []
+        return list(self._current_campaign.npcs.values())
+
     # Location Management
     def add_location(self, location: Location) -> None:
         """Add a location to the current campaign."""
@@ -345,6 +445,12 @@ class DnDStorage:
         if not self._current_campaign:
             return []
         return list(self._current_campaign.locations.keys())
+
+    def list_locations_detailed(self) -> list[Location]:
+        """Return all locations without redundant lookups."""
+        if not self._current_campaign:
+            return []
+        return list(self._current_campaign.locations.values())
 
     # Quest Management
     def add_quest(self, quest: Quest) -> None:
