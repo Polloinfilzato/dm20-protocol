@@ -56,6 +56,7 @@ ehthumbs.db
 Thumbs.db
 
 # D&D MCP Server data
+data/
 dnd_data/
 demo_data/
 *.json

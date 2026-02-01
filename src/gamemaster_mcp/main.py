@@ -363,6 +363,19 @@ def list_characters() -> str:
 
     return "**Characters:**\n" + "\n".join(char_list)
 
+@mcp.tool
+def delete_character(
+    name_or_id: Annotated[str, Field(description="Character name or ID to delete")]
+) -> str:
+    """Delete a character from the current campaign."""
+    character = storage.get_character(name_or_id)
+    if not character:
+        return f"❌ Character '{name_or_id}' not found."
+
+    char_name = character.name
+    storage.remove_character(name_or_id)
+    return f"🗑️ Character '{char_name}' has been deleted from the campaign."
+
 # NPC Management Tools
 @mcp.tool
 def create_npc(
