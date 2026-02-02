@@ -158,7 +158,8 @@ class SRDSource(RulebookSourceBase):
                 cache_file.unlink()
 
         # Fetch from API with retry
-        url = f"{SRD_API_BASE}{endpoint}"
+        # API requires version in path: /api/2014/classes or /api/2024/classes
+        url = f"{SRD_API_BASE}/{self.version}{endpoint}"
         last_error: Exception | None = None
 
         for attempt in range(MAX_RETRIES):

@@ -163,7 +163,11 @@ class TestSRDSourceMocked:
         source = SRDSource(cache_dir=tmp_path / "cache")
 
         async def mock_get(url):
+            # Remove base URL and version prefix (e.g., /2014 or /2024)
             endpoint = url.replace("https://www.dnd5eapi.co/api", "")
+            # Strip version prefix: /2014/classes -> /classes
+            if endpoint.startswith("/2014") or endpoint.startswith("/2024"):
+                endpoint = endpoint[5:]
             if endpoint in mock_responses:
                 return MockResponse(mock_responses[endpoint])
             return MockResponse({}, 404)
