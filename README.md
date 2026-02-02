@@ -410,6 +410,74 @@ Here's how the core data models in `src/gamemaster_mcp/models.py` interact:
 
 - **`AdventureEvent`**: This model is used to log significant occurrences throughout the campaign. While not directly nested within `Campaign` (it's stored globally), `AdventureEvent` instances often reference elements from the `Campaign`'s data, such as `characters_involved` and `location`. This provides a historical log for understanding past events and narrative progression.
 
+## 🔄 Migration Utility
+
+If you have existing campaigns stored in the monolithic format (single JSON file per campaign), you can migrate them to the new split directory format using the included migration script.
+
+### What is Split Format?
+
+The split format organizes campaign data into separate files for better version control, collaboration, and performance:
+
+```
+data/campaigns/{campaign-name}/
+├── campaign.json      # Metadata only
+├── characters.json
+├── npcs.json
+├── locations.json
+├── quests.json
+├── encounters.json
+├── game_state.json
+└── sessions/
+    └── session-{NNN}.json
+```
+
+### Usage
+
+```bash
+# Preview migration (dry-run)
+python scripts/migrate_campaign.py "My Campaign" --dry-run
+
+# Migrate with backup (recommended)
+python scripts/migrate_campaign.py "My Campaign" --backup
+
+# Force overwrite existing split directory
+python scripts/migrate_campaign.py "My Campaign" --force
+
+# Custom data directory
+python scripts/migrate_campaign.py "My Campaign" --data-dir /path/to/data
+```
+
+### Options
+
+- `--backup`: Keep original file as `.json.bak` (recommended for first migration)
+- `--dry-run`: Show what would be done without making changes
+- `--force`: Overwrite existing split directory if it already exists
+- `--data-dir`: Specify data directory (default: `dnd_data`)
+
+### Migration Process
+
+The script performs the following steps:
+
+1. **Validation**: Checks that the monolithic file exists and is readable
+2. **Load**: Reads and validates the campaign JSON
+3. **Create Structure**: Creates the split directory and subdirectories
+4. **Extract & Write**: Writes individual JSON files for each data section
+5. **Cleanup**: Backs up or removes the original file
+
+If any step fails, the script automatically rolls back all changes.
+
+### Example
+
+```bash
+# First, preview what will happen
+python scripts/migrate_campaign.py "L'Ombra sulla Terra di Mezzo" --dry-run
+
+# If everything looks good, migrate with backup
+python scripts/migrate_campaign.py "L'Ombra sulla Terra di Mezzo" --backup
+```
+
+**Note**: After migration, the Gamemaster MCP server will automatically detect and use the split format.
+
 ## 🖥️ Development
 
 ### Development Workflow
