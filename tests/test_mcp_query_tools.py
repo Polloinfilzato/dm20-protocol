@@ -2,11 +2,11 @@
 Unit tests for MCP rulebook query tools.
 
 Tests cover:
-- search_rules with various filters and formats
-- get_class_info with markdown and TOON formats
-- get_race_info with both formats
-- get_spell_info with both formats
-- get_monster_info with both formats
+- search_rules with various filters
+- get_class_info
+- get_race_info
+- get_spell_info
+- get_monster_info
 - validate_character_rules with valid and invalid characters
 """
 
@@ -18,7 +18,6 @@ from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
 from gamemaster_mcp.rulebooks import RulebookManager
 from gamemaster_mcp.rulebooks.sources.custom import CustomSource
 from gamemaster_mcp.rulebooks.validators import CharacterValidator
-from gamemaster_mcp.toon_encoder import encode_to_toon
 
 
 @pytest.fixture
@@ -233,17 +232,6 @@ def test_search_rules_no_results(storage_with_rules: DnDStorage):
     assert len(results) == 0
 
 
-def test_search_rules_toon_format(storage_with_rules: DnDStorage):
-    """Test search with TOON format."""
-    results = storage_with_rules.rulebook_manager.search(query="wizard", categories=None, limit=20)
-
-    if results:
-        toon_output = encode_to_toon([{"name": r.name, "category": r.category, "source": r.source} for r in results])
-        # TOON format should be compact
-        assert len(toon_output) < 1000
-        assert "wizard" in toon_output.lower()
-
-
 def test_get_class_info_found(storage_with_rules: DnDStorage):
     """Test getting class information."""
     class_def = storage_with_rules.rulebook_manager.get_class("wizard")
@@ -260,17 +248,6 @@ def test_get_class_info_not_found(storage_with_rules: DnDStorage):
     class_def = storage_with_rules.rulebook_manager.get_class("barbarian")
 
     assert class_def is None
-
-
-def test_get_class_info_toon_format(storage_with_rules: DnDStorage):
-    """Test getting class info in TOON format."""
-    class_def = storage_with_rules.rulebook_manager.get_class("wizard")
-
-    assert class_def is not None
-    toon_output = encode_to_toon(class_def.model_dump())
-    # TOON format should be compact and contain class data
-    assert len(toon_output) > 0
-    assert "wizard" in toon_output.lower()
 
 
 def test_get_race_info_found(storage_with_rules: DnDStorage):
@@ -351,24 +328,6 @@ def test_validate_character_with_errors(storage_with_rules: DnDStorage, characte
     assert len(report.warnings) > 0
     # Check for unknown class warning
     assert any("unknown" in issue.message.lower() for issue in report.warnings)
-
-
-def test_validate_character_toon_format(storage_with_rules: DnDStorage, character_wizard: Character):
-    """Test validation report in TOON format."""
-    validator = CharacterValidator(storage_with_rules.rulebook_manager)
-    report = validator.validate(character_wizard)
-
-    # Convert to TOON format
-    toon_output = encode_to_toon({
-        "character_id": report.character_id,
-        "valid": report.valid,
-        "errors": len(report.errors),
-        "warnings": len(report.warnings),
-        "issues": [{"severity": i.severity.value, "type": i.type, "message": i.message} for i in report.issues]
-    })
-
-    # TOON format should be compact
-    assert len(toon_output) > 0
 
 
 def test_no_rulebooks_loaded():

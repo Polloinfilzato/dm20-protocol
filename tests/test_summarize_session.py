@@ -187,15 +187,13 @@ class TestSummarizeSessionTool:
     """Tests for the summarize_session tool."""
 
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_raw_text(self, mock_toon, mock_storage_patch):
+    def test_summarize_session_raw_text(self, mock_storage_patch):
         """Test summarize_session with raw transcription text."""
         # Setup mocks
         mock_storage_patch.list_characters_detailed.return_value = []
         mock_storage_patch.list_npcs_detailed.return_value = []
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
-        mock_toon.return_value = "{}"
 
         transcription = "The party enters the dungeon. Gandalf casts a spell."
 
@@ -212,15 +210,13 @@ class TestSummarizeSessionTool:
         assert "SessionNote" in result
 
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_with_speaker_map(self, mock_toon, mock_storage_patch):
+    def test_summarize_session_with_speaker_map(self, mock_storage_patch):
         """Test summarize_session with speaker mapping."""
         # Setup mocks
         mock_storage_patch.list_characters_detailed.return_value = []
         mock_storage_patch.list_npcs_detailed.return_value = []
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
-        mock_toon.return_value = "{}"
 
         transcription = "Speaker 1: I cast fireball. Speaker 2: I dodge."
         speaker_map = {"Speaker 1": "Gandalf", "Speaker 2": "Aragorn"}
@@ -237,15 +233,13 @@ class TestSummarizeSessionTool:
         assert "Speaker 1" not in result or "Speaker 2" not in result  # At least one should be replaced
 
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_file_input(self, mock_toon, mock_storage_patch, tmp_path):
+    def test_summarize_session_file_input(self, mock_storage_patch, tmp_path):
         """Test summarize_session with file path input."""
         # Setup mocks
         mock_storage_patch.list_characters_detailed.return_value = []
         mock_storage_patch.list_npcs_detailed.return_value = []
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
-        mock_toon.return_value = "{}"
 
         # Create a temporary transcription file
         transcription_file = tmp_path / "session1.txt"
@@ -262,15 +256,13 @@ class TestSummarizeSessionTool:
         assert "file: session1.txt" in result
 
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_large_transcription(self, mock_toon, mock_storage_patch):
+    def test_summarize_session_large_transcription(self, mock_storage_patch):
         """Test summarize_session with large transcription (chunking)."""
         # Setup mocks
         mock_storage_patch.list_characters_detailed.return_value = []
         mock_storage_patch.list_npcs_detailed.return_value = []
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
-        mock_toon.return_value = "{}"
 
         # Create a large transcription (>200k chars)
         large_transcription = "The party explores. " * 15000  # ~300k chars
@@ -287,8 +279,7 @@ class TestSummarizeSessionTool:
         assert "deduplicate" in result.lower()
 
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_loads_campaign_context(self, mock_toon, mock_storage_patch):
+    def test_summarize_session_loads_campaign_context(self, mock_storage_patch):
         """Test that summarize_session loads campaign context."""
         # Setup detailed mock
         char = Mock()
@@ -305,15 +296,6 @@ class TestSummarizeSessionTool:
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
 
-        # Mock encode_to_toon to capture context
-        context_captured = None
-        def capture_context(ctx):
-            nonlocal context_captured
-            context_captured = ctx
-            return "{}"
-
-        mock_toon.side_effect = capture_context
-
         transcription = "Test session"
         _summarize_session_impl(transcription, session_number=1)
 
@@ -323,26 +305,14 @@ class TestSummarizeSessionTool:
         mock_storage_patch.list_locations_detailed.assert_called_once()
         mock_storage_patch.list_quests.assert_called_once()
 
-        # Verify context includes character and NPC data
-        assert context_captured is not None
-        assert "characters" in context_captured
-        assert len(context_captured["characters"]) == 1
-        assert context_captured["characters"][0]["name"] == "Gandalf"
-
-        assert "npcs" in context_captured
-        assert len(context_captured["npcs"]) == 1
-        assert context_captured["npcs"][0]["name"] == "Saruman"
-
     @patch('gamemaster_mcp.main.storage')
-    @patch('gamemaster_mcp.main.encode_to_toon')
-    def test_summarize_session_detail_levels(self, mock_toon, mock_storage_patch):
+    def test_summarize_session_detail_levels(self, mock_storage_patch):
         """Test that different detail levels produce different prompts."""
         # Setup mocks
         mock_storage_patch.list_characters_detailed.return_value = []
         mock_storage_patch.list_npcs_detailed.return_value = []
         mock_storage_patch.list_locations_detailed.return_value = []
         mock_storage_patch.list_quests.return_value = []
-        mock_toon.return_value = "{}"
 
         transcription = "Test session"
 

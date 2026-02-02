@@ -7,7 +7,6 @@ Tests cover:
 - load_rulebook without campaign (error case)
 - list_rulebooks with empty state
 - list_rulebooks with sources
-- list_rulebooks with TOON format
 - unload_rulebook success
 - unload_rulebook not found
 
@@ -25,7 +24,6 @@ from gamemaster_mcp.storage import DnDStorage
 from gamemaster_mcp.rulebooks import RulebookManager
 from gamemaster_mcp.rulebooks.sources.srd import SRDSource
 from gamemaster_mcp.rulebooks.sources.custom import CustomSource
-from gamemaster_mcp.toon_encoder import encode_to_toon
 
 
 def run_async(coro):
@@ -299,53 +297,6 @@ def test_list_rulebooks_with_sources(storage_with_campaign: DnDStorage):
     assert "Content:" in result
     assert "classes" in result
     assert "races" in result
-
-
-def test_list_rulebooks_toon_format(storage_with_campaign: DnDStorage):
-    """Test list_rulebooks with TOON format."""
-    # Initialize manager and load SRD
-    campaign_dir = storage_with_campaign._split_backend._get_campaign_dir(
-        storage_with_campaign._current_campaign.name
-    )
-    storage_with_campaign._rulebook_manager = RulebookManager(campaign_dir)
-
-    # Mock the SRD source to avoid network calls
-    with patch.object(SRDSource, 'load', new_callable=AsyncMock):
-        srd_source = SRDSource(version="2014", cache_dir=storage_with_campaign.rulebook_cache_dir)
-        srd_source._is_loaded = True
-        srd_source._classes = {"wizard": MagicMock()}
-        srd_source._races = {"elf": MagicMock()}
-        srd_source._spells = {"fireball": MagicMock()}
-        srd_source._monsters = {"goblin": MagicMock()}
-        run_async(storage_with_campaign.rulebook_manager.load_source(srd_source))
-
-    # List rulebooks
-    rulebooks = []
-    for source_id, source in storage_with_campaign.rulebook_manager.sources.items():
-        counts = source.content_counts()
-        rulebooks.append({
-            "id": source_id,
-            "type": source.source_type.value,
-            "loaded_at": source.loaded_at.isoformat() if source.loaded_at else None,
-            "content": {
-                "classes": counts.classes,
-                "races": counts.races,
-                "spells": counts.spells,
-                "monsters": counts.monsters,
-            }
-        })
-
-    result = encode_to_toon(rulebooks)
-
-    # TOON format should be compact YAML-like format
-    assert result is not None
-    assert len(result) > 0
-
-    # Check for expected content in TOON output
-    assert "srd-2014" in result
-    assert "type: srd" in result
-    assert "classes:" in result
-    assert "races:" in result
 
 
 # ----------------------------------------------------------------------

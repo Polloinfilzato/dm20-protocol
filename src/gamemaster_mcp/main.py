@@ -18,7 +18,6 @@ from .models import (
     Character, NPC, Location, Quest, SessionNote, AdventureEvent, EventType,
     AbilityScore, CharacterClass, Race, Item
 )
-from .toon_encoder import encode_to_toon
 from .rulebooks import RulebookManager
 from .rulebooks.sources.srd import SRDSource
 from .rulebooks.sources.custom import CustomSource
@@ -72,13 +71,11 @@ def create_campaign(
     return f"🌟 Created campaign: '{campaign.name} and set as active 🌟'"
 
 @mcp.tool
-def get_campaign_info(
-    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
-) -> str:
+def get_campaign_info() -> str:
     """Get information about the current campaign.
 
     Returns campaign information including name, description, counts of various entities,
-    and current game state. Supports TOON format for more compact output (~30% token reduction).
+    and current game state.
     """
     campaign = storage.get_current_campaign()
     if not campaign:
@@ -99,9 +96,6 @@ def get_campaign_info(
         "party_level": campaign.game_state.party_level,
         "in_combat": campaign.game_state.in_combat
     }
-
-    if format == "toon":
-        return encode_to_toon(info)
 
     return f"**Campaign: {campaign.name}**\n\n" + \
            "\n".join([f"**{k.replace('_', ' ').title()}:** {v}" for k, v in info.items()])
@@ -366,22 +360,14 @@ def add_item_to_character(
     return f"Added {item.quantity}x {item.name} to {character.name}'s inventory"
 
 @mcp.tool
-def list_characters(
-    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
-) -> str:
+def list_characters() -> str:
     """List all characters in the current campaign.
 
     Returns a list of all player characters with their basic information.
-    Supports TOON format for more compact output (~30% token reduction).
     """
     characters = storage.list_characters_detailed()  # O(n) instead of O(2n)
     if not characters:
         return "No characters in the current campaign."
-
-    if format == "toon":
-        # Convert Character objects to dictionaries for TOON encoding
-        char_data = [char.model_dump() for char in characters]
-        return encode_to_toon(char_data)
 
     char_list = [
         f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
@@ -454,22 +440,14 @@ def get_npc(
     return npc_info
 
 @mcp.tool
-def list_npcs(
-    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
-) -> str:
+def list_npcs() -> str:
     """List all NPCs in the current campaign.
 
     Returns a list of all non-player characters with their basic information.
-    Supports TOON format for more compact output (~30% token reduction).
     """
     npcs = storage.list_npcs_detailed()  # O(n) instead of O(2n)
     if not npcs:
         return "No NPCs in the current campaign."
-
-    if format == "toon":
-        # Convert NPC objects to dictionaries for TOON encoding
-        npc_data = [npc.model_dump() for npc in npcs]
-        return encode_to_toon(npc_data)
 
     npc_list = [
         f"• {npc.name}{f' ({npc.location})' if npc.location else ''}"
@@ -528,22 +506,14 @@ def get_location(
     return loc_info
 
 @mcp.tool
-def list_locations(
-    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
-) -> str:
+def list_locations() -> str:
     """List all locations in the current campaign.
 
     Returns a list of all locations with their basic information.
-    Supports TOON format for more compact output (~30% token reduction).
     """
     locations = storage.list_locations_detailed()  # O(n) instead of O(2n)
     if not locations:
         return "No locations in the current campaign."
-
-    if format == "toon":
-        # Convert Location objects to dictionaries for TOON encoding
-        loc_data = [loc.model_dump() for loc in locations]
-        return encode_to_toon(loc_data)
 
     loc_list = [
         f"• {loc.name} ({loc.location_type})"
@@ -599,27 +569,16 @@ def update_quest(
 @mcp.tool
 def list_quests(
     status: Annotated[Literal["active", "completed", "failed", "on_hold"] | None, Field(description="Filter by status")] = None,
-    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
 ) -> str:
     """List quests, optionally filtered by status.
 
     Returns a list of quests with their basic information and status.
-    Supports TOON format for more compact output (~30% token reduction).
     """
     quests = storage.list_quests(status)
 
     if not quests:
         filter_text = f" with status '{status}'" if status else ""
         return f"No quests found{filter_text}."
-
-    if format == "toon":
-        # Get full quest objects for TOON encoding
-        quest_objects = []
-        for quest_title in quests:
-            quest = storage.get_quest(quest_title)
-            if quest:
-                quest_objects.append(quest.model_dump())
-        return encode_to_toon(quest_objects)
 
     quest_list = []
     for quest_title in quests:
@@ -827,7 +786,7 @@ def _summarize_session_impl(
     locations = storage.list_locations_detailed()
     quests = storage.list_quests()
 
-    # Create compact context using TOON format
+    # Create compact context
     context = {
         "characters": [{"name": c.name, "class": c.character_class.name, "level": c.character_class.level} for c in characters],
         "npcs": [{"name": n.name, "location": n.location, "attitude": n.attitude} for n in npcs],
@@ -845,7 +804,8 @@ def _summarize_session_impl(
                 "objectives": quest.objectives
             })
 
-    context_encoded = encode_to_toon(context)
+    import json
+    context_encoded = json.dumps(context, separators=(',', ':'))
 
     # Step 4: Handle large transcriptions with chunking
     CHUNK_SIZE = 40000  # ~10k tokens per chunk
@@ -967,7 +927,7 @@ def _generate_summary_prompt(transcription: str, context: str, session_number: i
 
     Args:
         transcription: Full transcription text
-        context: TOON-encoded campaign context
+        context: JSON-encoded campaign context
         session_number: Session number
         detail_level: Detail level (brief/medium/detailed)
         source_type: Description of transcription source
@@ -1018,7 +978,7 @@ def _generate_chunked_summary_prompt(chunks: list[str], context: str, session_nu
 
     Args:
         chunks: List of transcription chunks
-        context: TOON-encoded campaign context
+        context: JSON-encoded campaign context
         session_number: Session number
         detail_level: Detail level (brief/medium/detailed)
         source_type: Description of transcription source
@@ -1124,7 +1084,7 @@ def add_event(
     )
 
     storage.add_event(event)
-    return f"Added {event_type.lower} event: '{event.title}'"
+    return f"Added {event_type.lower()} event: '{event.title}'"
 
 @mcp.tool
 def get_events(
@@ -1203,12 +1163,7 @@ async def load_rulebook(
     return "❌ Invalid source type. Use 'srd' or 'custom'."
 
 @mcp.tool
-def list_rulebooks(
-    format: Annotated[
-        Literal["json", "toon"],
-        Field(description="Output format: 'json' for full details, 'toon' for token-efficient")
-    ] = "json",
-) -> str:
+def list_rulebooks() -> str:
     """List all active rulebooks in the current campaign."""
     if not storage._current_campaign:
         return "❌ No campaign loaded."
@@ -1230,9 +1185,6 @@ def list_rulebooks(
                 "monsters": counts.monsters,
             }
         })
-
-    if format == "toon":
-        return encode_to_toon(rulebooks)
 
     # Markdown output
     lines = ["# Active Rulebooks\n"]
@@ -1277,7 +1229,6 @@ def search_rules(
         Field(description="Filter by category. Default: all")
     ] = "all",
     limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 20,
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Search for rules content across all loaded rulebooks."""
     if not storage.rulebook_manager:
@@ -1289,9 +1240,6 @@ def search_rules(
     if not results:
         return f"No results found for '{query}'."
 
-    if format == "toon":
-        return encode_to_toon([{"name": r.name, "category": r.category, "source": r.source} for r in results])
-
     lines = [f"# Search Results: '{query}'\n"]
     for r in results:
         lines.append(f"- **{r.name}** ({r.category}) — _{r.source}_")
@@ -1302,7 +1250,6 @@ def search_rules(
 def get_class_info(
     name: Annotated[str, Field(description="Class name (e.g., 'wizard', 'fighter')")],
     level: Annotated[int | None, Field(description="Show features up to this level", ge=1, le=20)] = None,
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Get full class definition from loaded rulebooks."""
     if not storage.rulebook_manager:
@@ -1311,9 +1258,6 @@ def get_class_info(
     class_def = storage.rulebook_manager.get_class(name.lower())
     if not class_def:
         return f"❌ Class '{name}' not found in loaded rulebooks."
-
-    if format == "toon":
-        return encode_to_toon(class_def.model_dump())
 
     # Markdown format
     lines = [f"# {class_def.name}\n"]
@@ -1329,7 +1273,6 @@ def get_class_info(
 @mcp.tool
 def get_race_info(
     name: Annotated[str, Field(description="Race name (e.g., 'elf', 'dwarf')")],
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Get full race definition from loaded rulebooks."""
     if not storage.rulebook_manager:
@@ -1338,9 +1281,6 @@ def get_race_info(
     race_def = storage.rulebook_manager.get_race(name.lower())
     if not race_def:
         return f"❌ Race '{name}' not found in loaded rulebooks."
-
-    if format == "toon":
-        return encode_to_toon(race_def.model_dump())
 
     lines = [f"# {race_def.name}\n"]
     lines.append(f"**Size:** {race_def.size.value}")
@@ -1361,7 +1301,6 @@ def get_race_info(
 @mcp.tool
 def get_spell_info(
     name: Annotated[str, Field(description="Spell name (e.g., 'fireball', 'cure wounds')")],
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Get spell details from loaded rulebooks."""
     if not storage.rulebook_manager:
@@ -1372,9 +1311,6 @@ def get_spell_info(
     spell = storage.rulebook_manager.get_spell(spell_index)
     if not spell:
         return f"❌ Spell '{name}' not found."
-
-    if format == "toon":
-        return encode_to_toon(spell.model_dump())
 
     # D&D-style spell card format
     components = ", ".join(spell.components)
@@ -1401,7 +1337,6 @@ def get_spell_info(
 @mcp.tool
 def get_monster_info(
     name: Annotated[str, Field(description="Monster name (e.g., 'goblin', 'adult red dragon')")],
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Get monster stat block from loaded rulebooks."""
     if not storage.rulebook_manager:
@@ -1411,9 +1346,6 @@ def get_monster_info(
     monster = storage.rulebook_manager.get_monster(monster_index)
     if not monster:
         return f"❌ Monster '{name}' not found."
-
-    if format == "toon":
-        return encode_to_toon(monster.model_dump())
 
     # D&D stat block format
     lines = [f"# {monster.name}"]
@@ -1436,7 +1368,6 @@ def get_monster_info(
 @mcp.tool
 def validate_character_rules(
     name_or_id: Annotated[str, Field(description="Character name or ID to validate")],
-    format: Annotated[Literal["json", "toon"], Field(description="Output format")] = "json",
 ) -> str:
     """Validate a character against loaded rulebooks."""
     character = storage.get_character(name_or_id)
@@ -1448,15 +1379,6 @@ def validate_character_rules(
 
     validator = CharacterValidator(storage.rulebook_manager)
     report = validator.validate(character)
-
-    if format == "toon":
-        return encode_to_toon({
-            "character_id": report.character_id,
-            "valid": report.valid,
-            "errors": len(report.errors),
-            "warnings": len(report.warnings),
-            "issues": [{"severity": i.severity.value, "type": i.type, "message": i.message} for i in report.issues]
-        })
 
     # Markdown format
     status = "✅ Valid" if report.valid else "❌ Invalid"

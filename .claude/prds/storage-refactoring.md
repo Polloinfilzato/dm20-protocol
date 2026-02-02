@@ -304,3 +304,47 @@ data/
 - [TOON Specification](https://github.com/toon-format/spec)
 - [Python TOON SDK](https://github.com/xaviviro/python-toon)
 - Internal: `.claude/docs/REFACTORING_PLAN_STORAGE.md`
+
+---
+
+## Decision Log
+
+### 2026-02-02: TOON Format Removed
+
+**Decision:** Remove TOON output format support from the codebase.
+
+**Context:** TOON (Token Oriented Object Notation) was implemented to reduce token usage for LLM output. The original goal was "30-50% token reduction."
+
+**Analysis Results:**
+After comparative testing, TOON did not deliver the promised benefits:
+
+| Format | Characters | vs JSON formatted | vs JSON compact |
+|--------|------------|-------------------|-----------------|
+| JSON formatted | 1,406 | baseline | - |
+| JSON compact | 841 | -40% | baseline |
+| TOON | 1,048 | -25% | **+25% LARGER** |
+| Markdown summary | 224 | -84% | -73% |
+
+**Key Findings:**
+1. TOON is ~25% **larger** than JSON compact (not smaller)
+2. The "30% reduction" claim compared only to indented JSON (artificially inflated)
+3. Markdown summaries are 4.7x more efficient than TOON
+4. python-toon adds dependency complexity with minimal benefit
+
+**Recommendation for Future Projects:**
+Use TOON only when:
+- You need human-readable config files with type safety
+- You're replacing YAML (TOON is comparable)
+- You have deeply nested structures with repeated type annotations
+
+Do NOT use TOON when:
+- Optimizing for LLM token consumption (use JSON compact or Markdown)
+- Comparing against JSON compact (no benefit)
+- Simplicity matters more than type safety
+
+**Action Taken:**
+- Removed `python-toon` dependency from `pyproject.toml`
+- Deleted `src/gamemaster_mcp/toon_encoder.py`
+- Removed `format` parameter from all MCP tools
+- Replaced context encoding with `json.dumps(separators=(',', ':'))`
+- Updated all related tests

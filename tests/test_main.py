@@ -1,16 +1,14 @@
 """
-Unit tests for MCP tool format parameter functionality.
+Unit tests for MCP tool list functionality.
 
 Tests cover:
-- list_characters with JSON and TOON format
-- list_npcs with JSON and TOON format
-- list_locations with JSON and TOON format
-- list_quests with JSON and TOON format
-- Format parameter validation
-- TOON output validation and size reduction
+- list_characters
+- list_npcs
+- list_locations
+- list_quests
+- Empty list handling
 """
 
-import json
 import pytest
 from pathlib import Path
 
@@ -19,7 +17,6 @@ from gamemaster_mcp.models import (
     Character, NPC, Location, Quest,
     CharacterClass, Race, AbilityScore
 )
-from gamemaster_mcp.toon_encoder import encode_to_toon
 
 
 # Test fixtures
@@ -154,27 +151,27 @@ def storage_with_campaign(temp_storage_dir: Path) -> DnDStorage:
     return storage
 
 
-class TestListCharactersFormat:
-    """Tests for list_characters tool with format parameter."""
+class TestListCharacters:
+    """Tests for list_characters tool."""
 
-    def test_list_characters_json_format(
+    def test_list_characters(
         self, storage_with_campaign: DnDStorage
     ) -> None:
-        """Test list_characters logic with default JSON format."""
+        """Test list_characters logic."""
         # Get characters from storage
         characters = storage_with_campaign.list_characters_detailed()
 
         # Verify we have characters
         assert len(characters) == 2
 
-        # Build result like the tool does (JSON/markdown format)
+        # Build result like the tool does
         char_list = [
             f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
             for char in characters
         ]
         result = "**Characters:**\n" + "\n".join(char_list)
 
-        # Verify it's a string (not JSON object)
+        # Verify it's a string
         assert isinstance(result, str)
         # Verify it contains character information
         assert "Gandalf" in result
@@ -185,55 +182,14 @@ class TestListCharactersFormat:
         assert "**Characters:**" in result
         assert "Level" in result
 
-    def test_list_characters_toon_format(
+
+class TestListNpcs:
+    """Tests for list_npcs tool."""
+
+    def test_list_npcs(
         self, storage_with_campaign: DnDStorage
     ) -> None:
-        """Test list_characters logic with TOON format."""
-        # Get characters from storage
-        characters = storage_with_campaign.list_characters_detailed()
-
-        # Build result like the tool does (TOON format)
-        char_data = [char.model_dump() for char in characters]
-        result = encode_to_toon(char_data)
-
-        # Verify it's a string
-        assert isinstance(result, str)
-        # Verify it contains character data
-        assert "Gandalf" in result or "gandalf" in result.lower()
-        assert "Aragorn" in result or "aragorn" in result.lower()
-
-    def test_list_characters_toon_is_more_compact(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test that TOON format is typically more compact than JSON format."""
-        # Get characters from storage
-        characters = storage_with_campaign.list_characters_detailed()
-
-        # Get JSON format
-        char_list = [
-            f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
-            for char in characters
-        ]
-        json_result = "**Characters:**\n" + "\n".join(char_list)
-
-        # Get TOON format
-        char_data = [char.model_dump() for char in characters]
-        toon_result = encode_to_toon(char_data)
-
-        # Both should be non-empty strings
-        assert isinstance(json_result, str)
-        assert isinstance(toon_result, str)
-        assert len(json_result) > 0
-        assert len(toon_result) > 0
-
-
-class TestListNpcsFormat:
-    """Tests for list_npcs tool with format parameter."""
-
-    def test_list_npcs_json_format(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test list_npcs logic with default JSON format."""
+        """Test list_npcs logic."""
         # Get NPCs from storage
         npcs = storage_with_campaign.list_npcs_detailed()
 
@@ -250,29 +206,14 @@ class TestListNpcsFormat:
         assert "**NPCs:**" in result
         assert "Isengard" in result or "Rivendell" in result
 
-    def test_list_npcs_toon_format(
+
+class TestListLocations:
+    """Tests for list_locations tool."""
+
+    def test_list_locations(
         self, storage_with_campaign: DnDStorage
     ) -> None:
-        """Test list_npcs logic with TOON format."""
-        # Get NPCs from storage
-        npcs = storage_with_campaign.list_npcs_detailed()
-
-        # Build result like the tool does
-        npc_data = [npc.model_dump() for npc in npcs]
-        result = encode_to_toon(npc_data)
-
-        assert isinstance(result, str)
-        assert "Saruman" in result or "saruman" in result.lower()
-        assert "Elrond" in result or "elrond" in result.lower()
-
-
-class TestListLocationsFormat:
-    """Tests for list_locations tool with format parameter."""
-
-    def test_list_locations_json_format(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test list_locations logic with default JSON format."""
+        """Test list_locations logic."""
         # Get locations from storage
         locations = storage_with_campaign.list_locations_detailed()
 
@@ -289,29 +230,14 @@ class TestListLocationsFormat:
         assert "**Locations:**" in result
         assert "city" in result or "fortress" in result
 
-    def test_list_locations_toon_format(
+
+class TestListQuests:
+    """Tests for list_quests tool."""
+
+    def test_list_quests(
         self, storage_with_campaign: DnDStorage
     ) -> None:
-        """Test list_locations logic with TOON format."""
-        # Get locations from storage
-        locations = storage_with_campaign.list_locations_detailed()
-
-        # Build result like the tool does
-        loc_data = [loc.model_dump() for loc in locations]
-        result = encode_to_toon(loc_data)
-
-        assert isinstance(result, str)
-        assert "Rivendell" in result or "rivendell" in result.lower()
-        assert "Isengard" in result or "isengard" in result.lower()
-
-
-class TestListQuestsFormat:
-    """Tests for list_quests tool with format parameter."""
-
-    def test_list_quests_json_format(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test list_quests logic with default JSON format."""
+        """Test list_quests logic."""
         # Get quests from storage
         quest_titles = storage_with_campaign.list_quests(status=None)
 
@@ -331,30 +257,10 @@ class TestListQuestsFormat:
         assert "**Quests:**" in result
         assert "[active]" in result or "[completed]" in result
 
-    def test_list_quests_toon_format(
+    def test_list_quests_with_status_filter(
         self, storage_with_campaign: DnDStorage
     ) -> None:
-        """Test list_quests logic with TOON format."""
-        # Get quests from storage
-        quest_titles = storage_with_campaign.list_quests(status=None)
-
-        # Build result like the tool does
-        quest_objects = []
-        for quest_title in quest_titles:
-            quest = storage_with_campaign.get_quest(quest_title)
-            if quest:
-                quest_objects.append(quest.model_dump())
-
-        result = encode_to_toon(quest_objects)
-
-        assert isinstance(result, str)
-        assert "Destroy the One Ring" in result or "destroy" in result.lower()
-        assert "Rescue" in result or "rescue" in result.lower()
-
-    def test_list_quests_with_status_filter_json(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test list_quests logic with status filter and JSON format."""
+        """Test list_quests logic with status filter."""
         # Get active quests only
         quest_titles = storage_with_campaign.list_quests(status="active")
 
@@ -373,67 +279,11 @@ class TestListQuestsFormat:
         # Completed quest should not be in active list
         assert "Rescue the Hobbits" not in result
 
-    def test_list_quests_with_status_filter_toon(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test list_quests logic with status filter and TOON format."""
-        # Get completed quests only
-        quest_titles = storage_with_campaign.list_quests(status="completed")
 
-        # Build result like the tool does
-        quest_objects = []
-        for quest_title in quest_titles:
-            quest = storage_with_campaign.get_quest(quest_title)
-            if quest:
-                quest_objects.append(quest.model_dump())
+class TestEmptyLists:
+    """Tests for list tools with empty data."""
 
-        result = encode_to_toon(quest_objects)
-
-        assert isinstance(result, str)
-        assert "Rescue" in result or "rescue" in result.lower()
-
-
-class TestFormatParameterValidation:
-    """Tests for format parameter validation and encoding."""
-
-    def test_json_encoding_is_valid(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test that JSON format produces valid output."""
-        # Get characters from storage
-        characters = storage_with_campaign.list_characters_detailed()
-
-        # Build result like the tool does
-        char_list = [
-            f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
-            for char in characters
-        ]
-        result = "**Characters:**\n" + "\n".join(char_list)
-
-        assert isinstance(result, str)
-        assert len(result) > 0
-        # Should use human-readable format (markdown)
-        assert "Gandalf" in result
-
-    def test_toon_encoding_produces_output(
-        self, storage_with_campaign: DnDStorage
-    ) -> None:
-        """Test that TOON format produces valid output."""
-        # Get characters from storage
-        characters = storage_with_campaign.list_characters_detailed()
-
-        # Build result like the tool does
-        char_data = [char.model_dump() for char in characters]
-        result = encode_to_toon(char_data)
-
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-
-class TestEmptyListsWithFormat:
-    """Tests for list tools with empty data and format parameter."""
-
-    def test_list_characters_empty_json(self, temp_storage_dir: Path) -> None:
+    def test_list_characters_empty(self, temp_storage_dir: Path) -> None:
         """Test list_characters logic with no characters."""
         storage = DnDStorage(data_dir=temp_storage_dir)
         storage.create_campaign(name="Empty Campaign", description="No data")
@@ -448,7 +298,7 @@ class TestEmptyListsWithFormat:
         assert isinstance(result, str)
         assert "No characters" in result
 
-    def test_list_npcs_empty_toon(self, temp_storage_dir: Path) -> None:
+    def test_list_npcs_empty(self, temp_storage_dir: Path) -> None:
         """Test list_npcs logic with no NPCs."""
         storage = DnDStorage(data_dir=temp_storage_dir)
         storage.create_campaign(name="Empty Campaign", description="No data")
@@ -463,7 +313,7 @@ class TestEmptyListsWithFormat:
         assert isinstance(result, str)
         assert "No NPCs" in result
 
-    def test_list_locations_empty_json(self, temp_storage_dir: Path) -> None:
+    def test_list_locations_empty(self, temp_storage_dir: Path) -> None:
         """Test list_locations logic with no locations."""
         storage = DnDStorage(data_dir=temp_storage_dir)
         storage.create_campaign(name="Empty Campaign", description="No data")
@@ -478,7 +328,7 @@ class TestEmptyListsWithFormat:
         assert isinstance(result, str)
         assert "No locations" in result
 
-    def test_list_quests_empty_toon(self, temp_storage_dir: Path) -> None:
+    def test_list_quests_empty(self, temp_storage_dir: Path) -> None:
         """Test list_quests logic with no quests."""
         storage = DnDStorage(data_dir=temp_storage_dir)
         storage.create_campaign(name="Empty Campaign", description="No data")
