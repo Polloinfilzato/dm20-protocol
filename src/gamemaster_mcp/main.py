@@ -18,6 +18,7 @@ from .models import (
     Character, NPC, Location, Quest, SessionNote, AdventureEvent, EventType,
     AbilityScore, CharacterClass, Race, Item
 )
+from .toon_encoder import encode_to_toon
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -67,8 +68,14 @@ def create_campaign(
     return f"🌟 Created campaign: '{campaign.name} and set as active 🌟'"
 
 @mcp.tool
-def get_campaign_info() -> str:
-    """Get information about the current campaign."""
+def get_campaign_info(
+    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
+) -> str:
+    """Get information about the current campaign.
+
+    Returns campaign information including name, description, counts of various entities,
+    and current game state. Supports TOON format for more compact output (~30% token reduction).
+    """
     campaign = storage.get_current_campaign()
     if not campaign:
         return "No active campaign."
@@ -88,6 +95,9 @@ def get_campaign_info() -> str:
         "party_level": campaign.game_state.party_level,
         "in_combat": campaign.game_state.in_combat
     }
+
+    if format == "toon":
+        return encode_to_toon(info)
 
     return f"**Campaign: {campaign.name}**\n\n" + \
            "\n".join([f"**{k.replace('_', ' ').title()}:** {v}" for k, v in info.items()])
@@ -352,11 +362,22 @@ def add_item_to_character(
     return f"Added {item.quantity}x {item.name} to {character.name}'s inventory"
 
 @mcp.tool
-def list_characters() -> str:
-    """List all characters in the current campaign."""
+def list_characters(
+    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
+) -> str:
+    """List all characters in the current campaign.
+
+    Returns a list of all player characters with their basic information.
+    Supports TOON format for more compact output (~30% token reduction).
+    """
     characters = storage.list_characters_detailed()  # O(n) instead of O(2n)
     if not characters:
         return "No characters in the current campaign."
+
+    if format == "toon":
+        # Convert Character objects to dictionaries for TOON encoding
+        char_data = [char.model_dump() for char in characters]
+        return encode_to_toon(char_data)
 
     char_list = [
         f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
@@ -429,11 +450,22 @@ def get_npc(
     return npc_info
 
 @mcp.tool
-def list_npcs() -> str:
-    """List all NPCs in the current campaign."""
+def list_npcs(
+    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
+) -> str:
+    """List all NPCs in the current campaign.
+
+    Returns a list of all non-player characters with their basic information.
+    Supports TOON format for more compact output (~30% token reduction).
+    """
     npcs = storage.list_npcs_detailed()  # O(n) instead of O(2n)
     if not npcs:
         return "No NPCs in the current campaign."
+
+    if format == "toon":
+        # Convert NPC objects to dictionaries for TOON encoding
+        npc_data = [npc.model_dump() for npc in npcs]
+        return encode_to_toon(npc_data)
 
     npc_list = [
         f"• {npc.name}{f' ({npc.location})' if npc.location else ''}"
@@ -492,11 +524,22 @@ def get_location(
     return loc_info
 
 @mcp.tool
-def list_locations() -> str:
-    """List all locations in the current campaign."""
+def list_locations(
+    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
+) -> str:
+    """List all locations in the current campaign.
+
+    Returns a list of all locations with their basic information.
+    Supports TOON format for more compact output (~30% token reduction).
+    """
     locations = storage.list_locations_detailed()  # O(n) instead of O(2n)
     if not locations:
         return "No locations in the current campaign."
+
+    if format == "toon":
+        # Convert Location objects to dictionaries for TOON encoding
+        loc_data = [loc.model_dump() for loc in locations]
+        return encode_to_toon(loc_data)
 
     loc_list = [
         f"• {loc.name} ({loc.location_type})"
@@ -552,13 +595,27 @@ def update_quest(
 @mcp.tool
 def list_quests(
     status: Annotated[Literal["active", "completed", "failed", "on_hold"] | None, Field(description="Filter by status")] = None,
+    format: Annotated[Literal["json", "toon"], Field(description="Output format: 'json' (default) or 'toon' for compact representation")] = "json"
 ) -> str:
-    """List quests, optionally filtered by status."""
+    """List quests, optionally filtered by status.
+
+    Returns a list of quests with their basic information and status.
+    Supports TOON format for more compact output (~30% token reduction).
+    """
     quests = storage.list_quests(status)
 
     if not quests:
         filter_text = f" with status '{status}'" if status else ""
         return f"No quests found{filter_text}."
+
+    if format == "toon":
+        # Get full quest objects for TOON encoding
+        quest_objects = []
+        for quest_title in quests:
+            quest = storage.get_quest(quest_title)
+            if quest:
+                quest_objects.append(quest.model_dump())
+        return encode_to_toon(quest_objects)
 
     quest_list = []
     for quest_title in quests:
