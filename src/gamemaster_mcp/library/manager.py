@@ -19,6 +19,7 @@ from .models import (
     IndexEntry,
     SourceType,
 )
+from .search import LibrarySearch
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -92,6 +93,9 @@ class LibraryManager:
 
         # Cache of loaded indexes
         self._index_cache: dict[str, IndexEntry] = {}
+
+        # Natural language search instance
+        self.semantic_search = LibrarySearch(self)
 
         logger.debug(f"📚 LibraryManager initialized at {self.library_dir}")
 
@@ -414,3 +418,37 @@ class LibraryManager:
 
         format_entries(index.toc)
         return "\n".join(lines)
+
+    def get_custom_sources_for_campaign(
+        self,
+        bindings: "LibraryBindings",
+    ) -> list[tuple[str, Path]]:
+        """Get CustomSource file paths for enabled library content.
+
+        Scans the extracted directory for JSON files belonging to enabled
+        sources and returns paths that can be loaded as CustomSources.
+
+        Args:
+            bindings: LibraryBindings indicating which sources are enabled
+
+        Returns:
+            List of (source_id, json_path) tuples for each extracted content
+            file from enabled sources.
+        """
+        from .bindings import LibraryBindings  # Avoid circular import
+
+        sources: list[tuple[str, Path]] = []
+
+        for source_id in bindings.get_enabled_sources():
+            extracted_dir = self.extracted_dir / source_id
+            if not extracted_dir.exists():
+                logger.debug(f"No extracted content found for {source_id}")
+                continue
+
+            # Find all JSON files in the extracted directory
+            for json_file in extracted_dir.glob("*.json"):
+                sources.append((source_id, json_file))
+                logger.debug(f"Found extracted content: {source_id}/{json_file.name}")
+
+        logger.debug(f"Found {len(sources)} extracted content files for enabled sources")
+        return sources

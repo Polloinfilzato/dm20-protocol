@@ -18,6 +18,7 @@ from .models import (
 )
 from .rulebooks.manager import RulebookManager
 from .library.manager import LibraryManager
+from .library.bindings import LibraryBindings
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -77,6 +78,9 @@ class DnDStorage:
         # Library manager (lazy initialization)
         self._library_manager: LibraryManager | None = None
 
+        # Library bindings for the current campaign
+        self._library_bindings: LibraryBindings | None = None
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -135,6 +139,15 @@ class DnDStorage:
             self._library_manager.ensure_directories()
             logger.debug(f"📚 Initialized LibraryManager at {self.library_dir}")
         return self._library_manager
+
+    @property
+    def library_bindings(self) -> LibraryBindings | None:
+        """Get the library bindings for the current campaign.
+
+        Returns:
+            LibraryBindings instance if a campaign is loaded, None otherwise
+        """
+        return self._library_bindings
 
     def _get_campaign_file(self, campaign_name: str | None = None) -> Path:
         """Get the file path for a campaign."""
@@ -381,6 +394,10 @@ class DnDStorage:
         # Update campaign hash
         self._campaign_hash = self._compute_campaign_hash()
 
+        # Initialize library bindings for the new campaign
+        self._library_bindings = LibraryBindings(campaign_id=campaign.id)
+        logger.debug(f"📚 Created empty library bindings for campaign '{name}'")
+
         logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format.")
         return campaign
 
@@ -438,6 +455,12 @@ class DnDStorage:
         # Load RulebookManager if manifest exists (split campaigns only)
         self._load_rulebook_manager()
 
+        # Load library bindings if they exist (split campaigns only)
+        self._load_library_bindings()
+
+        # Load enabled library content into RulebookManager
+        self._load_library_content()
+
         logger.info(f"✅ Successfully loaded campaign '{name}' using {storage_format} format.")
         return self._current_campaign
 
@@ -481,6 +504,137 @@ class DnDStorage:
         except Exception as e:
             logger.warning(f"⚠️ Failed to load RulebookManager: {e}")
             self._rulebook_manager = None
+
+    def _load_library_bindings(self) -> None:
+        """Load library bindings for the current campaign if they exist.
+
+        Only applicable to split storage campaigns. If bindings file doesn't exist,
+        creates an empty LibraryBindings object for the campaign.
+        """
+        # Clear any existing bindings
+        self._library_bindings = None
+
+        # Only load for split campaigns
+        if self._current_format != StorageFormat.SPLIT or not self._current_campaign:
+            return
+
+        # Get bindings file path
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        bindings_path = campaign_dir / "rulebooks" / "library-bindings.json"
+
+        # Check if bindings file exists
+        if not bindings_path.exists():
+            # Create empty bindings for the campaign
+            self._library_bindings = LibraryBindings(campaign_id=self._current_campaign.id)
+            logger.debug(f"No library bindings found, created empty bindings for campaign '{self._current_campaign.name}'")
+            return
+
+        # Load bindings from file
+        try:
+            with open(bindings_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self._library_bindings = LibraryBindings.from_dict(data)
+            logger.info(f"✅ Loaded library bindings for campaign '{self._current_campaign.name}' ({len(self._library_bindings.sources)} sources)")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load library bindings: {e}")
+            # Create empty bindings as fallback
+            self._library_bindings = LibraryBindings(campaign_id=self._current_campaign.id)
+
+    def _save_library_bindings(self) -> None:
+        """Save library bindings for the current campaign.
+
+        Only applicable to split storage campaigns.
+        """
+        if not self._library_bindings:
+            logger.debug("No library bindings to save")
+            return
+
+        # Only save for split campaigns
+        if self._current_format != StorageFormat.SPLIT or not self._current_campaign:
+            logger.debug("Skipping library bindings save (not a split campaign)")
+            return
+
+        # Get bindings file path
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        rulebooks_dir = campaign_dir / "rulebooks"
+        rulebooks_dir.mkdir(exist_ok=True)
+        bindings_path = rulebooks_dir / "library-bindings.json"
+
+        # Save bindings to file
+        try:
+            with open(bindings_path, 'w', encoding='utf-8') as f:
+                json.dump(self._library_bindings.to_dict(), f, indent=2)
+            logger.debug(f"💾 Saved library bindings to {bindings_path}")
+        except Exception as e:
+            logger.error(f"❌ Failed to save library bindings: {e}")
+
+    def _load_library_content(self) -> None:
+        """Load enabled library content into RulebookManager.
+
+        Scans the library's extracted directory for content files belonging
+        to enabled sources and loads them as CustomSources into the
+        RulebookManager. This makes library content searchable and queryable
+        through search_rules, get_class_info, etc.
+
+        Library content is loaded with lower priority than campaign custom
+        sources but higher priority than the SRD base content.
+
+        Only applicable to split storage campaigns with both a RulebookManager
+        and library bindings configured.
+        """
+        # Check prerequisites
+        if not self._library_bindings:
+            logger.debug("No library bindings, skipping library content load")
+            return
+
+        if not self._rulebook_manager:
+            logger.debug("No RulebookManager, skipping library content load")
+            return
+
+        # Get library manager (creates if needed)
+        library_manager = self.library_manager
+
+        # Get custom sources for enabled content
+        sources = library_manager.get_custom_sources_for_campaign(self._library_bindings)
+        if not sources:
+            logger.debug("No extracted library content found for enabled sources")
+            return
+
+        # Import CustomSource here to avoid circular imports
+        from .rulebooks.sources.custom import CustomSource
+
+        # Track loaded sources for logging
+        loaded_count = 0
+        failed_count = 0
+
+        # Load each extracted content file
+        for source_id, json_path in sources:
+            try:
+                # Create CustomSource with a unique ID that identifies it as library content
+                custom_source_id = f"library:{source_id}:{json_path.stem}"
+                custom_source = CustomSource(
+                    path=json_path,
+                    source_id=custom_source_id,
+                )
+
+                # Load the source (async operation)
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.get_event_loop()
+
+                loop.run_until_complete(self._rulebook_manager.load_source(custom_source))
+                loaded_count += 1
+                logger.debug(f"Loaded library source: {custom_source_id}")
+
+            except Exception as e:
+                failed_count += 1
+                logger.warning(f"Failed to load library source {source_id}/{json_path.name}: {e}")
+
+        if loaded_count > 0:
+            logger.info(f"📚 Loaded {loaded_count} library content files into RulebookManager")
+        if failed_count > 0:
+            logger.warning(f"⚠️ Failed to load {failed_count} library content files")
 
     def _load_monolithic_campaign(self, name: str) -> Campaign:
         """Load a campaign from a single JSON file (legacy format)."""
@@ -811,6 +965,71 @@ class DnDStorage:
             event for event in self._events
             if query_lower in event.title.lower() or query_lower in event.description.lower()
         ]
+
+    # Library Bindings Management
+    def enable_library_source(
+        self,
+        source_id: str,
+        content_type: str | None = None,
+        content_names: list[str] | None = None,
+    ) -> None:
+        """Enable a library source for the current campaign.
+
+        Args:
+            source_id: The source identifier to enable
+            content_type: Optional content type to filter (e.g., "class", "spell").
+                If None, enables all content from the source.
+            content_names: Optional list of specific content names to enable.
+                Only used if content_type is specified.
+        """
+        if not self._current_campaign:
+            raise ValueError("No current campaign")
+
+        if not self._library_bindings:
+            raise ValueError("Library bindings not initialized")
+
+        # Convert string content_type to ContentType enum if provided
+        from .library.models import ContentType
+        content_type_enum = None
+        if content_type and content_type != "all":
+            try:
+                content_type_enum = ContentType(content_type)
+            except ValueError:
+                raise ValueError(f"Invalid content type: {content_type}")
+
+        self._library_bindings.enable_source(
+            source_id=source_id,
+            content_type=content_type_enum,
+            content_names=content_names,
+        )
+        self._save_library_bindings()
+        logger.info(f"✅ Enabled library source '{source_id}' for campaign '{self._current_campaign.name}'")
+
+    def disable_library_source(self, source_id: str) -> None:
+        """Disable a library source for the current campaign.
+
+        Args:
+            source_id: The source identifier to disable
+        """
+        if not self._current_campaign:
+            raise ValueError("No current campaign")
+
+        if not self._library_bindings:
+            raise ValueError("Library bindings not initialized")
+
+        self._library_bindings.disable_source(source_id)
+        self._save_library_bindings()
+        logger.info(f"🚫 Disabled library source '{source_id}' for campaign '{self._current_campaign.name}'")
+
+    def get_enabled_library_sources(self) -> list[str]:
+        """Get list of enabled library source IDs for the current campaign.
+
+        Returns:
+            List of source_id strings for all enabled sources.
+        """
+        if not self._library_bindings:
+            return []
+        return self._library_bindings.get_enabled_sources()
 
 
 class SplitStorageBackend:

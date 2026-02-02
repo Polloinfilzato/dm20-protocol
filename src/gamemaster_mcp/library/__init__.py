@@ -8,11 +8,14 @@ The library system:
 - Indexes PDFs and extracts table of contents
 - Extracts content on-demand to CustomSource JSON format
 - Loads extracted content through existing CustomSource infrastructure
+- Manages per-campaign bindings to enable/disable library content
 """
 
 from .manager import LibraryManager
 from .models import LibrarySource, IndexEntry, TOCEntry, ContentSummary, ContentType
-from .extractors import TOCExtractor
+from .extractors import TOCExtractor, ContentExtractor, ExtractedContent
+from .bindings import SourceBinding, LibraryBindings
+from .search import LibrarySearch, SearchResult
 
 __all__ = [
     "LibraryManager",
@@ -22,4 +25,10 @@ __all__ = [
     "ContentSummary",
     "ContentType",
     "TOCExtractor",
+    "ContentExtractor",
+    "ExtractedContent",
+    "SourceBinding",
+    "LibraryBindings",
+    "LibrarySearch",
+    "SearchResult",
 ]

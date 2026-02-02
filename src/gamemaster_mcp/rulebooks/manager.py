@@ -408,14 +408,29 @@ class RulebookManager:
         return None
 
     def _save_manifest(self) -> None:
-        """Save current state to manifest file."""
+        """Save current state to manifest file.
+
+        Note: Library sources (those with IDs starting with "library:") are
+        excluded from the manifest because they are loaded dynamically from
+        library bindings when the campaign loads.
+        """
         manifest_path = self._get_manifest_path()
         if not manifest_path:
             return
 
+        # Filter out library sources - they are managed by library bindings
+        non_library_sources = [
+            s for s in self._sources.values()
+            if not s.source_id.startswith("library:")
+        ]
+        non_library_priority = [
+            sid for sid in self._priority
+            if not sid.startswith("library:")
+        ]
+
         manifest = Manifest(
-            active_sources=[self._source_to_config(s) for s in self._sources.values()],
-            priority=list(self._priority),
+            active_sources=[self._source_to_config(s) for s in non_library_sources],
+            priority=non_library_priority,
         )
 
         manifest_path.write_text(json.dumps(manifest.to_dict(), indent=2))

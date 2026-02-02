@@ -1,7 +1,8 @@
 """
-TOC Extractor for PDF files.
+TOC Extractor for PDF and Markdown files.
 
-Extracts table of contents from PDF files using PyMuPDF.
+Extracts table of contents from PDF files using PyMuPDF,
+and from Markdown files using header parsing.
 Supports both PDF bookmarks and heading detection fallback.
 """
 
@@ -20,6 +21,9 @@ from ..models import (
     SourceType,
     TOCEntry,
 )
+
+# Regex pattern for Markdown headers
+MARKDOWN_HEADER_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)(?:\s*\{#[\w-]+\})?$")
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -480,3 +484,224 @@ class TOCExtractor:
             backgrounds=counts[ContentType.BACKGROUND],
             subclasses=counts[ContentType.SUBCLASS],
         )
+
+
+class MarkdownTOCExtractor:
+    """Extracts table of contents from Markdown files.
+
+    Parses Markdown headers (# to ######) to build a hierarchical TOC.
+    Identifies D&D content types from header titles using the same
+    patterns as the PDF extractor.
+
+    Attributes:
+        md_path: Path to the Markdown file
+    """
+
+    def __init__(self, md_path: Path):
+        """Initialize the Markdown TOC extractor.
+
+        Args:
+            md_path: Path to the Markdown file to extract from
+        """
+        self.md_path = Path(md_path)
+
+    def extract(self) -> IndexEntry:
+        """Extract TOC and create an index entry.
+
+        Returns:
+            IndexEntry containing the extracted TOC and metadata
+        """
+        logger.debug(f"📖 Extracting TOC from Markdown: {self.md_path.name}")
+
+        # Calculate file hash for change detection
+        file_hash = compute_file_hash(self.md_path)
+
+        # Read the Markdown content
+        content = self.md_path.read_text(encoding="utf-8")
+        lines = content.split("\n")
+        total_lines = len(lines)
+
+        # Extract headers
+        headers = self._extract_headers(content)
+
+        # Build hierarchical TOC
+        toc_entries = self._build_toc_tree(headers)
+
+        # Calculate content summary
+        content_summary = self._calculate_content_summary(toc_entries)
+
+        # Create index entry
+        index_entry = IndexEntry(
+            source_id=generate_source_id(self.md_path.name),
+            filename=self.md_path.name,
+            source_type=SourceType.MARKDOWN,
+            indexed_at=datetime.now(),
+            file_hash=file_hash,
+            total_pages=total_lines,  # Use line count instead of pages
+            toc=toc_entries,
+            content_summary=content_summary,
+        )
+
+        logger.debug(f"📖 Extracted {len(toc_entries)} TOC entries from Markdown")
+        return index_entry
+
+    def _extract_headers(self, content: str) -> list[tuple[int, str, int]]:
+        """Extract headers with level, title, and line number.
+
+        Args:
+            content: Full Markdown content
+
+        Returns:
+            List of (level, title, line_number) tuples
+        """
+        headers: list[tuple[int, str, int]] = []
+        lines = content.split("\n")
+
+        in_code_block = False
+
+        for line_num, line in enumerate(lines, start=1):
+            # Track code blocks to avoid parsing headers inside them
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                continue
+
+            if in_code_block:
+                continue
+
+            # Match Markdown headers
+            match = MARKDOWN_HEADER_PATTERN.match(line)
+            if match:
+                level = len(match.group(1))  # Number of # characters
+                title = match.group(2).strip()
+
+                # Skip empty titles
+                if title:
+                    headers.append((level, title, line_num))
+
+        return headers
+
+    def _build_toc_tree(self, headers: list[tuple[int, str, int]]) -> list[TOCEntry]:
+        """Convert flat header list to hierarchical TOC.
+
+        Args:
+            headers: List of (level, title, line_number) tuples
+
+        Returns:
+            Hierarchical list of TOCEntry objects
+        """
+        if not headers:
+            return []
+
+        root_entries: list[TOCEntry] = []
+        stack: list[tuple[int, TOCEntry]] = []  # (level, entry)
+
+        for level, title, line_num in headers:
+            content_type = self._identify_content_type(title)
+            entry = TOCEntry(
+                title=title,
+                page=line_num,  # Use line number as "page"
+                content_type=content_type,
+            )
+
+            # Find the right parent based on level
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+
+            if stack:
+                # Add as child of the last entry with lower level
+                stack[-1][1].children.append(entry)
+            else:
+                # Top-level entry
+                root_entries.append(entry)
+
+            stack.append((level, entry))
+
+        return root_entries
+
+    def _identify_content_type(self, title: str) -> ContentType:
+        """Identify the D&D content type from a title.
+
+        Uses the same patterns as the PDF TOC extractor.
+
+        Args:
+            title: The section/chapter title
+
+        Returns:
+            ContentType enum value, defaults to UNKNOWN
+        """
+        title_lower = title.lower()
+
+        # Check for multi-word patterns first (more specific)
+        specific_patterns = [
+            ("magic item", ContentType.ITEM),
+            ("stat block", ContentType.MONSTER),
+            ("path of", ContentType.SUBCLASS),
+            ("circle of", ContentType.SUBCLASS),
+            ("college of", ContentType.SUBCLASS),
+            ("oath of", ContentType.SUBCLASS),
+            ("way of", ContentType.SUBCLASS),
+            ("school of", ContentType.SUBCLASS),
+        ]
+
+        for pattern, content_type in specific_patterns:
+            if pattern in title_lower:
+                return content_type
+
+        # Then check general patterns
+        for content_type, patterns in CONTENT_TYPE_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in title_lower:
+                    return content_type
+
+        return ContentType.UNKNOWN
+
+    def _calculate_content_summary(self, entries: list[TOCEntry]) -> ContentSummary:
+        """Calculate summary of content types from TOC entries.
+
+        Args:
+            entries: List of TOCEntry objects (hierarchical)
+
+        Returns:
+            ContentSummary with counts per content type
+        """
+        counts: dict[ContentType, int] = {ct: 0 for ct in ContentType}
+
+        def count_entries(entries: list[TOCEntry]) -> None:
+            for entry in entries:
+                if entry.content_type != ContentType.UNKNOWN:
+                    counts[entry.content_type] += 1
+                count_entries(entry.children)
+
+        count_entries(entries)
+
+        return ContentSummary(
+            classes=counts[ContentType.CLASS],
+            races=counts[ContentType.RACE],
+            spells=counts[ContentType.SPELL],
+            monsters=counts[ContentType.MONSTER],
+            feats=counts[ContentType.FEAT],
+            items=counts[ContentType.ITEM],
+            backgrounds=counts[ContentType.BACKGROUND],
+            subclasses=counts[ContentType.SUBCLASS],
+        )
+
+
+def get_toc_extractor(file_path: Path) -> TOCExtractor | MarkdownTOCExtractor:
+    """Factory function to get the appropriate TOC extractor for a file.
+
+    Args:
+        file_path: Path to the source file
+
+    Returns:
+        TOCExtractor for PDFs, MarkdownTOCExtractor for Markdown files
+
+    Raises:
+        ValueError: If the file type is not supported
+    """
+    suffix = file_path.suffix.lower()
+    if suffix == ".pdf":
+        return TOCExtractor(file_path)
+    elif suffix in (".md", ".markdown"):
+        return MarkdownTOCExtractor(file_path)
+    else:
+        raise ValueError(f"Unsupported file type: {suffix}")
