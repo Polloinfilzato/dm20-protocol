@@ -2,15 +2,40 @@
 
 ## Lingua
 
-Questo è un progetto internazionale. Tutti i contenuti del repository devono essere in **inglese**:
-- Commit messages
-- Pull Request (titolo e descrizione)
-- README.md
-- CHANGELOG.md
-- Commenti nel codice
-- Documentazione
+Questo è un progetto internazionale. **Tutti i contenuti del repository devono essere in inglese.**
 
-La comunicazione con l'utente resta in italiano.
+### Contenuti in INGLESE (obbligatorio)
+
+Qualsiasi file o testo che finisce nel repository o su GitHub deve essere scritto in inglese:
+
+**Git & GitHub:**
+- Commit messages
+- Branch names
+- Pull Request (titolo e descrizione)
+- Issue titles e body
+- Labels e milestones
+- Commenti su PR e Issues
+
+**File nel repository:**
+- README.md, CHANGELOG.md
+- Commenti nel codice
+- Docstrings e documentazione API
+- File di configurazione con descrizioni
+
+**File generati da Claude Code:**
+- PRD (`.claude/prds/*.md`)
+- Epic e Task files (`.claude/epics/**/*.md`)
+- Qualsiasi altro file markdown generato
+- Script e utility
+
+### Comunicazione in ITALIANO
+
+La comunicazione diretta con l'utente avviene in italiano:
+- Risposte e spiegazioni durante la sessione
+- Domande di chiarimento
+- Riepiloghi e status updates
+
+**Regola semplice:** Se va nel repo o su GitHub → inglese. Se è una risposta all'utente → italiano.
 
 ## Git Remote Configuration
 
@@ -21,8 +46,21 @@ Questo repository è un **fork** del progetto originale.
 | `origin` | `study-flamingo/gamemaster-mcp` | Solo lettura |
 | `fork` | `Polloinfilzato/gamemaster-mcp` | Lettura/Scrittura |
 
-### Regole di Push
+### Regole di Interazione con GitHub
 
-- **NON tentare push su `origin`** - non abbiamo permessi di scrittura
-- **Usare sempre `fork` per i push** - `git push fork <branch>` e `git push fork --tags`
-- Quando l'utente confermerà che la Pull Request è stata accettata e il merge è avvenuto, queste istruzioni verranno aggiornate
+**IMPORTANTE:** Non abbiamo permessi di scrittura su `origin`. Tutte le operazioni che modificano il repository GitHub devono essere eseguite sul **fork** (`Polloinfilzato/gamemaster-mcp`).
+
+Questo include:
+- **Push di branch e tag** → `git push fork <branch>`, `git push fork --tags`
+- **Creazione di Issues** → `gh issue create --repo Polloinfilzato/gamemaster-mcp`
+- **Creazione di Labels** → `gh label create --repo Polloinfilzato/gamemaster-mcp`
+- **Modifica di Issues** → `gh issue edit --repo Polloinfilzato/gamemaster-mcp`
+- **Creazione di Pull Request** → `gh pr create --repo Polloinfilzato/gamemaster-mcp`
+- **Qualsiasi comando `gh`** → aggiungere sempre `--repo Polloinfilzato/gamemaster-mcp`
+
+**NON usare MAI:**
+- `git push origin` → fallirà per mancanza di permessi
+- `gh issue/label/pr ... --repo study-flamingo/gamemaster-mcp` → fallirà per mancanza di permessi
+- Comandi `gh` senza specificare `--repo` se il default è `origin`
+
+**Nota:** Quando l'utente confermerà che una Pull Request è stata accettata e il merge è avvenuto, queste istruzioni potranno essere aggiornate.
