@@ -281,10 +281,12 @@ class TestSummarizeSessionTool:
     @patch('gamemaster_mcp.main.storage')
     def test_summarize_session_loads_campaign_context(self, mock_storage_patch):
         """Test that summarize_session loads campaign context."""
-        # Setup detailed mock
+        # Setup detailed mock with JSON-serializable values
         char = Mock()
         char.name = "Gandalf"
-        char.character_class = Mock(name="Wizard", level=20)
+        char.character_class = Mock()
+        char.character_class.name = "Wizard"  # Must be a string, not Mock
+        char.character_class.level = 20  # Must be an int, not Mock
 
         npc = Mock()
         npc.name = "Saruman"

@@ -436,18 +436,18 @@ class DnDStorage:
 
         # Load manager from manifest (async operation)
         try:
-            # Use asyncio.run() to execute the async factory method
+            # Execute the async factory method
+            # Use get_event_loop() instead of asyncio.run() to avoid closing the loop
+            # which would break subsequent async operations in the same process
             try:
                 loop = asyncio.get_running_loop()
-                # If we're already in an event loop, use run_until_complete
-                self._rulebook_manager = loop.run_until_complete(
-                    RulebookManager.from_manifest(campaign_dir)
-                )
             except RuntimeError:
-                # No event loop running, create a new one
-                self._rulebook_manager = asyncio.run(
-                    RulebookManager.from_manifest(campaign_dir)
-                )
+                # No event loop running - get or create one without closing it
+                loop = asyncio.get_event_loop()
+
+            self._rulebook_manager = loop.run_until_complete(
+                RulebookManager.from_manifest(campaign_dir)
+            )
             logger.info(f"✅ Loaded RulebookManager for campaign '{self._current_campaign.name}'")
         except Exception as e:
             logger.warning(f"⚠️ Failed to load RulebookManager: {e}")

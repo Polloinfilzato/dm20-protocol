@@ -10,10 +10,16 @@ Tests cover:
 - validate_character_rules with valid and invalid characters
 """
 
+import asyncio
 import pytest
 from pathlib import Path
 
 from gamemaster_mcp.storage import DnDStorage
+
+
+def run_async(coro):
+    """Helper to run async code in sync tests."""
+    return asyncio.get_event_loop().run_until_complete(coro)
 from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
 from gamemaster_mcp.rulebooks import RulebookManager
 from gamemaster_mcp.rulebooks.sources.custom import CustomSource
@@ -156,8 +162,7 @@ def storage_with_rules(temp_storage_dir: Path) -> DnDStorage:
 
     # Load the custom source
     custom_source = CustomSource(custom_rulebook_path)
-    import asyncio
-    asyncio.run(storage.rulebook_manager.load_source(custom_source))
+    run_async(storage.rulebook_manager.load_source(custom_source))
 
     return storage
 
