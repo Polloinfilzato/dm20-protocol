@@ -5,6 +5,7 @@ This module provides:
 - Data models for D&D 5e rules (classes, races, spells, monsters, etc.)
 - Integration with 5e-srd-api for official SRD content
 - Support for custom homebrew rulebooks (JSON/YAML)
+- RulebookManager for orchestrating multiple sources
 - Character validation against loaded rules
 """
 
@@ -34,8 +35,12 @@ from .models import (
     BackgroundDefinition,
     ItemDefinition,
 )
+from .manager import RulebookManager, RulebookManagerError
 
 __all__ = [
+    # Manager
+    "RulebookManager",
+    "RulebookManagerError",
     # Core
     "Rulebook",
     "RulebookManifest",
