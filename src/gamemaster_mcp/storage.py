@@ -28,13 +28,21 @@ def new_uuid() -> str:
     """Generate a new random 8-character UUID."""
     return shortuuid.random(length=8)
 
+
+# Storage Format Enums
+class StorageFormat:
+    """Storage format constants for campaign data."""
+    MONOLITHIC = "monolithic"  # Single JSON file per campaign
+    SPLIT = "split"           # Directory with separate JSON files
+    NOT_FOUND = "not_found"   # Campaign doesn't exist yet
+
 class DnDStorage:
     """Handles storage and retrieval of D&D campaign data."""
 
     def __init__(self, data_dir: str | Path = "dnd_data"):
         self.data_dir = Path(data_dir)
         logger.debug(f"📂 Initializing DnDStorage with data_dir: {self.data_dir.resolve()}")
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
 
         # Create subdirectories if necessary
         (self.data_dir / "campaigns").mkdir(exist_ok=True)
@@ -54,6 +62,9 @@ class DnDStorage:
         # Dirty tracking: hash of last saved campaign state
         self._campaign_hash: str = ""
 
+        # Track storage format of current campaign
+        self._current_format: str = StorageFormat.NOT_FOUND
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -67,12 +78,45 @@ class DnDStorage:
         if campaign_name is None:
             raise ValueError("No campaign name provided and no current campaign")
 
-        safe_name = "".join(c for c in campaign_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_name = "".join(c for c in campaign_name if c.isalnum() or c in (' ', '-', '_', "'")).rstrip()
         return self.data_dir / "campaigns" / f"{safe_name}.json"
 
     def _get_events_file(self) -> Path:
         """Get the file path for adventure events."""
         return self.data_dir / "events" / "adventure_log.json"
+
+    def _detect_campaign_format(self, campaign_name: str) -> str:
+        """Detect the storage format of a campaign.
+
+        Args:
+            campaign_name: The name of the campaign to check
+
+        Returns:
+            One of StorageFormat constants: MONOLITHIC, SPLIT, or NOT_FOUND
+        """
+        safe_name = "".join(c for c in campaign_name if c.isalnum() or c in (' ', '-', '_', "'")).rstrip()
+
+        dir_path = self.data_dir / "campaigns" / safe_name
+        file_path = self.data_dir / "campaigns" / f"{safe_name}.json"
+
+        # Check for split format (directory-based)
+        if dir_path.is_dir():
+            # Verify it has the metadata file to confirm it's a valid split campaign
+            metadata_file = dir_path / "metadata.json"
+            if metadata_file.exists():
+                logger.debug(f"📂 Campaign '{campaign_name}' detected as SPLIT format")
+                return StorageFormat.SPLIT
+            else:
+                logger.warning(f"⚠️ Directory exists for '{campaign_name}' but missing metadata.json")
+
+        # Check for monolithic format (single file)
+        if file_path.is_file():
+            logger.debug(f"📂 Campaign '{campaign_name}' detected as MONOLITHIC format")
+            return StorageFormat.MONOLITHIC
+
+        # Campaign doesn't exist
+        logger.debug(f"📂 Campaign '{campaign_name}' NOT FOUND")
+        return StorageFormat.NOT_FOUND
 
     def _rebuild_character_index(self) -> None:
         """Rebuild character indexes for O(1) lookups by ID or player name."""
@@ -104,7 +148,7 @@ class DnDStorage:
             self._batch_mode = False
 
     def _save_campaign(self, force: bool = False) -> None:
-        """Save the current campaign to disk.
+        """Save the current campaign to disk using the appropriate format.
 
         Args:
             force: If True, bypass batch mode and dirty checking.
@@ -125,17 +169,40 @@ class DnDStorage:
                 logger.debug("✅ Campaign unchanged, skipping save.")
                 return
 
+        # Route to appropriate saver based on current format
+        if self._current_format == StorageFormat.MONOLITHIC:
+            self._save_monolithic_campaign()
+        elif self._current_format == StorageFormat.SPLIT:
+            self._save_split_campaign()
+        else:
+            # Default to monolithic for backward compatibility
+            logger.warning(f"⚠️ Unknown storage format '{self._current_format}', defaulting to monolithic")
+            self._save_monolithic_campaign()
+
+        # Update hash after successful save
+        self._campaign_hash = self._compute_campaign_hash()
+        logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully.")
+
+    def _save_monolithic_campaign(self) -> None:
+        """Save campaign as a single JSON file (legacy format)."""
         campaign_file = self._get_campaign_file()
-        logger.debug(f"💾 Saving campaign '{self._current_campaign.name}' to {campaign_file}")
+        logger.debug(f"💾 Saving campaign '{self._current_campaign.name}' to {campaign_file} (monolithic)")
         logger.info(f"💾 Autosaving '{self._current_campaign.name}'")
         campaign_data = self._current_campaign.model_dump(mode='json')
 
         with open(campaign_file, 'w', encoding='utf-8') as f:
             json.dump(campaign_data, f, default=str)
 
-        # Update hash after successful save
-        self._campaign_hash = self._compute_campaign_hash()
-        logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully.")
+    def _save_split_campaign(self) -> None:
+        """Save campaign using split directory structure (new format).
+
+        This is a placeholder for Task #2 implementation.
+        """
+        # TODO: This will be implemented in Task #2 by another agent
+        raise NotImplementedError(
+            "Split storage format is not yet implemented. "
+            "This will be added in Task #2 (SplitStorageBackend)."
+        )
 
     def _load_current_campaign(self):
         """Load the most recently used campaign."""
@@ -145,25 +212,46 @@ class DnDStorage:
             logger.debug("❌ Campaigns directory does not exist. No campaign loaded.")
             return
 
-        # Find the most recent campaign file
+        # Find the most recent campaign (file or directory)
         campaign_files = list(campaigns_dir.glob("*.json"))
-        if not campaign_files:
-            logger.debug("❌ No campaign files found.")
+        campaign_dirs = [d for d in campaigns_dir.iterdir() if d.is_dir()]
+
+        if not campaign_files and not campaign_dirs:
+            logger.debug("❌ No campaigns found.")
+            return
+
+        # Get most recent from both files and directories
+        all_campaigns = []
+        if campaign_files:
+            all_campaigns.extend(campaign_files)
+        if campaign_dirs:
+            # For directories, check metadata.json modification time
+            for d in campaign_dirs:
+                metadata_file = d / "metadata.json"
+                if metadata_file.exists():
+                    all_campaigns.append(metadata_file)
+
+        if not all_campaigns:
+            logger.debug("❌ No valid campaigns found.")
             return
 
         # Sort by modification time and load the most recent
-        latest_file = max(campaign_files, key=lambda f: f.stat().st_mtime)
+        latest_file = max(all_campaigns, key=lambda f: f.stat().st_mtime)
         logger.debug(f"📂 Most recent campaign file is '{latest_file.name}'.")
 
+        # Determine campaign name from the file/directory
+        if latest_file.name == "metadata.json":
+            # Split format: campaign name is the parent directory
+            campaign_name = latest_file.parent.name
+        else:
+            # Monolithic format: campaign name is the file stem
+            campaign_name = latest_file.stem
+
+        # Load campaign using the appropriate method
         try:
-            with open(latest_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            self._current_campaign = Campaign.model_validate(data)
-            self._rebuild_character_index()
-            self._campaign_hash = self._compute_campaign_hash()
-            logger.info(f"✅ Successfully loaded campaign: {self._current_campaign.name}")
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"❌ Error loading campaign from {latest_file}: {e}")
+            self.load_campaign(campaign_name)
+        except Exception as e:
+            logger.error(f"❌ Error loading campaign '{campaign_name}': {e}")
 
     def _save_events(self):
         """Save adventure events to disk."""
@@ -193,7 +281,7 @@ class DnDStorage:
 
     # Campaign Management
     def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None) -> Campaign:
-        """Create a new campaign."""
+        """Create a new campaign using split storage format."""
         logger.info(f"✨ Creating new campaign: '{name}'")
         game_state = GameState(campaign_name=name)
 
@@ -208,9 +296,16 @@ class DnDStorage:
         self._current_campaign = campaign
         self._character_id_index.clear()  # New campaign, empty indexes
         self._player_name_index.clear()
+
+        # New campaigns use split format (will be implemented in Task #2)
+        # For now, fall back to monolithic format until split backend is ready
+        logger.debug("📂 New campaigns will use SPLIT format (pending Task #2 implementation)")
+        # TODO: Change to StorageFormat.SPLIT when Task #2 is complete
+        self._current_format = StorageFormat.MONOLITHIC
+
         self._save_campaign(force=True)  # Force save for new campaign
         self._campaign_hash = self._compute_campaign_hash()
-        logger.info(f"✅ Campaign '{name}' created and set as active.")
+        logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format.")
         return campaign
 
     def get_current_campaign(self) -> Campaign | None:
@@ -218,31 +313,73 @@ class DnDStorage:
         return self._current_campaign
 
     def list_campaigns(self) -> list[str]:
-        """List all available campaigns."""
+        """List all available campaigns (both monolithic and split formats)."""
         campaigns_dir = self.data_dir / "campaigns"
         if not campaigns_dir.exists():
             return []
 
-        return [f.stem for f in campaigns_dir.glob("*.json")]
+        campaigns = []
+
+        # Find monolithic campaigns (JSON files)
+        for f in campaigns_dir.glob("*.json"):
+            campaigns.append(f.stem)
+
+        # Find split campaigns (directories with metadata.json)
+        for d in campaigns_dir.iterdir():
+            if d.is_dir():
+                metadata_file = d / "metadata.json"
+                if metadata_file.exists():
+                    campaigns.append(d.name)
+
+        return sorted(campaigns)
 
     def load_campaign(self, name: str) -> Campaign:
-        """Load a specific campaign."""
+        """Load a specific campaign, automatically detecting format."""
         logger.info(f"📂 Attempting to load campaign: '{name}'")
-        campaign_file = self._get_campaign_file(name)
-        logger.debug(f"📂 Campaign file path: {campaign_file}")
 
-        if not campaign_file.exists():
-            logger.error(f"❌ Campaign file not found for '{name}'")
+        # Detect storage format
+        storage_format = self._detect_campaign_format(name)
+
+        if storage_format == StorageFormat.NOT_FOUND:
+            logger.error(f"❌ Campaign '{name}' not found")
             raise FileNotFoundError(f"Campaign '{name}' not found")
+
+        # Route to appropriate loader based on format
+        if storage_format == StorageFormat.MONOLITHIC:
+            campaign = self._load_monolithic_campaign(name)
+        elif storage_format == StorageFormat.SPLIT:
+            campaign = self._load_split_campaign(name)
+        else:
+            raise ValueError(f"Unknown storage format: {storage_format}")
+
+        self._current_campaign = campaign
+        self._current_format = storage_format
+        self._rebuild_character_index()
+        self._campaign_hash = self._compute_campaign_hash()
+        logger.info(f"✅ Successfully loaded campaign '{name}' using {storage_format} format.")
+        return self._current_campaign
+
+    def _load_monolithic_campaign(self, name: str) -> Campaign:
+        """Load a campaign from a single JSON file (legacy format)."""
+        campaign_file = self._get_campaign_file(name)
+        logger.debug(f"📂 Loading monolithic campaign from: {campaign_file}")
 
         with open(campaign_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        self._current_campaign = Campaign.model_validate(data)
-        self._rebuild_character_index()
-        self._campaign_hash = self._compute_campaign_hash()
-        logger.info(f"✅ Successfully loaded campaign '{name}'.")
-        return self._current_campaign
+        return Campaign.model_validate(data)
+
+    def _load_split_campaign(self, name: str) -> Campaign:
+        """Load a campaign from split directory structure (new format).
+
+        This is a placeholder for Task #2 implementation.
+        """
+        # TODO: This will be implemented in Task #2 by another agent
+        # For now, raise NotImplementedError
+        raise NotImplementedError(
+            "Split storage format is not yet implemented. "
+            "This will be added in Task #2 (SplitStorageBackend)."
+        )
 
     def update_campaign(self, **kwargs):
         """Update campaign metadata."""
