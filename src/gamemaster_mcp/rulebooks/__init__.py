@@ -36,11 +36,22 @@ from .models import (
     ItemDefinition,
 )
 from .manager import RulebookManager, RulebookManagerError
+from .validators import (
+    CharacterValidator,
+    ValidationSeverity,
+    ValidationIssue,
+    ValidationReport,
+)
 
 __all__ = [
     # Manager
     "RulebookManager",
     "RulebookManagerError",
+    # Validators
+    "CharacterValidator",
+    "ValidationSeverity",
+    "ValidationIssue",
+    "ValidationReport",
     # Core
     "Rulebook",
     "RulebookManifest",
