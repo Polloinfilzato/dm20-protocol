@@ -11,7 +11,8 @@ The library system:
 """
 
 from .manager import LibraryManager
-from .models import LibrarySource, IndexEntry, TOCEntry, ContentSummary
+from .models import LibrarySource, IndexEntry, TOCEntry, ContentSummary, ContentType
+from .extractors import TOCExtractor
 
 __all__ = [
     "LibraryManager",
@@ -19,4 +20,6 @@ __all__ = [
     "IndexEntry",
     "TOCEntry",
     "ContentSummary",
+    "ContentType",
+    "TOCExtractor",
 ]
