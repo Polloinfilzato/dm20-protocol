@@ -17,6 +17,7 @@ from .models import (
     SessionNote, GameState, AdventureEvent
 )
 from .rulebooks.manager import RulebookManager
+from .library.manager import LibraryManager
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -73,6 +74,9 @@ class DnDStorage:
         # Rulebook manager for the current campaign
         self._rulebook_manager: RulebookManager | None = None
 
+        # Library manager (lazy initialization)
+        self._library_manager: LibraryManager | None = None
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -106,6 +110,31 @@ class DnDStorage:
         cache_dir = self.data_dir / "rulebook_cache"
         cache_dir.mkdir(exist_ok=True)
         return cache_dir
+
+    @property
+    def library_dir(self) -> Path:
+        """Get the global library directory.
+
+        Returns:
+            Path to the library directory (dnd_data/library/)
+        """
+        return self.data_dir / "library"
+
+    @property
+    def library_manager(self) -> LibraryManager:
+        """Get the library manager, creating it if necessary.
+
+        The library manager is lazily initialized on first access.
+        It ensures the library directory structure exists.
+
+        Returns:
+            LibraryManager instance for the global library
+        """
+        if self._library_manager is None:
+            self._library_manager = LibraryManager(self.library_dir)
+            self._library_manager.ensure_directories()
+            logger.debug(f"📚 Initialized LibraryManager at {self.library_dir}")
+        return self._library_manager
 
     def _get_campaign_file(self, campaign_name: str | None = None) -> Path:
         """Get the file path for a campaign."""
