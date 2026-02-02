@@ -305,3 +305,112 @@ class LibraryManager:
             Path to the extracted content directory
         """
         return self.extracted_dir / source_id
+
+    def load_all_indexes(self) -> int:
+        """Load all existing index files into cache.
+
+        This should be called at startup to populate the cache
+        with all previously indexed sources.
+
+        Returns:
+            Number of indexes loaded
+        """
+        if not self.index_dir.exists():
+            return 0
+
+        count = 0
+        for index_file in self.index_dir.glob("*.index.json"):
+            source_id = index_file.stem.replace(".index", "")
+            index_entry = self._load_index(source_id)
+            if index_entry:
+                count += 1
+
+        logger.debug(f"📚 Loaded {count} existing indexes")
+        return count
+
+    def search(
+        self,
+        query: str,
+        content_type: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Search across all indexed library content.
+
+        Searches TOC entries by title, optionally filtered by content type.
+
+        Args:
+            query: Search term (case-insensitive substring match)
+            content_type: Filter by content type (e.g., "spell", "class")
+            limit: Maximum results to return
+
+        Returns:
+            List of search result dicts with title, source_id, page, content_type
+        """
+        results: list[dict] = []
+        query_lower = query.lower()
+
+        for source_id, index in self._index_cache.items():
+            for entry in self._flatten_toc(index.toc):
+                # Skip if query doesn't match title
+                if query and query_lower not in entry.title.lower():
+                    continue
+
+                # Skip if content type filter doesn't match
+                if content_type and content_type != "all":
+                    if entry.content_type.value != content_type:
+                        continue
+
+                results.append({
+                    "title": entry.title,
+                    "source_id": source_id,
+                    "source_filename": index.filename,
+                    "page": entry.page,
+                    "content_type": entry.content_type.value,
+                })
+
+                if len(results) >= limit:
+                    return results
+
+        return results
+
+    def _flatten_toc(self, entries: list) -> list:
+        """Flatten hierarchical TOC entries into a flat list.
+
+        Args:
+            entries: List of TOCEntry objects (hierarchical)
+
+        Returns:
+            Flat list of all TOCEntry objects including children
+        """
+        flat: list = []
+        for entry in entries:
+            flat.append(entry)
+            if entry.children:
+                flat.extend(self._flatten_toc(entry.children))
+        return flat
+
+    def get_toc_formatted(self, source_id: str) -> str | None:
+        """Get formatted table of contents for a source.
+
+        Args:
+            source_id: The source identifier
+
+        Returns:
+            Formatted TOC string or None if not found
+        """
+        index = self._load_index(source_id)
+        if not index:
+            return None
+
+        lines = [f"# {index.filename}", f"**Pages:** {index.total_pages}", ""]
+
+        def format_entries(entries: list, indent: int = 0) -> None:
+            for entry in entries:
+                prefix = "  " * indent
+                type_badge = f"[{entry.content_type.value}]" if entry.content_type.value != "unknown" else ""
+                lines.append(f"{prefix}- **{entry.title}** (p. {entry.page}) {type_badge}")
+                if entry.children:
+                    format_entries(entry.children, indent + 1)
+
+        format_entries(index.toc)
+        return "\n".join(lines)

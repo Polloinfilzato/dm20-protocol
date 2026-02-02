@@ -517,3 +517,271 @@ class TestLibraryManager:
             manager.ensure_directories()
 
             assert manager.needs_reindex("nonexistent") is False
+
+    def test_load_all_indexes_empty(self):
+        """Test load_all_indexes with no indexes."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            count = manager.load_all_indexes()
+
+            assert count == 0
+
+    def test_load_all_indexes_loads_existing(self):
+        """Test load_all_indexes populates cache from disk."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Create index files manually
+            index1 = IndexEntry(
+                source_id="book-one",
+                filename="book_one.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash1",
+            )
+            index2 = IndexEntry(
+                source_id="book-two",
+                filename="book_two.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash2",
+            )
+            manager.save_index(index1)
+            manager.save_index(index2)
+
+            # Create a new manager to simulate restart
+            manager2 = LibraryManager(library_dir)
+            manager2.ensure_directories()
+
+            # Cache should be empty
+            assert len(manager2._index_cache) == 0
+
+            # Load all indexes
+            count = manager2.load_all_indexes()
+
+            assert count == 2
+            assert "book-one" in manager2._index_cache
+            assert "book-two" in manager2._index_cache
+
+    def test_search_empty_cache(self):
+        """Test search with no indexes loaded."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            results = manager.search("fighter")
+
+            assert results == []
+
+    def test_search_finds_matching_entries(self):
+        """Test search finds entries by title."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Create index with TOC entries
+            index = IndexEntry(
+                source_id="phb",
+                filename="phb.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash123",
+                total_pages=300,
+                toc=[
+                    TOCEntry(title="Classes", page=10, children=[
+                        TOCEntry(title="Fighter", page=20, content_type=ContentType.CLASS),
+                        TOCEntry(title="Wizard", page=50, content_type=ContentType.CLASS),
+                    ]),
+                    TOCEntry(title="Spells", page=100, children=[
+                        TOCEntry(title="Fireball", page=110, content_type=ContentType.SPELL),
+                    ]),
+                ],
+            )
+            manager.save_index(index)
+
+            # Search for "Fighter"
+            results = manager.search("fighter")
+
+            assert len(results) == 1
+            assert results[0]["title"] == "Fighter"
+            assert results[0]["source_id"] == "phb"
+            assert results[0]["page"] == 20
+            assert results[0]["content_type"] == "class"
+
+    def test_search_case_insensitive(self):
+        """Test search is case-insensitive."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            index = IndexEntry(
+                source_id="test",
+                filename="test.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash",
+                toc=[TOCEntry(title="FIREBALL", page=10, content_type=ContentType.SPELL)],
+            )
+            manager.save_index(index)
+
+            results = manager.search("fireball")
+
+            assert len(results) == 1
+            assert results[0]["title"] == "FIREBALL"
+
+    def test_search_with_content_type_filter(self):
+        """Test search filters by content type."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            index = IndexEntry(
+                source_id="test",
+                filename="test.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash",
+                toc=[
+                    TOCEntry(title="Fire Giant", page=10, content_type=ContentType.MONSTER),
+                    TOCEntry(title="Fireball", page=20, content_type=ContentType.SPELL),
+                ],
+            )
+            manager.save_index(index)
+
+            # Search with spell filter
+            results = manager.search("fire", content_type="spell")
+
+            assert len(results) == 1
+            assert results[0]["title"] == "Fireball"
+
+    def test_search_respects_limit(self):
+        """Test search respects result limit."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Create index with many matching entries
+            toc_entries = [
+                TOCEntry(title=f"Spell {i}", page=i, content_type=ContentType.SPELL)
+                for i in range(50)
+            ]
+            index = IndexEntry(
+                source_id="test",
+                filename="test.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash",
+                toc=toc_entries,
+            )
+            manager.save_index(index)
+
+            results = manager.search("spell", limit=5)
+
+            assert len(results) == 5
+
+    def test_search_across_multiple_sources(self):
+        """Test search finds entries across multiple indexed sources."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Create two indexes
+            index1 = IndexEntry(
+                source_id="phb",
+                filename="phb.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash1",
+                toc=[TOCEntry(title="Fireball", page=100, content_type=ContentType.SPELL)],
+            )
+            index2 = IndexEntry(
+                source_id="xge",
+                filename="xge.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash2",
+                toc=[TOCEntry(title="Fire Shield", page=50, content_type=ContentType.SPELL)],
+            )
+            manager.save_index(index1)
+            manager.save_index(index2)
+
+            results = manager.search("fire")
+
+            assert len(results) == 2
+            source_ids = {r["source_id"] for r in results}
+            assert source_ids == {"phb", "xge"}
+
+    def test_get_toc_formatted_not_found(self):
+        """Test get_toc_formatted returns None for missing source."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            result = manager.get_toc_formatted("nonexistent")
+
+            assert result is None
+
+    def test_get_toc_formatted_basic(self):
+        """Test get_toc_formatted returns formatted TOC."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            index = IndexEntry(
+                source_id="phb",
+                filename="Players_Handbook.pdf",
+                source_type=SourceType.PDF,
+                indexed_at=datetime.now(),
+                file_hash="hash",
+                total_pages=300,
+                toc=[
+                    TOCEntry(title="Classes", page=10, children=[
+                        TOCEntry(title="Fighter", page=20, content_type=ContentType.CLASS),
+                    ]),
+                ],
+            )
+            manager.save_index(index)
+
+            result = manager.get_toc_formatted("phb")
+
+            assert result is not None
+            assert "Players_Handbook.pdf" in result
+            assert "300" in result
+            assert "Classes" in result
+            assert "Fighter" in result
+            assert "[class]" in result
+
+    def test_flatten_toc(self):
+        """Test _flatten_toc correctly flattens nested structure."""
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            manager = LibraryManager(library_dir)
+
+            entries = [
+                TOCEntry(title="Chapter 1", page=1, children=[
+                    TOCEntry(title="Section A", page=5, children=[
+                        TOCEntry(title="Subsection 1", page=6),
+                    ]),
+                    TOCEntry(title="Section B", page=10),
+                ]),
+                TOCEntry(title="Chapter 2", page=20),
+            ]
+
+            flat = manager._flatten_toc(entries)
+
+            assert len(flat) == 5
+            titles = [e.title for e in flat]
+            assert titles == ["Chapter 1", "Section A", "Subsection 1", "Section B", "Chapter 2"]

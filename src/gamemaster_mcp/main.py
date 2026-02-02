@@ -22,6 +22,7 @@ from .rulebooks import RulebookManager
 from .rulebooks.sources.srd import SRDSource
 from .rulebooks.sources.custom import CustomSource
 from .rulebooks.validators import CharacterValidator
+from .library import LibraryManager, TOCExtractor
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -39,6 +40,13 @@ logger.debug(f"📂 Data path: {data_path}")
 # Initialize storage and FastMCP server
 storage = DnDStorage(data_dir=data_path)
 logger.debug("✅ Storage layer initialized")
+
+# Initialize library manager for PDF rulebook library
+library_dir = data_path / "library" if data_path else Path("dnd_data/library")
+library_manager = LibraryManager(library_dir)
+library_manager.ensure_directories()
+loaded_indexes = library_manager.load_all_indexes()
+logger.debug(f"📚 Library manager initialized ({loaded_indexes} indexes loaded)")
 
 mcp = FastMCP(
     name="gamemaster-mcp"
@@ -1509,6 +1517,205 @@ Base Encounter XP: {encounter_xp}
 Party Size Multiplier: {multiplier}x
 Adjusted XP: {adjusted_xp}
 **XP per Player: {xp_per_player}**"""
+
+# ----------------------------------------------------------------------
+# PDF Library Tools
+# ----------------------------------------------------------------------
+
+@mcp.tool
+def scan_library() -> str:
+    """Scan the library folder for new PDF/Markdown files and index them.
+
+    Scans the library/pdfs/ directory for PDF and Markdown files,
+    extracts table of contents from new or modified files,
+    and saves indexes for quick searching.
+
+    Returns a summary of files found and indexed.
+    """
+    # Scan for files
+    files = library_manager.scan_library()
+
+    if not files:
+        return "📚 No PDF or Markdown files found in library.\n\nAdd files to: " + str(library_manager.pdfs_dir)
+
+    indexed_count = 0
+    skipped_count = 0
+    errors: list[str] = []
+
+    for file_path in files:
+        from .library.manager import generate_source_id
+        source_id = generate_source_id(file_path.name)
+
+        # Check if needs indexing
+        if not library_manager.needs_reindex(source_id):
+            skipped_count += 1
+            continue
+
+        # Index the file
+        try:
+            if file_path.suffix.lower() == ".pdf":
+                extractor = TOCExtractor(file_path)
+                index_entry = extractor.extract()
+                library_manager.save_index(index_entry)
+                indexed_count += 1
+            else:
+                # TODO: Markdown indexing in future issue
+                skipped_count += 1
+        except Exception as e:
+            errors.append(f"{file_path.name}: {str(e)}")
+
+    # Build response
+    lines = ["# 📚 Library Scan Complete", ""]
+    lines.append(f"**Total files:** {len(files)}")
+    lines.append(f"**Newly indexed:** {indexed_count}")
+    lines.append(f"**Skipped (up-to-date):** {skipped_count}")
+
+    if errors:
+        lines.append(f"\n**Errors ({len(errors)}):**")
+        for error in errors:
+            lines.append(f"- {error}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def list_library() -> str:
+    """List all sources in the library with their content summaries.
+
+    Returns a formatted list of all PDF and Markdown sources
+    in the library, showing their index status and content counts.
+    """
+    sources = library_manager.list_library()
+
+    if not sources:
+        return "📚 Library is empty.\n\nAdd PDF or Markdown files to: " + str(library_manager.pdfs_dir)
+
+    lines = ["# 📚 Library Sources", ""]
+
+    indexed = [s for s in sources if s.is_indexed]
+    not_indexed = [s for s in sources if not s.is_indexed]
+
+    if indexed:
+        lines.append("## Indexed Sources")
+        for source in indexed:
+            summary = source.index_entry.content_summary if source.index_entry else None
+            content_info = ""
+            if summary and summary.total > 0:
+                parts = []
+                if summary.classes:
+                    parts.append(f"{summary.classes} classes")
+                if summary.races:
+                    parts.append(f"{summary.races} races")
+                if summary.spells:
+                    parts.append(f"{summary.spells} spells")
+                if summary.monsters:
+                    parts.append(f"{summary.monsters} monsters")
+                if summary.feats:
+                    parts.append(f"{summary.feats} feats")
+                if summary.items:
+                    parts.append(f"{summary.items} items")
+                content_info = f" — {', '.join(parts)}"
+
+            pages = f" ({source.index_entry.total_pages} pages)" if source.index_entry else ""
+            lines.append(f"- **{source.source_id}**{pages}{content_info}")
+            lines.append(f"  _{source.filename}_")
+        lines.append("")
+
+    if not_indexed:
+        lines.append("## Not Yet Indexed")
+        lines.append("_Run `scan_library` to index these files._")
+        for source in not_indexed:
+            size_mb = source.file_size / (1024 * 1024)
+            lines.append(f"- {source.filename} ({size_mb:.1f} MB)")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def get_library_toc(
+    source_id: Annotated[str, Field(description="The source identifier (e.g., 'tome-of-heroes')")]
+) -> str:
+    """Get the table of contents for a specific library source.
+
+    Returns the full hierarchical table of contents extracted from
+    the PDF or Markdown source, with page numbers and content types.
+
+    Args:
+        source_id: The source identifier (use list_library to see available sources)
+    """
+    toc = library_manager.get_toc_formatted(source_id)
+
+    if not toc:
+        # Try to find similar source IDs
+        sources = library_manager.list_library()
+        available = [s.source_id for s in sources if s.is_indexed]
+
+        if available:
+            return f"❌ Source '{source_id}' not found.\n\nAvailable sources:\n" + "\n".join(f"- {s}" for s in available)
+        else:
+            return f"❌ Source '{source_id}' not found. No sources are indexed yet.\n\nRun `scan_library` first."
+
+    return toc
+
+
+@mcp.tool
+def search_library(
+    query: Annotated[str, Field(description="Search term (searches titles)")] = "",
+    content_type: Annotated[
+        Literal["all", "class", "race", "spell", "monster", "feat", "item", "background", "subclass"],
+        Field(description="Filter by content type")
+    ] = "all",
+    limit: Annotated[int, Field(description="Maximum results to return", ge=1, le=100)] = 20,
+) -> str:
+    """Search across all indexed library content.
+
+    Searches TOC entries by title across all indexed PDF and Markdown sources.
+    Can filter by content type (class, race, spell, etc.).
+
+    Args:
+        query: Search term (case-insensitive, searches in titles)
+        content_type: Filter by content type (default: all)
+        limit: Maximum results to return (default: 20)
+    """
+    if not query and content_type == "all":
+        return "❌ Please provide a search query or specify a content_type filter."
+
+    results = library_manager.search(
+        query=query,
+        content_type=content_type if content_type != "all" else None,
+        limit=limit,
+    )
+
+    if not results:
+        filter_desc = f"'{query}'" if query else f"type={content_type}"
+        return f"No results found for {filter_desc}."
+
+    # Group by source
+    by_source: dict[str, list[dict]] = {}
+    for r in results:
+        source = r["source_id"]
+        if source not in by_source:
+            by_source[source] = []
+        by_source[source].append(r)
+
+    # Build output
+    header = f"# Search Results"
+    if query:
+        header += f": '{query}'"
+    if content_type != "all":
+        header += f" (type: {content_type})"
+
+    lines = [header, f"_Found {len(results)} results_", ""]
+
+    for source_id, source_results in by_source.items():
+        lines.append(f"## {source_id}")
+        for r in source_results:
+            type_badge = f"[{r['content_type']}]" if r['content_type'] != "unknown" else ""
+            lines.append(f"- **{r['title']}** (p. {r['page']}) {type_badge}")
+        lines.append("")
+
+    return "\n".join(lines)
+
 
 logger.debug("✅ All tools successfully registered. Gamemaster-MCP server running! 🎲")
 
