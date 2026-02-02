@@ -16,6 +16,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.9.0",
+    "httpx>=0.24.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.1.1",
     "python-toon>=0.1.0",
@@ -57,6 +58,11 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 
 [dependency-groups]
 dev = [
