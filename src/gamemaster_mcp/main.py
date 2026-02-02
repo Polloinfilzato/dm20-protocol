@@ -1559,8 +1559,14 @@ def scan_library() -> str:
                 index_entry = extractor.extract()
                 library_manager.save_index(index_entry)
                 indexed_count += 1
+            elif file_path.suffix.lower() in (".md", ".markdown"):
+                from .library.extractors import MarkdownTOCExtractor
+                md_extractor = MarkdownTOCExtractor(file_path)
+                index_entry = md_extractor.extract()
+                library_manager.save_index(index_entry)
+                indexed_count += 1
             else:
-                # TODO: Markdown indexing in future issue
+                # Unknown file type, skip
                 skipped_count += 1
         except Exception as e:
             errors.append(f"{file_path.name}: {str(e)}")

@@ -653,3 +653,154 @@ class TestMarkdownIntegration:
             assert restored_index.source_type == SourceType.MARKDOWN
             assert len(restored_index.toc) == len(original_index.toc)
             assert restored_index.content_summary.total == original_index.content_summary.total
+
+
+# =============================================================================
+# End-to-End Integration Tests for scan_library Tool
+# =============================================================================
+
+class TestScanLibraryMarkdownIntegration:
+    """Test that scan_library MCP tool correctly indexes Markdown files."""
+
+    def test_library_manager_indexes_markdown(self):
+        """Test that LibraryManager can index Markdown files via scan workflow."""
+        from gamemaster_mcp.library.manager import LibraryManager, generate_source_id
+
+        with TemporaryDirectory() as tmpdir:
+            # Setup library structure
+            library_dir = Path(tmpdir) / "library"
+            pdfs_dir = library_dir / "pdfs"
+            pdfs_dir.mkdir(parents=True)
+
+            # Create test Markdown file
+            md_path = pdfs_dir / "test-homebrew.md"
+            md_path.write_text(SAMPLE_MARKDOWN, encoding="utf-8")
+
+            # Initialize LibraryManager
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Scan should find the file
+            files = manager.scan_library()
+            assert len(files) == 1
+            assert files[0].suffix == ".md"
+
+            # List should show not indexed
+            sources = manager.list_library()
+            assert len(sources) == 1
+            assert sources[0].source_id == "test-homebrew"
+            assert sources[0].is_indexed is False
+
+            # Manually index (simulating what scan_library tool does)
+            source_id = generate_source_id(md_path.name)
+            extractor = MarkdownTOCExtractor(md_path)
+            index_entry = extractor.extract()
+            manager.save_index(index_entry)
+
+            # List should now show indexed
+            sources = manager.list_library()
+            assert len(sources) == 1
+            assert sources[0].is_indexed is True
+            assert sources[0].index_entry is not None
+            assert sources[0].index_entry.source_type == SourceType.MARKDOWN
+
+    def test_markdown_in_scan_library_workflow(self):
+        """Test the exact code path used by scan_library MCP tool."""
+        from gamemaster_mcp.library.manager import LibraryManager, generate_source_id
+        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+
+        with TemporaryDirectory() as tmpdir:
+            # Setup
+            library_dir = Path(tmpdir) / "library"
+            pdfs_dir = library_dir / "pdfs"
+            pdfs_dir.mkdir(parents=True)
+
+            md_path = pdfs_dir / "homebrew-classes.md"
+            md_path.write_text(SAMPLE_MARKDOWN, encoding="utf-8")
+
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Simulate scan_library tool logic
+            files = manager.scan_library()
+            indexed_count = 0
+
+            for file_path in files:
+                source_id = generate_source_id(file_path.name)
+
+                if manager.needs_reindex(source_id):
+                    if file_path.suffix.lower() == ".pdf":
+                        pass  # Would use TOCExtractor
+                    elif file_path.suffix.lower() in (".md", ".markdown"):
+                        md_extractor = MarkdownTOCExtractor(file_path)
+                        index_entry = md_extractor.extract()
+                        manager.save_index(index_entry)
+                        indexed_count += 1
+
+            # Verify indexing happened
+            assert indexed_count == 1
+
+            # Verify index is correct
+            index = manager.get_index("homebrew-classes")
+            assert index is not None
+            assert index.source_type == SourceType.MARKDOWN
+            assert index.content_summary.classes >= 2
+            assert len(index.toc) > 0
+
+    def test_markdown_search_after_indexing(self):
+        """Test that Markdown content is searchable after indexing."""
+        from gamemaster_mcp.library.manager import LibraryManager
+        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            pdfs_dir = library_dir / "pdfs"
+            pdfs_dir.mkdir(parents=True)
+
+            md_path = pdfs_dir / "test.md"
+            md_path.write_text(SAMPLE_MARKDOWN, encoding="utf-8")
+
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Index the file
+            extractor = MarkdownTOCExtractor(md_path)
+            index_entry = extractor.extract()
+            manager.save_index(index_entry)
+
+            # Search should find content
+            results = manager.search("Fighter")
+            assert len(results) >= 1
+            assert any(r["title"] == "Fighter" for r in results)
+
+            # Search by content type
+            results = manager.search("", content_type="class")
+            assert len(results) >= 2  # Fighter and Wizard
+
+    def test_markdown_ask_books_semantic_search(self):
+        """Test that Markdown content works with ask_books semantic search."""
+        from gamemaster_mcp.library.manager import LibraryManager
+        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+
+        with TemporaryDirectory() as tmpdir:
+            library_dir = Path(tmpdir) / "library"
+            pdfs_dir = library_dir / "pdfs"
+            pdfs_dir.mkdir(parents=True)
+
+            md_path = pdfs_dir / "test.md"
+            md_path.write_text(SAMPLE_MARKDOWN, encoding="utf-8")
+
+            manager = LibraryManager(library_dir)
+            manager.ensure_directories()
+
+            # Index
+            extractor = MarkdownTOCExtractor(md_path)
+            index_entry = extractor.extract()
+            manager.save_index(index_entry)
+
+            # Semantic search
+            results = manager.semantic_search.search("martial combat warrior")
+            assert len(results) >= 1
+            # Fighter should rank high for "martial combat"
+            titles = [r.title for r in results]
+            assert "Fighter" in titles
