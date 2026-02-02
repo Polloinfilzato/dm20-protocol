@@ -3,6 +3,7 @@ Storage layer for the D&D MCP Server.
 Handles persistence of campaign data to JSON files.
 """
 
+import asyncio
 import logging
 import shortuuid
 import json
@@ -15,6 +16,7 @@ from .models import (
     Campaign, Character, NPC, Location, Quest, CombatEncounter,
     SessionNote, GameState, AdventureEvent
 )
+from .rulebooks.manager import RulebookManager
 
 logger = logging.getLogger("gamemaster-mcp")
 
@@ -68,11 +70,42 @@ class DnDStorage:
         # Initialize split storage backend (without auto-loading campaigns)
         self._split_backend = SplitStorageBackend(data_dir=data_dir, auto_load=False)
 
+        # Rulebook manager for the current campaign
+        self._rulebook_manager: RulebookManager | None = None
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
         self._load_events()
         logger.debug("✅ Initial data loaded.")
+
+    @property
+    def rulebook_manager(self) -> RulebookManager | None:
+        """Get the rulebook manager for the current campaign."""
+        return self._rulebook_manager
+
+    @property
+    def rulebooks_dir(self) -> Path | None:
+        """Get the rulebooks directory for the current campaign.
+
+        Returns:
+            Path to rulebooks directory for split storage campaigns, None otherwise
+        """
+        if self._current_format == StorageFormat.SPLIT and self._current_campaign:
+            campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+            return campaign_dir / "rulebooks"
+        return None
+
+    @property
+    def rulebook_cache_dir(self) -> Path:
+        """Get the global rulebook cache directory.
+
+        Returns:
+            Path to the global cache directory (shared across campaigns)
+        """
+        cache_dir = self.data_dir / "rulebook_cache"
+        cache_dir.mkdir(exist_ok=True)
+        return cache_dir
 
     def _get_campaign_file(self, campaign_name: str | None = None) -> Path:
         """Get the file path for a campaign."""
@@ -306,6 +339,13 @@ class DnDStorage:
         self._current_campaign = campaign
         self._current_format = StorageFormat.SPLIT
 
+        # Create rulebooks directory structure
+        campaign_dir = self._split_backend._get_campaign_dir(name)
+        rulebooks_dir = campaign_dir / "rulebooks"
+        rulebooks_dir.mkdir(exist_ok=True)
+        (rulebooks_dir / "custom").mkdir(exist_ok=True)
+        logger.debug(f"📂 Created rulebooks directory structure at {rulebooks_dir}")
+
         # Rebuild indexes for new campaign
         self._rebuild_character_index()
 
@@ -365,8 +405,53 @@ class DnDStorage:
         self._current_format = storage_format
         self._rebuild_character_index()
         self._campaign_hash = self._compute_campaign_hash()
+
+        # Load RulebookManager if manifest exists (split campaigns only)
+        self._load_rulebook_manager()
+
         logger.info(f"✅ Successfully loaded campaign '{name}' using {storage_format} format.")
         return self._current_campaign
+
+    def _load_rulebook_manager(self) -> None:
+        """Load RulebookManager for the current campaign if manifest exists.
+
+        Only applicable to split storage campaigns. If manifest doesn't exist,
+        sets _rulebook_manager to None (backward compatible).
+        """
+        # Clear any existing manager
+        self._rulebook_manager = None
+
+        # Only load for split campaigns
+        if self._current_format != StorageFormat.SPLIT or not self._current_campaign:
+            return
+
+        # Get campaign directory
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        manifest_path = campaign_dir / "rulebooks" / "manifest.json"
+
+        # Check if manifest exists
+        if not manifest_path.exists():
+            logger.debug(f"No rulebook manifest found at {manifest_path}, skipping RulebookManager load")
+            return
+
+        # Load manager from manifest (async operation)
+        try:
+            # Use asyncio.run() to execute the async factory method
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're already in an event loop, use run_until_complete
+                self._rulebook_manager = loop.run_until_complete(
+                    RulebookManager.from_manifest(campaign_dir)
+                )
+            except RuntimeError:
+                # No event loop running, create a new one
+                self._rulebook_manager = asyncio.run(
+                    RulebookManager.from_manifest(campaign_dir)
+                )
+            logger.info(f"✅ Loaded RulebookManager for campaign '{self._current_campaign.name}'")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load RulebookManager: {e}")
+            self._rulebook_manager = None
 
     def _load_monolithic_campaign(self, name: str) -> Campaign:
         """Load a campaign from a single JSON file (legacy format)."""
