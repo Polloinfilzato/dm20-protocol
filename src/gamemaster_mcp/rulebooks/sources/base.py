@@ -255,6 +255,7 @@ class RulebookSourceBase(ABC):
         query: str,
         categories: list[str] | None = None,
         limit: int = 20,
+        class_filter: str | None = None,
     ) -> Iterator[SearchResult]:
         """
         Search across all content in this source.
@@ -264,6 +265,8 @@ class RulebookSourceBase(ABC):
             categories: Filter to specific categories (class, race, spell, monster, etc.)
                        If None, search all categories
             limit: Maximum number of results to return
+            class_filter: Filter spells by class (e.g., "ranger", "wizard").
+                         Only applies when searching spells.
 
         Yields:
             SearchResult objects matching the query

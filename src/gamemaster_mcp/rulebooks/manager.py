@@ -328,6 +328,7 @@ class RulebookManager:
         categories: list[str] | None = None,
         limit: int = 20,
         source_id: str | None = None,
+        class_filter: str | None = None,
     ) -> list[SearchResult]:
         """
         Search across all loaded sources.
@@ -337,6 +338,7 @@ class RulebookManager:
             categories: Filter to specific categories (class, race, spell, etc.)
             limit: Maximum number of results
             source_id: If provided, search only in this source
+            class_filter: Filter spells by class (e.g., "ranger", "wizard")
 
         Returns:
             List of SearchResult objects
@@ -352,7 +354,7 @@ class RulebookManager:
             )
 
             for source in sources_to_search:
-                for result in source.search(query, categories):
+                for result in source.search(query, categories, limit, class_filter):
                     key = (result.category, result.index)
                     if key not in seen:
                         seen.add(key)

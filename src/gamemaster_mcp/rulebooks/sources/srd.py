@@ -657,9 +657,18 @@ class SRDSource(RulebookSourceBase):
         query: str,
         categories: list[str] | None = None,
         limit: int = 20,
+        class_filter: str | None = None,
     ) -> Iterator[SearchResult]:
-        """Search across all SRD content."""
+        """Search across all SRD content.
+
+        Args:
+            query: Search term (case-insensitive, partial match)
+            categories: Filter to specific categories
+            limit: Maximum number of results
+            class_filter: Filter spells by class (e.g., "ranger", "wizard")
+        """
         query_lower = query.lower()
+        class_filter_lower = class_filter.lower() if class_filter else None
         count = 0
 
         category_map = {
@@ -684,15 +693,28 @@ class SRDSource(RulebookSourceBase):
                 if count >= limit:
                     return
 
-                if query_lower in index or query_lower in item.name.lower():
-                    yield SearchResult(
-                        index=item.index,
-                        name=item.name,
-                        category=cat,  # type: ignore
-                        source=self.source_id,
-                        summary=getattr(item, "desc", [None])[0] if hasattr(item, "desc") and item.desc else None,
-                    )
-                    count += 1
+                # Apply class filter for spells
+                if class_filter_lower and cat == "spell":
+                    spell_classes = getattr(item, "classes", [])
+                    if class_filter_lower not in [c.lower() for c in spell_classes]:
+                        continue
+
+                # Match by query (or return all if query is empty and class_filter is set)
+                if query_lower:
+                    if query_lower not in index and query_lower not in item.name.lower():
+                        continue
+                elif not class_filter_lower:
+                    # If no query and no class_filter, skip (need at least one filter)
+                    continue
+
+                yield SearchResult(
+                    index=item.index,
+                    name=item.name,
+                    category=cat,  # type: ignore
+                    source=self.source_id,
+                    summary=getattr(item, "desc", [None])[0] if hasattr(item, "desc") and item.desc else None,
+                )
+                count += 1
 
     def content_counts(self) -> ContentCounts:
         """Get counts of all SRD content."""

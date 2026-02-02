@@ -1223,24 +1223,51 @@ def unload_rulebook(
 
 @mcp.tool
 def search_rules(
-    query: Annotated[str, Field(description="Search term (name, partial match)")],
+    query: Annotated[str, Field(description="Search term (name, partial match). Can be empty if class_filter is provided.")] = "",
     category: Annotated[
         Literal["all", "class", "race", "spell", "monster", "feat", "item"] | None,
         Field(description="Filter by category. Default: all")
     ] = "all",
     limit: Annotated[int, Field(description="Max results", ge=1, le=50)] = 20,
+    class_filter: Annotated[
+        str | None,
+        Field(description="Filter spells by class (e.g., 'ranger', 'wizard'). Only applies to spell category.")
+    ] = None,
 ) -> str:
-    """Search for rules content across all loaded rulebooks."""
+    """Search for rules content across all loaded rulebooks.
+
+    Examples:
+        - search_rules(query="fire", category="spell") - Find spells with 'fire' in name
+        - search_rules(class_filter="ranger", category="spell") - All ranger spells
+        - search_rules(query="cure", class_filter="ranger", category="spell") - Ranger spells with 'cure' in name
+    """
     if not storage.rulebook_manager:
         return "❌ No rulebooks loaded. Use `load_rulebook` first."
 
+    if not query and not class_filter:
+        return "❌ Please provide either a search query or a class_filter."
+
     categories = [category] if category and category != "all" else None
-    results = storage.rulebook_manager.search(query=query, categories=categories, limit=limit)
+    results = storage.rulebook_manager.search(
+        query=query,
+        categories=categories,
+        limit=limit,
+        class_filter=class_filter,
+    )
 
     if not results:
-        return f"No results found for '{query}'."
+        filter_desc = f"class='{class_filter}'" if class_filter else f"'{query}'"
+        return f"No results found for {filter_desc}."
 
-    lines = [f"# Search Results: '{query}'\n"]
+    # Build header
+    if class_filter and query:
+        header = f"# Search Results: '{query}' (class: {class_filter})\n"
+    elif class_filter:
+        header = f"# Spells for class: {class_filter}\n"
+    else:
+        header = f"# Search Results: '{query}'\n"
+
+    lines = [header]
     for r in results:
         lines.append(f"- **{r.name}** ({r.category}) — _{r.source}_")
 

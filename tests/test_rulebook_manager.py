@@ -68,7 +68,7 @@ class MockSource(RulebookSourceBase):
     def get_item(self, index: str):
         return None
 
-    def search(self, query: str, categories=None, limit: int = 20):
+    def search(self, query: str, categories=None, limit: int = 20, class_filter: str | None = None):
         query_lower = query.lower()
         for cls in self._classes.values():
             if query_lower in cls.name.lower():
@@ -77,6 +77,11 @@ class MockSource(RulebookSourceBase):
             if query_lower in race.name.lower():
                 yield SearchResult(race.index, race.name, "race", self.source_id)
         for spell in self._spells.values():
+            # Apply class filter if provided
+            if class_filter:
+                spell_classes = getattr(spell, "classes", [])
+                if class_filter.lower() not in [c.lower() for c in spell_classes]:
+                    continue
             if query_lower in spell.name.lower():
                 yield SearchResult(spell.index, spell.name, "spell", self.source_id)
 
