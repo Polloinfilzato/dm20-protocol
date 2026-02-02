@@ -64,3 +64,13 @@ Questo include:
 - Comandi `gh` senza specificare `--repo` se il default è `origin`
 
 **Nota:** Quando l'utente confermerà che una Pull Request è stata accettata e il merge è avvenuto, queste istruzioni potranno essere aggiornate.
+
+### Gestione Issue Lifecycle
+
+Quando un task/issue viene completato:
+1. Aggiornare lo status nel file locale (`.claude/epics/{epic}/{task}.md`) → `status: completed`
+2. **Chiudere la issue su GitHub** con commento di completamento:
+   ```bash
+   gh issue close {numero} --repo Polloinfilzato/gamemaster-mcp --comment "✅ Completed. {breve descrizione}"
+   ```
+3. Aggiornare `execution-status.md` se presente

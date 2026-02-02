@@ -65,6 +65,9 @@ class DnDStorage:
         # Track storage format of current campaign
         self._current_format: str = StorageFormat.NOT_FOUND
 
+        # Initialize split storage backend (without auto-loading campaigns)
+        self._split_backend = SplitStorageBackend(data_dir=data_dir, auto_load=False)
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -101,13 +104,13 @@ class DnDStorage:
 
         # Check for split format (directory-based)
         if dir_path.is_dir():
-            # Verify it has the metadata file to confirm it's a valid split campaign
-            metadata_file = dir_path / "metadata.json"
-            if metadata_file.exists():
+            # Verify it has the campaign.json file to confirm it's a valid split campaign
+            campaign_file = dir_path / "campaign.json"
+            if campaign_file.exists():
                 logger.debug(f"📂 Campaign '{campaign_name}' detected as SPLIT format")
                 return StorageFormat.SPLIT
             else:
-                logger.warning(f"⚠️ Directory exists for '{campaign_name}' but missing metadata.json")
+                logger.warning(f"⚠️ Directory exists for '{campaign_name}' but missing campaign.json")
 
         # Check for monolithic format (single file)
         if file_path.is_file():
@@ -143,6 +146,9 @@ class DnDStorage:
         self._batch_mode = True
         try:
             yield
+            # Sync with split backend if using split format
+            if self._current_format == StorageFormat.SPLIT and self._current_campaign:
+                self._split_backend._current_campaign = self._current_campaign
             self._save_campaign(force=True)  # Single save at the end
         finally:
             self._batch_mode = False
@@ -194,15 +200,19 @@ class DnDStorage:
             json.dump(campaign_data, f, default=str)
 
     def _save_split_campaign(self) -> None:
-        """Save campaign using split directory structure (new format).
+        """Save campaign using split directory structure (new format)."""
+        if not self._current_campaign:
+            return
 
-        This is a placeholder for Task #2 implementation.
-        """
-        # TODO: This will be implemented in Task #2 by another agent
-        raise NotImplementedError(
-            "Split storage format is not yet implemented. "
-            "This will be added in Task #2 (SplitStorageBackend)."
-        )
+        logger.debug(f"💾 Saving campaign '{self._current_campaign.name}' using split format")
+
+        # Sync current campaign to split backend
+        self._split_backend._current_campaign = self._current_campaign
+
+        # Use split backend to save all files
+        self._split_backend.save_all(force=False)
+
+        logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully (split format).")
 
     def _load_current_campaign(self):
         """Load the most recently used campaign."""
@@ -225,11 +235,11 @@ class DnDStorage:
         if campaign_files:
             all_campaigns.extend(campaign_files)
         if campaign_dirs:
-            # For directories, check metadata.json modification time
+            # For directories, check campaign.json modification time
             for d in campaign_dirs:
-                metadata_file = d / "metadata.json"
-                if metadata_file.exists():
-                    all_campaigns.append(metadata_file)
+                campaign_file = d / "campaign.json"
+                if campaign_file.exists():
+                    all_campaigns.append(campaign_file)
 
         if not all_campaigns:
             logger.debug("❌ No valid campaigns found.")
@@ -240,7 +250,7 @@ class DnDStorage:
         logger.debug(f"📂 Most recent campaign file is '{latest_file.name}'.")
 
         # Determine campaign name from the file/directory
-        if latest_file.name == "metadata.json":
+        if latest_file.name == "campaign.json":
             # Split format: campaign name is the parent directory
             campaign_name = latest_file.parent.name
         else:
@@ -283,28 +293,25 @@ class DnDStorage:
     def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None) -> Campaign:
         """Create a new campaign using split storage format."""
         logger.info(f"✨ Creating new campaign: '{name}'")
-        game_state = GameState(campaign_name=name)
 
-        campaign = Campaign(
+        # Use split backend to create the campaign
+        campaign = self._split_backend.create_campaign(
             name=name,
             description=description,
             dm_name=dm_name,
-            setting=setting,
-            game_state=game_state
+            setting=setting
         )
 
+        # Sync to main storage
         self._current_campaign = campaign
-        self._character_id_index.clear()  # New campaign, empty indexes
-        self._player_name_index.clear()
+        self._current_format = StorageFormat.SPLIT
 
-        # New campaigns use split format (will be implemented in Task #2)
-        # For now, fall back to monolithic format until split backend is ready
-        logger.debug("📂 New campaigns will use SPLIT format (pending Task #2 implementation)")
-        # TODO: Change to StorageFormat.SPLIT when Task #2 is complete
-        self._current_format = StorageFormat.MONOLITHIC
+        # Rebuild indexes for new campaign
+        self._rebuild_character_index()
 
-        self._save_campaign(force=True)  # Force save for new campaign
+        # Update campaign hash
         self._campaign_hash = self._compute_campaign_hash()
+
         logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format.")
         return campaign
 
@@ -324,11 +331,11 @@ class DnDStorage:
         for f in campaigns_dir.glob("*.json"):
             campaigns.append(f.stem)
 
-        # Find split campaigns (directories with metadata.json)
+        # Find split campaigns (directories with campaign.json)
         for d in campaigns_dir.iterdir():
             if d.is_dir():
-                metadata_file = d / "metadata.json"
-                if metadata_file.exists():
+                campaign_file = d / "campaign.json"
+                if campaign_file.exists():
                     campaigns.append(d.name)
 
         return sorted(campaigns)
@@ -349,6 +356,8 @@ class DnDStorage:
             campaign = self._load_monolithic_campaign(name)
         elif storage_format == StorageFormat.SPLIT:
             campaign = self._load_split_campaign(name)
+            # Sync split backend with loaded campaign
+            self._split_backend._current_campaign = campaign
         else:
             raise ValueError(f"Unknown storage format: {storage_format}")
 
@@ -370,16 +379,14 @@ class DnDStorage:
         return Campaign.model_validate(data)
 
     def _load_split_campaign(self, name: str) -> Campaign:
-        """Load a campaign from split directory structure (new format).
+        """Load a campaign from split directory structure (new format)."""
+        logger.debug(f"📂 Loading split campaign: '{name}'")
 
-        This is a placeholder for Task #2 implementation.
-        """
-        # TODO: This will be implemented in Task #2 by another agent
-        # For now, raise NotImplementedError
-        raise NotImplementedError(
-            "Split storage format is not yet implemented. "
-            "This will be added in Task #2 (SplitStorageBackend)."
-        )
+        # Use split backend to load campaign
+        campaign = self._split_backend.load_campaign(name)
+
+        logger.debug(f"✅ Successfully loaded split campaign: '{name}'")
+        return campaign
 
     def update_campaign(self, **kwargs):
         """Update campaign metadata."""
@@ -717,11 +724,12 @@ class SplitStorageBackend:
     - Atomic writes (write to temp file, then rename)
     """
 
-    def __init__(self, data_dir: str | Path = "dnd_data"):
+    def __init__(self, data_dir: str | Path = "dnd_data", auto_load: bool = True):
         """Initialize split storage backend.
 
         Args:
             data_dir: Base directory for all campaign data
+            auto_load: If True, automatically load the most recent campaign
         """
         self.data_dir = Path(data_dir)
         logger.debug(f"📂 Initializing SplitStorageBackend with data_dir: {self.data_dir.resolve()}")
@@ -744,10 +752,11 @@ class SplitStorageBackend:
             "game_state": "",
         }
 
-        # Load existing data
-        logger.debug("📂 Loading initial data...")
-        self._load_current_campaign()
-        logger.debug("✅ Initial data loaded.")
+        # Load existing data if auto_load is enabled
+        if auto_load:
+            logger.debug("📂 Loading initial data...")
+            self._load_current_campaign()
+            logger.debug("✅ Initial data loaded.")
 
     def _get_campaign_dir(self, campaign_name: str | None = None) -> Path:
         """Get the directory path for a campaign.
