@@ -181,6 +181,35 @@ The Game State connects all other models:
 - Experience point calculations
 - D&D 5e mechanics support
 
+### 📚 PDF Rulebook Library
+
+Use your own third-party and homebrew content from PDF and Markdown files:
+
+- **Drop & Use**: Place PDFs in the library folder - they're automatically indexed
+- **Smart Indexing**: Table of contents extracted for quick content discovery
+- **On-Demand Extraction**: Extract specific classes, races, spells, or monsters when needed
+- **Cross-Campaign Sharing**: Library content available to all your campaigns
+- **Natural Language Search**: Ask questions like "find a tanky spellcaster class"
+- **Campaign Binding**: Enable/disable specific content per campaign
+
+**Supported content types:**
+- Classes and subclasses
+- Races
+- Spells
+- Monsters
+- Feats
+- Items
+- Backgrounds
+
+```
+dnd_data/library/
+├── pdfs/                  # Drop your PDFs and Markdown files here
+├── index/                 # Auto-generated TOC indexes
+└── extracted/             # Cached extracted content
+```
+
+> **Note:** The `dnd_data/` folder (containing campaigns and library content) is excluded from version control via `.gitignore`.
+
 ## 💾 Installation
 
 ### Prerequisites
@@ -303,7 +332,7 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 6.  **Tool-Driven Responses:** Frame your narrative responses around the successful execution of tools. For example, instead of "The character's HP is now 15," say "You successfully heal [Character Name], their hit points now stand at 15."
 ```
 
-## Available Tools (25+ FastMCP Tools)
+## Available Tools (50+ FastMCP Tools)
 
 ### Campaign Management
 
@@ -354,6 +383,7 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 ### Session Management
 
 - `add_session_note` - Add session notes and summary
+- `summarize_session` - Generate structured session notes from transcription
 - `get_sessions` - Get all session notes
 
 ### Adventure Log
@@ -361,10 +391,34 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 - `add_event` - Add event to adventure log
 - `get_events` - Get events (with filtering and search)
 
+### Rulebook System
+
+- `load_rulebook` - Load an official SRD or custom rulebook
+- `list_rulebooks` - List all active rulebooks in the campaign
+- `unload_rulebook` - Remove a rulebook from the campaign
+- `search_rules` - Search for rules content across all loaded rulebooks
+- `get_class_info` - Get full class definition from loaded rulebooks
+- `get_race_info` - Get full race definition from loaded rulebooks
+- `get_spell_info` - Get spell details from loaded rulebooks
+- `get_monster_info` - Get monster stat block from loaded rulebooks
+- `validate_character_rules` - Validate a character against loaded rulebooks
+
 ### Utility Tools
 
 - `roll_dice` - Roll dice with D&D notation (e.g., "1d20", "3d6+2")
 - `calculate_experience` - Calculate XP distribution for encounters
+
+### PDF Rulebook Library
+
+- `scan_library` - Scan library folder for new PDF/Markdown files and index them
+- `list_library` - List all sources in the library with content summaries
+- `get_library_toc` - Get table of contents for a specific source
+- `search_library` - Search across all indexed library content
+- `ask_books` - Natural language queries across your rulebooks
+- `extract_content` - Extract specific content (class, race, spell, etc.) from a source
+- `enable_library_source` - Enable a library source for the current campaign
+- `disable_library_source` - Disable a library source for the current campaign
+- `list_enabled_library` - Show what library content is enabled for the campaign
 
 ## 💽 Data Structure
 
@@ -498,6 +552,47 @@ To run the test suite, use the following command:
 ```bash
 uv run pytest
 ```
+
+## 🔮 Roadmap: Claudmaster - Autonomous AI Dungeon Master
+
+The next major feature in development is **Claudmaster**, an autonomous AI Dungeon Master system that will transform gamemaster-mcp from a campaign tracker into a complete AI-powered D&D experience.
+
+### Planned Features
+
+**Multi-Agent Architecture**
+- **Narrator Agent**: Scene descriptions, NPC dialogue, atmosphere
+- **Archivist Agent**: Game state management, rules lookup, combat
+- **Module Keeper Agent**: RAG-based access to adventure module content
+- **Consistency Engine**: Fact tracking, contradiction detection
+
+**Module Integration**
+- Play published adventures (Curse of Strahd, Lost Mines of Phandelver, etc.)
+- AI follows module plot while adapting to player choices
+- No more need for "solo adventure" books - use standard modules
+
+**Improvisation Control**
+Configure how closely the AI follows written modules:
+| Level | Description |
+|-------|-------------|
+| None | Read module text verbatim |
+| Low | Minor embellishments only |
+| Medium | Follow plot, flexible dialogue (recommended) |
+| High | Key beats only, major creative freedom |
+| Full | Module as inspiration, complete sandbox |
+
+**Play Modes**
+- **Solo Play**: Full AI DM experience with AI-controlled companion NPCs
+- **Group Play**: AI runs the adventure for multiple players
+- **DM Assistant**: Human DM with AI handling descriptions and minor NPCs
+
+### Design Principles
+
+Based on academic research ([arxiv:2502.19519v2](https://arxiv.org/html/2502.19519v2)):
+- Multi-agent approach outperforms single-agent in player experience
+- AI should be proactive ("guiding") not reactive ("guided by player")
+- Session memory and fact tracking are essential for immersion
+
+**Status**: In development. See [PRD](/.claude/prds/claudmaster-ai-dm.md) for full specification.
 
 ## 📜 License
 
