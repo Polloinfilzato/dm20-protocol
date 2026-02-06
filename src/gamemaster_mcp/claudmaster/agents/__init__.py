@@ -16,6 +16,13 @@ from .archivist import (
     QueryType,
     StateCache,
 )
+from .module_keeper import (
+    ModuleKeeperAgent,
+    NPCKnowledge,
+    LocationDescription,
+    EncounterTrigger,
+    PlotContext,
+)
 
 __all__ = [
     "NarratorAgent",
@@ -35,4 +42,10 @@ __all__ = [
     "QueryResult",
     "QueryType",
     "StateCache",
+    # Module Keeper Agent exports
+    "ModuleKeeperAgent",
+    "NPCKnowledge",
+    "LocationDescription",
+    "EncounterTrigger",
+    "PlotContext",
 ]
