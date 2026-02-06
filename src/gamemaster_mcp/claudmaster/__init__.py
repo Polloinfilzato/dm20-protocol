@@ -15,10 +15,30 @@ Public API exports the base Agent class and related types.
 """
 
 from .base import Agent, AgentRequest, AgentResponse, AgentRole
+from .orchestrator import (
+    IntentType,
+    PlayerIntent,
+    OrchestratorResponse,
+    TurnResult,
+    OrchestratorError,
+    AgentTimeoutError,
+    AgentExecutionError,
+    IntentClassificationError,
+    Orchestrator,
+)
 
 __all__ = [
     "Agent",
     "AgentRequest",
     "AgentResponse",
     "AgentRole",
+    "IntentType",
+    "PlayerIntent",
+    "OrchestratorResponse",
+    "TurnResult",
+    "OrchestratorError",
+    "AgentTimeoutError",
+    "AgentExecutionError",
+    "IntentClassificationError",
+    "Orchestrator",
 ]
