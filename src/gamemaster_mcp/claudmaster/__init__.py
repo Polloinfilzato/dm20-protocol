@@ -15,6 +15,7 @@ Public API exports the base Agent class and related types.
 """
 
 from .base import Agent, AgentRequest, AgentResponse, AgentRole
+from .module_indexer import ChunkConfig, IndexingResult, ModuleIndexer
 from .orchestrator import (
     IntentType,
     PlayerIntent,
@@ -28,12 +29,30 @@ from .orchestrator import (
     IntentClassificationError,
     Orchestrator,
 )
+from .agents.archivist import (
+    ArchivistAgent,
+    HPStatus,
+    CharacterStats,
+    InventoryItem,
+    Inventory,
+    Condition,
+    InitiativeEntry,
+    CombatState,
+    AvailableAction,
+    RuleResult,
+    QueryResult,
+    QueryType,
+    StateCache,
+)
 
 __all__ = [
     "Agent",
     "AgentRequest",
     "AgentResponse",
     "AgentRole",
+    "ChunkConfig",
+    "IndexingResult",
+    "ModuleIndexer",
     "IntentType",
     "PlayerIntent",
     "WeightedPattern",
@@ -45,4 +64,18 @@ __all__ = [
     "AgentExecutionError",
     "IntentClassificationError",
     "Orchestrator",
+    # Archivist Agent (Issue #43)
+    "ArchivistAgent",
+    "HPStatus",
+    "CharacterStats",
+    "InventoryItem",
+    "Inventory",
+    "Condition",
+    "InitiativeEntry",
+    "CombatState",
+    "AvailableAction",
+    "RuleResult",
+    "QueryResult",
+    "QueryType",
+    "StateCache",
 ]
