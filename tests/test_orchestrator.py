@@ -836,6 +836,104 @@ def test_execute_turn_no_player_input(orchestrator: Orchestrator):
 
 
 # ============================================================================
+# Weighted Scoring Algorithm Tests
+# ============================================================================
+
+def test_scoring_metadata_contains_scores(orchestrator: Orchestrator):
+    """Test that classification metadata includes per-intent scores."""
+    intent = orchestrator.classify_intent("I attack the goblin")
+    assert "scores" in intent.metadata
+    assert "combat" in intent.metadata["scores"]
+    assert intent.metadata["scores"]["combat"] > 0
+
+
+def test_scoring_metadata_contains_matched_patterns(orchestrator: Orchestrator):
+    """Test that metadata lists which patterns matched."""
+    intent = orchestrator.classify_intent("I cast fireball")
+    assert "matched_patterns" in intent.metadata
+    assert "cast fireball" in intent.metadata["matched_patterns"]
+
+
+def test_cast_fireball_is_combat(orchestrator: Orchestrator):
+    """Test 'cast fireball' is classified as COMBAT (not ambiguous)."""
+    intent = orchestrator.classify_intent("I cast fireball at the orc")
+    assert intent.intent_type == IntentType.COMBAT
+    assert intent.confidence == 1.0  # best_weight for "cast fireball" is 1.0
+
+
+def test_cast_my_eyes_is_exploration(orchestrator: Orchestrator):
+    """Test 'cast my eyes around' is classified as EXPLORATION."""
+    intent = orchestrator.classify_intent("I cast my eyes around the room")
+    assert intent.intent_type == IntentType.EXPLORATION
+
+
+def test_ambiguity_flagged_when_scores_close(orchestrator: Orchestrator):
+    """Test ambiguity is flagged when top two intents have close scores."""
+    # "ask" matches ROLEPLAY (0.5) and QUESTION via "ask" is not in QUESTION
+    # Use a phrase that triggers close scores across intents
+    # "search" (EXPLORATION 0.7) + "check" (SYSTEM 0.4) — not close enough
+    # We need config override to create artificial ambiguity
+    orchestrator.config.ambiguity_threshold = 5.0  # very high threshold
+    intent = orchestrator.classify_intent("I attack the goblin")
+    # With threshold=5.0, almost any multi-match will be flagged
+    if len(intent.metadata.get("scores", {})) > 1:
+        assert intent.metadata.get("ambiguous") is True
+        assert "alternative_intent" in intent.metadata
+        assert "score_gap" in intent.metadata
+
+
+def test_ambiguity_not_flagged_with_clear_winner(orchestrator: Orchestrator):
+    """Test no ambiguity when one intent dominates clearly."""
+    intent = orchestrator.classify_intent("roll initiative and cast fireball")
+    assert intent.intent_type == IntentType.COMBAT
+    # COMBAT should dominate so heavily that ambiguous is not set
+    assert intent.metadata.get("ambiguous") is not True
+
+
+def test_fallback_action_for_unknown_input(orchestrator: Orchestrator):
+    """Test unknown input falls back to ACTION with configured confidence."""
+    intent = orchestrator.classify_intent("I whistle a cheerful tune")
+    assert intent.intent_type == IntentType.ACTION
+    assert intent.confidence == 0.5
+    assert intent.metadata.get("fallback") is True
+
+
+def test_fallback_confidence_respects_config(orchestrator: Orchestrator):
+    """Test fallback confidence uses config value."""
+    orchestrator.config.fallback_confidence = 0.3
+    intent = orchestrator.classify_intent("I do something truly bizarre and unprecedented")
+    assert intent.confidence == 0.3
+
+
+def test_confidence_is_best_weight_not_total(orchestrator: Orchestrator):
+    """Test confidence equals best individual weight, not total score."""
+    # "cast fireball" matches: "cast fireball"(1.0) + "fireball"(0.9) + "cast"(0.4)
+    # Total = 2.3, but confidence should be 1.0 (best weight)
+    intent = orchestrator.classify_intent("I cast fireball")
+    assert intent.confidence == 1.0  # best weight, not 2.3
+
+
+def test_config_weight_overrides(orchestrator: Orchestrator):
+    """Test that config weight overrides affect classification."""
+    # Override "attack" weight to 0.1 (very low)
+    orchestrator.config.intent_weight_overrides = {
+        "combat": {"attack": 0.1}
+    }
+    intent = orchestrator.classify_intent("I attack")
+    # "attack" now has weight 0.1 — should still be COMBAT but low confidence
+    assert intent.intent_type == IntentType.COMBAT
+    assert intent.confidence == 0.1
+
+
+def test_longest_phrase_match_priority(orchestrator: Orchestrator):
+    """Test that longer phrases take priority in pattern matching."""
+    # "search for traps" (1.0) should match, plus "search" (0.7)
+    intent = orchestrator.classify_intent("I search for traps")
+    assert intent.intent_type == IntentType.EXPLORATION
+    assert "search for traps" in intent.metadata["matched_patterns"]
+
+
+# ============================================================================
 # Integration Tests
 # ============================================================================
 

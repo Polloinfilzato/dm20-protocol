@@ -266,7 +266,8 @@ class TestConfigSerialization:
         expected_fields = {
             "llm_provider", "llm_model", "max_tokens", "temperature",
             "improvisation_level", "agent_timeout", "narrative_style",
-            "dialogue_style", "difficulty", "fudge_rolls", "house_rules"
+            "dialogue_style", "difficulty", "fudge_rolls", "house_rules",
+            "ambiguity_threshold", "intent_weight_overrides", "fallback_confidence"
         }
         assert set(dumped.keys()) == expected_fields
 
@@ -284,3 +285,44 @@ class TestConfigSerialization:
         assert dumped["improvisation_level"] == 3
         assert dumped["difficulty"] == "deadly"
         assert dumped["house_rules"] == {"custom_rule": "value"}
+
+
+class TestIntentClassificationConfig:
+    """Tests for intent classification config fields."""
+
+    def test_default_ambiguity_threshold(self) -> None:
+        config = ClaudmasterConfig()
+        assert config.ambiguity_threshold == 0.3
+
+    def test_default_intent_weight_overrides(self) -> None:
+        config = ClaudmasterConfig()
+        assert config.intent_weight_overrides == {}
+
+    def test_default_fallback_confidence(self) -> None:
+        config = ClaudmasterConfig()
+        assert config.fallback_confidence == 0.5
+
+    def test_custom_ambiguity_threshold(self) -> None:
+        config = ClaudmasterConfig(ambiguity_threshold=0.5)
+        assert config.ambiguity_threshold == 0.5
+
+    def test_ambiguity_threshold_bounds(self) -> None:
+        ClaudmasterConfig(ambiguity_threshold=0.0)
+        ClaudmasterConfig(ambiguity_threshold=2.0)
+        with pytest.raises(ValidationError):
+            ClaudmasterConfig(ambiguity_threshold=-0.1)
+        with pytest.raises(ValidationError):
+            ClaudmasterConfig(ambiguity_threshold=2.1)
+
+    def test_custom_intent_weight_overrides(self) -> None:
+        overrides = {"combat": {"attack": 0.9, "strike": 0.7}}
+        config = ClaudmasterConfig(intent_weight_overrides=overrides)
+        assert config.intent_weight_overrides == overrides
+
+    def test_fallback_confidence_bounds(self) -> None:
+        ClaudmasterConfig(fallback_confidence=0.0)
+        ClaudmasterConfig(fallback_confidence=1.0)
+        with pytest.raises(ValidationError):
+            ClaudmasterConfig(fallback_confidence=-0.1)
+        with pytest.raises(ValidationError):
+            ClaudmasterConfig(fallback_confidence=1.1)

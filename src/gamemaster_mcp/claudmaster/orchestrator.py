@@ -52,6 +52,12 @@ class PlayerIntent(BaseModel):
     )
 
 
+class WeightedPattern(BaseModel):
+    """A phrase pattern with associated weight for intent classification."""
+    phrase: str = Field(description="Multi-word phrase to match (lowercased)")
+    weight: float = Field(ge=0.0, le=1.0, description="Confidence contribution (0.0-1.0)")
+
+
 class OrchestratorResponse(BaseModel):
     """Aggregated response from all agents."""
     narrative: str = Field(description="The primary narrative text presented to the player")
@@ -79,6 +85,143 @@ class TurnResult(BaseModel):
         default_factory=datetime.now,
         description="Timestamp when the turn completed"
     )
+
+
+# ============================================================================
+# Default Intent Patterns (weighted, multi-word phrases first)
+# ============================================================================
+
+DEFAULT_INTENT_PATTERNS: dict[IntentType, list[WeightedPattern]] = {
+    IntentType.COMBAT: [
+        # Multi-word D&D combat phrases (high weight)
+        WeightedPattern(phrase="roll initiative", weight=1.0),
+        WeightedPattern(phrase="cast fireball", weight=1.0),
+        WeightedPattern(phrase="cast spell", weight=0.9),
+        WeightedPattern(phrase="cast eldritch blast", weight=1.0),
+        WeightedPattern(phrase="cast magic missile", weight=1.0),
+        WeightedPattern(phrase="cast healing word", weight=0.8),
+        WeightedPattern(phrase="sneak attack", weight=1.0),
+        WeightedPattern(phrase="opportunity attack", weight=1.0),
+        # Single combat keywords (medium weight)
+        WeightedPattern(phrase="attack", weight=0.8),
+        WeightedPattern(phrase="fight", weight=0.8),
+        WeightedPattern(phrase="strike", weight=0.7),
+        WeightedPattern(phrase="rage", weight=0.8),
+        WeightedPattern(phrase="smite", weight=0.9),
+        WeightedPattern(phrase="shoot", weight=0.7),
+        WeightedPattern(phrase="stab", weight=0.8),
+        WeightedPattern(phrase="punch", weight=0.7),
+        WeightedPattern(phrase="kick", weight=0.6),
+        WeightedPattern(phrase="grapple", weight=0.8),
+        WeightedPattern(phrase="shove", weight=0.6),
+        WeightedPattern(phrase="dodge", weight=0.7),
+        WeightedPattern(phrase="disengage", weight=0.7),
+        WeightedPattern(phrase="fireball", weight=0.9),
+        # Ambiguous words (low weight — can appear in non-combat contexts)
+        WeightedPattern(phrase="cast", weight=0.4),
+        WeightedPattern(phrase="spell", weight=0.5),
+        WeightedPattern(phrase="initiative", weight=0.6),
+    ],
+    IntentType.EXPLORATION: [
+        # Multi-word exploration phrases (high weight)
+        WeightedPattern(phrase="perception check", weight=1.0),
+        WeightedPattern(phrase="cast my eyes", weight=0.8),
+        WeightedPattern(phrase="look around", weight=0.9),
+        WeightedPattern(phrase="search for traps", weight=1.0),
+        WeightedPattern(phrase="search for", weight=0.8),
+        # Single exploration keywords (medium weight)
+        WeightedPattern(phrase="look", weight=0.7),
+        WeightedPattern(phrase="examine", weight=0.8),
+        WeightedPattern(phrase="search", weight=0.7),
+        WeightedPattern(phrase="investigate", weight=0.8),
+        WeightedPattern(phrase="inspect", weight=0.8),
+        WeightedPattern(phrase="peek", weight=0.7),
+        WeightedPattern(phrase="listen", weight=0.7),
+        WeightedPattern(phrase="smell", weight=0.6),
+        WeightedPattern(phrase="touch", weight=0.5),
+        WeightedPattern(phrase="taste", weight=0.5),
+        WeightedPattern(phrase="explore", weight=0.8),
+        WeightedPattern(phrase="scout", weight=0.8),
+    ],
+    IntentType.ROLEPLAY: [
+        # Multi-word roleplay phrases
+        WeightedPattern(phrase="introduce myself", weight=0.9),
+        WeightedPattern(phrase="talk to", weight=0.8),
+        WeightedPattern(phrase="speak with", weight=0.8),
+        WeightedPattern(phrase="try to persuade", weight=1.0),
+        WeightedPattern(phrase="try to intimidate", weight=1.0),
+        # Single roleplay keywords
+        WeightedPattern(phrase="persuade", weight=0.8),
+        WeightedPattern(phrase="intimidate", weight=0.8),
+        WeightedPattern(phrase="deception", weight=0.8),
+        WeightedPattern(phrase="insight", weight=0.7),
+        WeightedPattern(phrase="talk", weight=0.6),
+        WeightedPattern(phrase="speak", weight=0.6),
+        WeightedPattern(phrase="say", weight=0.5),
+        WeightedPattern(phrase="ask", weight=0.5),
+        WeightedPattern(phrase="tell", weight=0.5),
+        WeightedPattern(phrase="chat", weight=0.6),
+        WeightedPattern(phrase="converse", weight=0.7),
+        WeightedPattern(phrase="greet", weight=0.6),
+        WeightedPattern(phrase="convince", weight=0.8),
+        WeightedPattern(phrase="lie", weight=0.6),
+        WeightedPattern(phrase="bargain", weight=0.7),
+    ],
+    IntentType.QUESTION: [
+        # Multi-word question starters
+        WeightedPattern(phrase="can i", weight=0.7),
+        WeightedPattern(phrase="could i", weight=0.7),
+        WeightedPattern(phrase="would i", weight=0.7),
+        WeightedPattern(phrase="should i", weight=0.7),
+        WeightedPattern(phrase="is there", weight=0.7),
+        WeightedPattern(phrase="are there", weight=0.7),
+        WeightedPattern(phrase="do you", weight=0.6),
+        # Single question keywords
+        WeightedPattern(phrase="does", weight=0.5),
+        WeightedPattern(phrase="what", weight=0.6),
+        WeightedPattern(phrase="where", weight=0.6),
+        WeightedPattern(phrase="when", weight=0.5),
+        WeightedPattern(phrase="who", weight=0.6),
+        WeightedPattern(phrase="why", weight=0.5),
+        WeightedPattern(phrase="how", weight=0.5),
+    ],
+    IntentType.SYSTEM: [
+        # Multi-word system phrases (high weight)
+        WeightedPattern(phrase="character sheet", weight=1.0),
+        WeightedPattern(phrase="long rest", weight=1.0),
+        WeightedPattern(phrase="short rest", weight=1.0),
+        WeightedPattern(phrase="save game", weight=1.0),
+        WeightedPattern(phrase="load game", weight=1.0),
+        WeightedPattern(phrase="level up", weight=1.0),
+        # Single system keywords (medium weight)
+        WeightedPattern(phrase="inventory", weight=0.8),
+        WeightedPattern(phrase="quit", weight=0.9),
+        WeightedPattern(phrase="exit", weight=0.9),
+        WeightedPattern(phrase="help", weight=0.7),
+        WeightedPattern(phrase="status", weight=0.7),
+        WeightedPattern(phrase="stats", weight=0.8),
+        WeightedPattern(phrase="rest", weight=0.6),
+        WeightedPattern(phrase="show", weight=0.5),
+        WeightedPattern(phrase="check", weight=0.4),
+    ],
+    IntentType.ACTION: [
+        # General action phrases (low weight, catch-all category)
+        WeightedPattern(phrase="i try to", weight=0.5),
+        WeightedPattern(phrase="i attempt to", weight=0.5),
+        WeightedPattern(phrase="i want to", weight=0.4),
+        WeightedPattern(phrase="open", weight=0.4),
+        WeightedPattern(phrase="close", weight=0.4),
+        WeightedPattern(phrase="use", weight=0.4),
+        WeightedPattern(phrase="take", weight=0.4),
+        WeightedPattern(phrase="drop", weight=0.4),
+        WeightedPattern(phrase="move", weight=0.4),
+        WeightedPattern(phrase="go", weight=0.3),
+        WeightedPattern(phrase="run", weight=0.4),
+        WeightedPattern(phrase="jump", weight=0.5),
+        WeightedPattern(phrase="climb", weight=0.5),
+        WeightedPattern(phrase="swim", weight=0.5),
+    ],
+}
 
 
 # ============================================================================
@@ -221,18 +364,54 @@ class Orchestrator:
 
         logger.info(f"Ended session {session_id} after {turn_count} turns")
 
+    def _get_intent_patterns(self) -> dict[IntentType, list[WeightedPattern]]:
+        """
+        Build the intent patterns dict by merging defaults with config overrides.
+
+        Config overrides in ``self.config.intent_weight_overrides`` use
+        string keys (e.g. ``{"combat": {"attack": 0.9}}``).  For each
+        override entry the matching default pattern weight is replaced,
+        or a new pattern is appended.
+
+        Returns:
+            Merged intent pattern mapping.
+        """
+        import copy
+        patterns = copy.deepcopy(DEFAULT_INTENT_PATTERNS)
+
+        for intent_key, phrase_overrides in self.config.intent_weight_overrides.items():
+            try:
+                intent_type = IntentType(intent_key)
+            except ValueError:
+                logger.warning(f"Unknown intent type in overrides: {intent_key}")
+                continue
+
+            existing = patterns.setdefault(intent_type, [])
+            existing_phrases = {p.phrase: p for p in existing}
+
+            for phrase, weight in phrase_overrides.items():
+                phrase_lower = phrase.lower()
+                if phrase_lower in existing_phrases:
+                    existing_phrases[phrase_lower].weight = weight
+                else:
+                    existing.append(WeightedPattern(phrase=phrase_lower, weight=weight))
+
+        return patterns
+
     def classify_intent(self, player_input: str) -> PlayerIntent:
         """
-        Classify player input into an intent type using pattern matching.
+        Classify player input into an intent type using weighted pattern scoring.
 
-        This is a simple keyword-based classifier. For production use,
-        consider replacing with an LLM-based classifier for better accuracy.
+        For each IntentType, patterns are matched against the input and their
+        weights are accumulated.  The intent with the highest total score wins.
+        If the gap between the top two scores is below ``ambiguity_threshold``,
+        the result is flagged as ambiguous via metadata.
 
         Args:
             player_input: Raw text from the player
 
         Returns:
-            Classified PlayerIntent with confidence score
+            Classified PlayerIntent with confidence score and scoring metadata
 
         Raises:
             IntentClassificationError: If classification fails
@@ -242,60 +421,60 @@ class Orchestrator:
 
         input_lower = player_input.lower().strip()
 
-        # TODO(human): Define the keyword-to-intent mapping strategy
-        # Consider: should keywords be exact match, substring, or regex?
-        # Should confidence be binary or weighted by match specificity?
-        # Current implementation uses simple substring matching with fixed confidence.
-        # Longer patterns are checked first to avoid premature matches.
+        intent_patterns = self._get_intent_patterns()
+        ambiguity_threshold = self.config.ambiguity_threshold
 
-        intent_patterns: dict[IntentType, list[str]] = {
-            IntentType.COMBAT: [
-                "roll initiative", "cast spell", "attack", "fight", "strike",
-                "rage", "smite", "shoot", "stab", "punch", "kick", "grapple",
-                "shove", "initiative", "dodge", "disengage", "cast", "fireball",
-                "spell"
-            ],
-            IntentType.SYSTEM: [
-                "character sheet", "long rest", "short rest", "save game",
-                "load game", "level up", "inventory", "quit", "exit", "help",
-                "status", "stats", "rest", "show", "check"
-            ],
-            IntentType.EXPLORATION: [
-                "perception check", "look", "examine", "search", "investigate",
-                "inspect", "peek", "listen", "smell", "touch", "taste",
-                "explore", "scout"
-            ],
-            IntentType.ROLEPLAY: [
-                "persuade", "intimidate", "deception", "insight", "talk",
-                "speak", "say", "ask", "tell", "chat", "converse",
-                "greet", "introduce", "convince", "lie", "bargain"
-            ],
-            IntentType.QUESTION: [
-                "can i", "could i", "would i", "should i", "is there",
-                "are there", "do you", "does", "what", "where", "when",
-                "who", "why", "how"
-            ]
+        # Step A: Score accumulation — match patterns and accumulate weights
+        scores: dict[IntentType, float] = {}
+        best_weights: dict[IntentType, float] = {}
+        all_matched: dict[IntentType, list[str]] = {}
+
+        for intent_type, patterns in intent_patterns.items():
+            sorted_patterns = sorted(patterns, key=lambda p: len(p.phrase), reverse=True)
+            total = 0.0
+            best = 0.0
+            matched: list[str] = []
+            for p in sorted_patterns:
+                if p.phrase in input_lower:
+                    total += p.weight
+                    best = max(best, p.weight)
+                    matched.append(p.phrase)
+            if total > 0:
+                scores[intent_type] = total
+                best_weights[intent_type] = best
+                all_matched[intent_type] = matched
+
+        # Step B: No matches → fallback to ACTION
+        if not scores:
+            logger.debug(f"No pattern match for input '{player_input}', defaulting to ACTION")
+            return PlayerIntent(
+                intent_type=IntentType.ACTION,
+                confidence=self.config.fallback_confidence,
+                raw_input=player_input,
+                metadata={"fallback": True},
+            )
+
+        # Step C: Find winner and runner-up, check ambiguity
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        winner_type, winner_score = ranked[0]
+        runner_up_type, runner_up_score = ranked[1] if len(ranked) > 1 else (None, 0.0)
+
+        score_gap = winner_score - runner_up_score
+        metadata: dict[str, Any] = {
+            "matched_patterns": all_matched.get(winner_type, []),
+            "scores": {k.value: v for k, v in scores.items()},
         }
+        if runner_up_type is not None and score_gap < ambiguity_threshold:
+            metadata["ambiguous"] = True
+            metadata["alternative_intent"] = runner_up_type.value
+            metadata["score_gap"] = score_gap
 
-        # Sort keywords by length (longest first) to match specific patterns before generic ones
-        for intent_type, keywords in intent_patterns.items():
-            sorted_keywords = sorted(keywords, key=len, reverse=True)
-            for keyword in sorted_keywords:
-                if keyword in input_lower:
-                    return PlayerIntent(
-                        intent_type=intent_type,
-                        confidence=0.8,  # High confidence for keyword match
-                        raw_input=player_input,
-                        metadata={"matched_keyword": keyword}
-                    )
-
-        # Default fallback: classify as ACTION with medium confidence
-        logger.debug(f"No pattern match for input '{player_input}', defaulting to ACTION")
+        # Step D: Return intent — confidence = best individual weight of winner
         return PlayerIntent(
-            intent_type=IntentType.ACTION,
-            confidence=0.5,  # Medium confidence for default
+            intent_type=winner_type,
+            confidence=min(best_weights[winner_type], 1.0),
             raw_input=player_input,
-            metadata={"fallback": True}
+            metadata=metadata,
         )
 
     def _get_agents_for_intent(self, intent: PlayerIntent) -> list[Agent]:
@@ -391,6 +570,12 @@ class Orchestrator:
         logger.info(f"Processing player input: '{player_input}'")
         intent = self.classify_intent(player_input)
         logger.info(f"Classified intent: {intent.intent_type} (confidence: {intent.confidence:.2f})")
+
+        if intent.metadata.get("ambiguous"):
+            logger.warning(
+                f"Ambiguous intent: {intent.intent_type} vs "
+                f"{intent.metadata.get('alternative_intent')}"
+            )
 
         # Add to conversation history
         self.session.add_message("user", player_input)
@@ -563,6 +748,8 @@ class Orchestrator:
 __all__ = [
     "IntentType",
     "PlayerIntent",
+    "WeightedPattern",
+    "DEFAULT_INTENT_PATTERNS",
     "OrchestratorResponse",
     "TurnResult",
     "OrchestratorError",

@@ -74,6 +74,24 @@ class ClaudmasterConfig(BaseModel):
         description="Custom house rules as arbitrary key-value pairs"
     )
 
+    # Intent Classification Settings
+    ambiguity_threshold: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=2.0,
+        description="Score gap below which two intents are considered ambiguous"
+    )
+    intent_weight_overrides: dict[str, dict[str, float]] = Field(
+        default_factory=dict,
+        description="Per-intent keyword weight overrides: {'combat': {'attack': 0.9}}"
+    )
+    fallback_confidence: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Confidence for ACTION fallback when no patterns match"
+    )
+
     @field_validator("improvisation_level")
     @classmethod
     def validate_improvisation_level(cls, v: int) -> int:

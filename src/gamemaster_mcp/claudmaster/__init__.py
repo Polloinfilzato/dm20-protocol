@@ -18,6 +18,8 @@ from .base import Agent, AgentRequest, AgentResponse, AgentRole
 from .orchestrator import (
     IntentType,
     PlayerIntent,
+    WeightedPattern,
+    DEFAULT_INTENT_PATTERNS,
     OrchestratorResponse,
     TurnResult,
     OrchestratorError,
@@ -34,6 +36,8 @@ __all__ = [
     "AgentRole",
     "IntentType",
     "PlayerIntent",
+    "WeightedPattern",
+    "DEFAULT_INTENT_PATTERNS",
     "OrchestratorResponse",
     "TurnResult",
     "OrchestratorError",
