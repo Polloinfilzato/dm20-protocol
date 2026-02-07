@@ -133,6 +133,63 @@ from .consistency import (
     TimelineTracker,
     TimeUnit,
 )
+from .fidelity import (
+    NarrationContext,
+    Deviation,
+    EnforcementResult,
+    FidelityWarning,
+    FidelityAuditEntry,
+    DeviationDetector,
+    FidelityWarningSystem,
+    ForcedTextInjector,
+    FidelityAuditLog,
+    NarratorLockEnforcer,
+    get_applicable_locks,
+)
+from .content_tagging import (
+    ContentOrigin,
+    ContentTag,
+    TaggedSegment,
+    TaggedNarrative,
+    TaggedFact,
+    ContentTagger,
+    TaggedContentStore,
+    SessionNotesFormatter,
+)
+from .turn_manager import (
+    TurnPhase,
+    TurnDistribution,
+    TurnRecord,
+    ActionResult,
+    SimultaneousAction,
+    TurnState,
+    TurnManager,
+)
+from .private_info import (
+    InfoVisibility,
+    PrivateInfo,
+    PrivateMessage,
+    HiddenRoll,
+    SecretKnowledge,
+    PrivateInfoManager,
+)
+from .tools.session_tools import (
+    CampaignSummary,
+    ModuleSummary,
+    GameStateSummary,
+    CharacterSummary,
+    SessionState,
+    SessionManager,
+    start_claudmaster_session,
+)
+from .split_party import (
+    PartyGroup,
+    SplitEvent,
+    ReunificationEvent,
+    MessageResult,
+    SplitProposal,
+    SplitPartyManager,
+)
 
 __all__ = [
     "Agent",
@@ -246,4 +303,55 @@ __all__ = [
     "LocationStateManager",
     # Config
     "ClaudmasterConfig",
+    # Module Fidelity Enforcement (Issue #53)
+    "NarrationContext",
+    "Deviation",
+    "EnforcementResult",
+    "FidelityWarning",
+    "FidelityAuditEntry",
+    "DeviationDetector",
+    "FidelityWarningSystem",
+    "ForcedTextInjector",
+    "FidelityAuditLog",
+    "NarratorLockEnforcer",
+    "get_applicable_locks",
+    # Canonical vs Improvised Tagging (Issue #54)
+    "ContentOrigin",
+    "ContentTag",
+    "TaggedSegment",
+    "TaggedNarrative",
+    "TaggedFact",
+    "ContentTagger",
+    "TaggedContentStore",
+    "SessionNotesFormatter",
+    # Turn Distribution and Management (Issue #60)
+    "TurnPhase",
+    "TurnDistribution",
+    "TurnRecord",
+    "ActionResult",
+    "SimultaneousAction",
+    "TurnState",
+    "TurnManager",
+    # Player-Specific Information (Issue #62)
+    "InfoVisibility",
+    "PrivateInfo",
+    "PrivateMessage",
+    "HiddenRoll",
+    "SecretKnowledge",
+    "PrivateInfoManager",
+    # Session MCP Tools (Issue #63)
+    "CampaignSummary",
+    "ModuleSummary",
+    "GameStateSummary",
+    "CharacterSummary",
+    "SessionState",
+    "SessionManager",
+    "start_claudmaster_session",
+    # Split Party Handling (Issue #61)
+    "PartyGroup",
+    "SplitEvent",
+    "ReunificationEvent",
+    "MessageResult",
+    "SplitProposal",
+    "SplitPartyManager",
 ]
