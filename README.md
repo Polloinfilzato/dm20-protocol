@@ -29,7 +29,13 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 | uv | latest | `uv --version` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | git | any | `git --version` | `xcode-select --install` (macOS) |
 
-## Quick Install
+## Installation
+
+This server implements the open [Model Context Protocol](https://modelcontextprotocol.io/) standard. It works with **any MCP-compatible client** — not just Claude. If your AI tool supports MCP, it can run this server.
+
+**Tested with:** Claude Desktop, Claude Code, Cursor, VS Code (Copilot), Windsurf, Cline, OpenAI Codex, Gemini CLI.
+
+### Quick Install
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mcp/main/install.sh)
@@ -37,16 +43,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mc
 
 The interactive installer handles cloning, dependencies, MCP client configuration, and data directory setup. It detects your CPU architecture and warns about platform-specific limitations.
 
-## Manual Install
+### Manual Install
 
-<details>
-<summary><strong>Claude Desktop</strong></summary>
+Clone and install dependencies (same for all clients):
 
 ```bash
 git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
 cd gamemaster-mcp
 uv sync
 ```
+
+Then configure your client:
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
@@ -72,12 +82,6 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 <details>
 <summary><strong>Claude Code</strong></summary>
 
-```bash
-git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
-cd gamemaster-mcp
-uv sync
-```
-
 Add to `~/.claude/mcp.json` (global) or `.mcp.json` (project-level):
 
 ```json
@@ -99,13 +103,67 @@ Add to `~/.claude/mcp.json` (global) or `.mcp.json` (project-level):
 </details>
 
 <details>
-<summary><strong>Other MCP Clients</strong></summary>
+<summary><strong>Cursor / Windsurf / Cline</strong></summary>
+
+These editors have built-in MCP support. Add the server through their MCP settings UI, or edit the config file directly:
+
+- **Cursor:** `~/.cursor/mcp.json`
+- **Windsurf:** `~/.codeium/windsurf/mcp_config.json`
+- **Cline:** VS Code settings → Cline → MCP Servers
+
+```json
+{
+  "mcpServers": {
+    "gamemaster-mcp": {
+      "command": "uv",
+      "args": ["run", "gamemaster-mcp"],
+      "cwd": "/path/to/gamemaster-mcp",
+      "env": {
+        "GAMEMASTER_STORAGE_DIR": "/path/to/your/data"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>VS Code + GitHub Copilot</strong></summary>
+
+Add to your VS Code `settings.json` or `.vscode/mcp.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "gamemaster-mcp": {
+        "command": "uv",
+        "args": ["run", "gamemaster-mcp"],
+        "cwd": "/path/to/gamemaster-mcp",
+        "env": {
+          "GAMEMASTER_STORAGE_DIR": "/path/to/your/data"
+        }
+      }
+    }
+  }
+}
+```
+
+Requires Copilot Chat in **Agent Mode** (VS Code 1.99+).
+
+</details>
+
+<details>
+<summary><strong>Other MCP Clients (Codex, Gemini CLI, etc.)</strong></summary>
 
 Any MCP-compatible client can use this server. The key configuration:
 
 - **Command:** `uv run gamemaster-mcp`
 - **Working directory:** The cloned repository root
 - **Environment:** `GAMEMASTER_STORAGE_DIR` — path where campaign data is stored (defaults to `./data`)
+
+Refer to your client's documentation for where to add MCP server entries. The transport is **stdio** (the default for most clients).
 
 </details>
 
