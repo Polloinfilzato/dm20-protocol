@@ -70,6 +70,14 @@ from .atmosphere import (
     TensionState,
     SceneContext,
 )
+from .companions import (
+    CombatStyle,
+    CompanionArchetype,
+    PersonalityTraits,
+    CompanionProfile,
+    CompanionManager,
+    ARCHETYPE_TEMPLATES,
+)
 
 __all__ = [
     "Agent",
@@ -127,4 +135,11 @@ __all__ = [
     "SceneType",
     "TensionState",
     "SceneContext",
+    # Companion System (Issue #55)
+    "CombatStyle",
+    "CompanionArchetype",
+    "PersonalityTraits",
+    "CompanionProfile",
+    "CompanionManager",
+    "ARCHETYPE_TEMPLATES",
 ]
