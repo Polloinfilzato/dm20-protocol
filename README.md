@@ -32,7 +32,7 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 ## Quick Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/study-flamingo/gamemaster-mcp/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mcp/main/install.sh)
 ```
 
 The interactive installer handles cloning, dependencies, MCP client configuration, and data directory setup. It detects your CPU architecture and warns about platform-specific limitations.
@@ -43,7 +43,7 @@ The interactive installer handles cloning, dependencies, MCP client configuratio
 <summary><strong>Claude Desktop</strong></summary>
 
 ```bash
-git clone https://github.com/study-flamingo/gamemaster-mcp.git
+git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
 cd gamemaster-mcp
 uv sync
 ```
@@ -73,7 +73,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 <summary><strong>Claude Code</strong></summary>
 
 ```bash
-git clone https://github.com/study-flamingo/gamemaster-mcp.git
+git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
 cd gamemaster-mcp
 uv sync
 ```
@@ -122,7 +122,7 @@ uv sync --extra rag
 ## Development
 
 ```bash
-git clone https://github.com/study-flamingo/gamemaster-mcp.git
+git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
 cd gamemaster-mcp
 uv sync --group dev
 ```

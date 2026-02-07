@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Gamemaster MCP — Interactive Installer
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/study-flamingo/gamemaster-mcp/main/install.sh)
+# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mcp/main/install.sh)
 # Or:    bash install.sh  (from the repo root)
 
 set -euo pipefail
 
 VERSION="0.1.1"
-REPO_URL="https://github.com/study-flamingo/gamemaster-mcp.git"
+REPO_URL="https://github.com/Polloinfilzato/gamemaster-mcp.git"
 
 # ─── Colors ────────────────────────────────────────────────────────────────────
 
@@ -472,7 +472,7 @@ print_summary() {
     echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
     echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
     echo ""
-    echo -e "  ${DIM}Documentation: https://github.com/study-flamingo/gamemaster-mcp${NC}"
+    echo -e "  ${DIM}Documentation: https://github.com/Polloinfilzato/gamemaster-mcp${NC}"
     echo ""
 }
 
