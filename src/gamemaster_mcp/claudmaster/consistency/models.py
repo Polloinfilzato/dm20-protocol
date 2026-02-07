@@ -6,7 +6,7 @@ facts throughout a campaign. Facts are categorized by type (event, location,
 NPC, etc.) and can be linked together to represent relationships.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -109,10 +109,94 @@ class PlayerInteraction(BaseModel):
     location: str = Field(default="", description="Where the interaction took place")
 
 
+class ContradictionType(str, Enum):
+    """Types of contradictions that can occur in the narrative."""
+    TEMPORAL = "temporal"       # Time-based inconsistencies
+    SPATIAL = "spatial"         # Location-based inconsistencies
+    CHARACTER = "character"     # NPC behavior/knowledge contradictions
+    FACTUAL = "factual"         # Contradicts established facts
+    LOGICAL = "logical"         # Logical impossibilities
+
+
+class ContradictionSeverity(str, Enum):
+    """Severity levels for contradictions."""
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+    CRITICAL = "critical"
+
+
+class ResolutionStrategy(str, Enum):
+    """Strategies for resolving contradictions."""
+    RETCON = "retcon"           # Retroactively change the fact
+    EXPLAIN = "explain"         # Explain away the contradiction
+    IGNORE = "ignore"           # Accept minor inconsistency
+    FLAG_FOR_DM = "flag_for_dm" # Escalate to DM decision
+
+
+class Contradiction(BaseModel):
+    """
+    A detected contradiction between a new statement and established facts.
+
+    Tracks contradictions in the narrative to help maintain consistency.
+    Each contradiction includes the conflicting information, severity level,
+    and resolution status.
+
+    Attributes:
+        id: Unique identifier for the contradiction
+        contradiction_type: Type of contradiction (temporal, spatial, etc.)
+        severity: How severe the contradiction is
+        new_statement: The new statement that contradicts established facts
+        conflicting_fact_ids: IDs of facts that conflict with the statement
+        detected_at: When the contradiction was detected
+        session_number: Session when contradiction was detected
+        resolution: Strategy chosen to resolve the contradiction
+        resolution_notes: Additional notes about the resolution
+        resolved: Whether the contradiction has been resolved
+    """
+    id: str = Field(default="", description="Auto-generated if empty")
+    contradiction_type: ContradictionType = Field(description="Type of contradiction")
+    severity: ContradictionSeverity = Field(description="Severity level")
+    new_statement: str = Field(description="The contradicting statement")
+    conflicting_fact_ids: list[str] = Field(default_factory=list, description="IDs of conflicting facts")
+    detected_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When contradiction was detected"
+    )
+    session_number: int = Field(ge=1, description="Session when contradiction was detected")
+    resolution: Optional[ResolutionStrategy] = Field(default=None, description="Resolution strategy")
+    resolution_notes: Optional[str] = Field(default=None, description="Notes about the resolution")
+    resolved: bool = Field(default=False, description="Whether contradiction is resolved")
+
+
+class ResolutionSuggestion(BaseModel):
+    """
+    A suggested strategy for resolving a contradiction.
+
+    Provides recommendations for how to handle a detected contradiction,
+    including confidence level and potential side effects.
+
+    Attributes:
+        strategy: The resolution strategy being suggested
+        description: Human-readable description of the suggestion
+        confidence: How confident the system is in this suggestion (0.0-1.0)
+        side_effects: List of potential side effects of this resolution
+    """
+    strategy: ResolutionStrategy = Field(description="Suggested resolution strategy")
+    description: str = Field(description="Description of the suggestion")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in this suggestion")
+    side_effects: list[str] = Field(default_factory=list, description="Potential side effects")
+
+
 __all__ = [
     "Fact",
     "FactCategory",
     "KnowledgeSource",
     "KnowledgeEntry",
     "PlayerInteraction",
+    "ContradictionType",
+    "ContradictionSeverity",
+    "ResolutionStrategy",
+    "Contradiction",
+    "ResolutionSuggestion",
 ]
