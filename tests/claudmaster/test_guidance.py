@@ -85,7 +85,7 @@ class TestGuidanceParser:
         result = parser.parse("focus on the healer")
         assert result is not None
         assert result.guidance_type == GuidanceType.TARGET_FOCUS
-        assert result.target == "the healer"
+        assert result.target == "healer"
 
     def test_parse_attack_target(self):
         """Test parsing 'attack goblins' command."""
@@ -101,7 +101,7 @@ class TestGuidanceParser:
         result = parser.parse("target the wizard")
         assert result is not None
         assert result.guidance_type == GuidanceType.TARGET_FOCUS
-        assert result.target == "the wizard"
+        assert result.target == "wizard"
 
     def test_parse_kill_target(self):
         """Test parsing 'kill the dragon' command."""
@@ -109,7 +109,7 @@ class TestGuidanceParser:
         result = parser.parse("kill the dragon")
         assert result is not None
         assert result.guidance_type == GuidanceType.TARGET_FOCUS
-        assert result.target == "the dragon"
+        assert result.target == "dragon"
 
     def test_parse_ignore_target(self):
         """Test parsing 'ignore the minions' command."""
@@ -117,7 +117,7 @@ class TestGuidanceParser:
         result = parser.parse("ignore the minions")
         assert result is not None
         assert result.guidance_type == GuidanceType.TARGET_AVOID
-        assert result.target == "the minions"
+        assert result.target == "minions"
 
     def test_parse_avoid_target(self):
         """Test parsing 'avoid the boss' command."""
@@ -125,7 +125,7 @@ class TestGuidanceParser:
         result = parser.parse("avoid the boss")
         assert result is not None
         assert result.guidance_type == GuidanceType.TARGET_AVOID
-        assert result.target == "the boss"
+        assert result.target == "boss"
 
     def test_parse_dont_attack(self):
         """Test parsing 'don't attack goblins' command."""
@@ -149,7 +149,7 @@ class TestGuidanceParser:
         result = parser.parse("guard the wizard")
         assert result is not None
         assert result.guidance_type == GuidanceType.PROTECTION
-        assert result.target == "the wizard"
+        assert result.target == "wizard"
 
     def test_parse_keep_safe(self):
         """Test parsing 'keep Gandalf safe' command."""
@@ -165,7 +165,7 @@ class TestGuidanceParser:
         result = parser.parse("defend the healer")
         assert result is not None
         assert result.guidance_type == GuidanceType.PROTECTION
-        assert result.target == "the healer"
+        assert result.target == "healer"
 
     def test_parse_be_aggressive(self):
         """Test parsing 'be aggressive' command."""
@@ -360,7 +360,7 @@ class TestGuidanceParser:
             target="Gandalf"
         )
         ack = parser.get_acknowledgment(guidance)
-        assert "Gandalf" in ack.lower()
+        assert "gandalf" in ack.lower()
 
     def test_acknowledgment_aggression(self):
         """Test acknowledgment for aggression guidance."""

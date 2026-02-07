@@ -90,7 +90,7 @@ POSITIONING_PATTERNS: list[tuple[str, str]] = [
 ]
 
 TARGET_FOCUS_PATTERNS: list[str] = [
-    r"(?:focus|target|attack|kill)\s+(?:the\s+|on\s+)?(.+)",
+    r"(?:focus|target|attack|kill)\s+(?:on\s+)?(?:the\s+)?(.+)",
 ]
 
 TARGET_AVOID_PATTERNS: list[str] = [
@@ -163,7 +163,7 @@ class GuidanceParser:
 
     def parse(self, command: str) -> Optional[ParsedGuidance]:
         """Parse a natural language command into guidance."""
-        cmd = command.strip().lower()
+        cmd = command.strip()
         if not cmd:
             return None
 
