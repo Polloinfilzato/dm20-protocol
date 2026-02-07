@@ -21,6 +21,21 @@ from gamemaster_mcp.claudmaster.performance.lazy_load import (
     LazyLoadManager,
     LoadableSection,
 )
+from gamemaster_mcp.claudmaster.performance.parallel_executor import (
+    ParallelAgentExecutor,
+    ExecutionBatch,
+    ParallelExecutionResult,
+)
+from gamemaster_mcp.claudmaster.performance.context_optimizer import (
+    OptimizedContextBuilder,
+    ContextBuildResult,
+)
+from gamemaster_mcp.claudmaster.performance.benchmarks import (
+    PerformanceBenchmark,
+    BenchmarkResult,
+    BenchmarkSuite,
+    PERFORMANCE_TARGETS,
+)
 
 __all__ = [
     "PerformanceProfiler",
@@ -31,4 +46,13 @@ __all__ = [
     "CacheStats",
     "LazyLoadManager",
     "LoadableSection",
+    "ParallelAgentExecutor",
+    "ExecutionBatch",
+    "ParallelExecutionResult",
+    "OptimizedContextBuilder",
+    "ContextBuildResult",
+    "PerformanceBenchmark",
+    "BenchmarkResult",
+    "BenchmarkSuite",
+    "PERFORMANCE_TARGETS",
 ]
