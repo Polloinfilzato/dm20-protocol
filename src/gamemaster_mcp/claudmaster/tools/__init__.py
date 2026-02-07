@@ -17,6 +17,8 @@ from .session_tools import (
     SessionState,
     SessionManager,
     start_claudmaster_session,
+    end_session,
+    get_session_state,
 )
 
 __all__ = [
@@ -36,4 +38,6 @@ __all__ = [
     "SessionState",
     "SessionManager",
     "start_claudmaster_session",
+    "end_session",
+    "get_session_state",
 ]

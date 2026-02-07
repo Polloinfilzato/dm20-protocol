@@ -2145,6 +2145,62 @@ def configure_claudmaster(
     )
 
 
+# Claudmaster session management tools
+from .claudmaster.tools.session_tools import (
+    start_claudmaster_session as _start_claudmaster_session,
+    end_session as _end_session,
+    get_session_state as _get_session_state,
+)
+
+
+@mcp.tool
+async def start_claudmaster_session(
+    campaign_name: Annotated[str, Field(description="Name of the campaign to play")],
+    module_id: Annotated[str | None, Field(description="Optional D&D module to load")] = None,
+    session_id: Annotated[str | None, Field(description="Session ID to resume (required if resume=True)")] = None,
+    resume: Annotated[bool, Field(description="Whether to resume an existing session")] = False,
+) -> dict:
+    """Start or resume a Claudmaster AI DM session."""
+    return await _start_claudmaster_session(
+        campaign_name=campaign_name,
+        module_id=module_id,
+        session_id=session_id,
+        resume=resume,
+    )
+
+
+@mcp.tool
+async def end_claudmaster_session(
+    session_id: Annotated[str, Field(description="The session ID to end or pause")],
+    mode: Annotated[str, Field(description="'pause' to save for later, 'end' for final termination")] = "pause",
+    summary_notes: Annotated[str | None, Field(description="Optional DM notes to save with the session")] = None,
+    campaign_path: Annotated[str | None, Field(description="Optional path for disk persistence")] = None,
+) -> dict:
+    """End or pause a Claudmaster AI DM session, saving all state."""
+    return await _end_session(
+        session_id=session_id,
+        mode=mode,
+        summary_notes=summary_notes,
+        campaign_path=campaign_path,
+    )
+
+
+@mcp.tool
+async def get_claudmaster_session_state(
+    session_id: Annotated[str, Field(description="The session ID to query")],
+    detail_level: Annotated[str, Field(description="Detail level: 'minimal', 'standard', or 'full'")] = "standard",
+    include_history: Annotated[bool, Field(description="Whether to include action history")] = True,
+    history_limit: Annotated[int, Field(description="Max number of history entries to return")] = 10,
+) -> dict:
+    """Get the current state of a Claudmaster AI DM session."""
+    return await _get_session_state(
+        session_id=session_id,
+        detail_level=detail_level,
+        include_history=include_history,
+        history_limit=history_limit,
+    )
+
+
 def _format_claudmaster_config(config, header: str = "Claudmaster Configuration") -> str:
     """Format ClaudmasterConfig as a readable string."""
     improv_labels = {"none": "None", "low": "Low", "medium": "Medium", "high": "High", "full": "Full"}
