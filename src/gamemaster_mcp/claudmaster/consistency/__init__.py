@@ -10,13 +10,28 @@ Key components:
 - Fact: Individual narrative fact with metadata
 - FactCategory: Enumeration of fact types
 - FactDatabase: Storage and querying interface
+- NPCKnowledgeTracker: Tracks what each NPC knows
+- KnowledgeSource: How NPCs acquire knowledge
+- KnowledgeEntry: Record of NPC knowledge of a fact
+- PlayerInteraction: Record of player-NPC interactions
 """
 
 from .fact_database import FactDatabase
-from .models import Fact, FactCategory
+from .models import (
+    Fact,
+    FactCategory,
+    KnowledgeEntry,
+    KnowledgeSource,
+    PlayerInteraction,
+)
+from .npc_knowledge import NPCKnowledgeTracker
 
 __all__ = [
     "Fact",
     "FactCategory",
     "FactDatabase",
+    "KnowledgeEntry",
+    "KnowledgeSource",
+    "NPCKnowledgeTracker",
+    "PlayerInteraction",
 ]
