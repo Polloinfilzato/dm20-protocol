@@ -44,6 +44,32 @@ from .agents.archivist import (
     QueryType,
     StateCache,
 )
+from .action_interpreter import (
+    ActionInterpreter,
+    ActionIntent,
+    ParsedAction,
+    AmbiguityType,
+    Ambiguity,
+    ValidationResult,
+    InterpretationResult,
+    ClarificationRequest,
+)
+from .combat_narrator import (
+    CombatNarrator,
+    DamageSeverity,
+    SpellInfo,
+    SpellEffect,
+    DramaticMoment,
+    DescriptionTracker,
+)
+from .atmosphere import (
+    AtmosphereManager,
+    Tone,
+    Pacing,
+    SceneType,
+    TensionState,
+    SceneContext,
+)
 
 __all__ = [
     "Agent",
@@ -78,4 +104,27 @@ __all__ = [
     "QueryResult",
     "QueryType",
     "StateCache",
+    # Action Interpreter (Issue #44)
+    "ActionInterpreter",
+    "ActionIntent",
+    "ParsedAction",
+    "AmbiguityType",
+    "Ambiguity",
+    "ValidationResult",
+    "InterpretationResult",
+    "ClarificationRequest",
+    # Combat Narrator (Issue #45)
+    "CombatNarrator",
+    "DamageSeverity",
+    "SpellInfo",
+    "SpellEffect",
+    "DramaticMoment",
+    "DescriptionTracker",
+    # Atmosphere Manager (Issue #46)
+    "AtmosphereManager",
+    "Tone",
+    "Pacing",
+    "SceneType",
+    "TensionState",
+    "SceneContext",
 ]
