@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
+from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
 
 
 # ============================================================================
@@ -73,7 +74,7 @@ class TestClaudmasterConfigDefaults:
         assert config.llm_model == "claude-sonnet-4-5-20250929"
         assert config.temperature == 0.7
         assert config.max_tokens == 4096
-        assert config.improvisation_level == 2
+        assert config.improvisation_level == ImprovisationLevel.MEDIUM
         assert config.narrative_style == "descriptive"
         assert config.dialogue_style == "natural"
         assert config.difficulty == "normal"
@@ -112,9 +113,14 @@ class TestClaudmasterConfigValidation:
             ClaudmasterConfig(difficulty="impossible")
 
     def test_valid_improvisation_levels(self):
+        expected = [
+            ImprovisationLevel.NONE, ImprovisationLevel.LOW,
+            ImprovisationLevel.MEDIUM, ImprovisationLevel.HIGH,
+            ImprovisationLevel.FULL,
+        ]
         for level in range(5):
             config = ClaudmasterConfig(improvisation_level=level)
-            assert config.improvisation_level == level
+            assert config.improvisation_level == expected[level]
 
     def test_invalid_improvisation_level(self):
         with pytest.raises(Exception):
@@ -231,7 +237,7 @@ class TestConfigureCludmasterTool:
         config = mock_storage.get_claudmaster_config()
         assert config.temperature == 0.5
         assert config.difficulty == "deadly"
-        assert config.improvisation_level == 4
+        assert config.improvisation_level == ImprovisationLevel.FULL
         # Unchanged fields preserved
         assert config.narrative_style == "descriptive"
 

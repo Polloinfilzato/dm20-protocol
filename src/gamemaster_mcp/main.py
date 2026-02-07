@@ -2147,8 +2147,11 @@ def configure_claudmaster(
 
 def _format_claudmaster_config(config, header: str = "Claudmaster Configuration") -> str:
     """Format ClaudmasterConfig as a readable string."""
-    improv_labels = {0: "None", 1: "Low", 2: "Medium", 3: "High", 4: "Full"}
-    improv_display = improv_labels.get(config.improvisation_level, str(config.improvisation_level))
+    improv_labels = {"none": "None", "low": "Low", "medium": "Medium", "high": "High", "full": "Full"}
+    improv_index = {"none": 0, "low": 1, "medium": 2, "high": 3, "full": 4}
+    level_value = config.improvisation_level.value if hasattr(config.improvisation_level, 'value') else str(config.improvisation_level)
+    improv_display = improv_labels.get(level_value, str(config.improvisation_level))
+    improv_num = improv_index.get(level_value, "?")
 
     lines = [
         f"**{header}**",
@@ -2168,7 +2171,7 @@ def _format_claudmaster_config(config, header: str = "Claudmaster Configuration"
         f"  Fudge Rolls: {'enabled' if config.fudge_rolls else 'disabled'}",
         "",
         "**Agent Settings:**",
-        f"  Improvisation Level: {improv_display} ({config.improvisation_level}/4)",
+        f"  Improvisation Level: {improv_display} ({improv_num}/4)",
         f"  Agent Timeout: {config.agent_timeout}s",
         "",
         "**Intent Classification:**",

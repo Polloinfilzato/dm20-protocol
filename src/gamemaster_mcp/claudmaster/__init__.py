@@ -78,6 +78,31 @@ from .companions import (
     CompanionManager,
     ARCHETYPE_TEMPLATES,
 )
+from .tactics import (
+    TacticalPriority,
+    Combatant,
+    TacticalDecision,
+    BattlefieldState,
+    TacticsEngine,
+)
+from .companion_dialogue import (
+    DialogueTrigger,
+    EmotionalState,
+    DialogueContext,
+    CompanionDialogue,
+    CompanionDialogueEngine,
+    DIALOGUE_TEMPLATES,
+    REACTION_PROBABILITY,
+)
+from .improvisation import (
+    ImprovisationLevel,
+    ADHERENCE_PERCENTAGES,
+    PROMPT_CONSTRAINTS,
+    get_adherence_percentage,
+    get_constraints,
+    validate_level_transition,
+)
+from .config import ClaudmasterConfig
 
 __all__ = [
     "Agent",
@@ -142,4 +167,27 @@ __all__ = [
     "CompanionProfile",
     "CompanionManager",
     "ARCHETYPE_TEMPLATES",
+    # AI Combat Tactics (Issue #56)
+    "TacticalPriority",
+    "Combatant",
+    "TacticalDecision",
+    "BattlefieldState",
+    "TacticsEngine",
+    # Companion Dialogue (Issue #57)
+    "DialogueTrigger",
+    "EmotionalState",
+    "DialogueContext",
+    "CompanionDialogue",
+    "CompanionDialogueEngine",
+    "DIALOGUE_TEMPLATES",
+    "REACTION_PROBABILITY",
+    # Improvisation System (Issue #51)
+    "ImprovisationLevel",
+    "ADHERENCE_PERCENTAGES",
+    "PROMPT_CONSTRAINTS",
+    "get_adherence_percentage",
+    "get_constraints",
+    "validate_level_transition",
+    # Config
+    "ClaudmasterConfig",
 ]

@@ -2,8 +2,10 @@
 Configuration model for Claudmaster AI DM system.
 """
 
-from typing import Any
+from typing import Any, Union
 from pydantic import BaseModel, Field, field_validator
+
+from .improvisation import ImprovisationLevel
 
 
 class ClaudmasterConfig(BaseModel):
@@ -36,11 +38,13 @@ class ClaudmasterConfig(BaseModel):
     )
 
     # Agent Behavior
-    improvisation_level: int = Field(
-        default=2,
-        ge=0,
-        le=4,
-        description="AI improvisation level: 0=None, 1=Low, 2=Medium, 3=High, 4=Full"
+    improvisation_level: ImprovisationLevel = Field(
+        default=ImprovisationLevel.MEDIUM,
+        description="AI improvisation level controlling module adherence vs creative freedom"
+    )
+    allow_level_change_mid_session: bool = Field(
+        default=True,
+        description="Whether to allow improvisation level changes during active sessions"
     )
     agent_timeout: float = Field(
         default=30.0,
@@ -92,13 +96,46 @@ class ClaudmasterConfig(BaseModel):
         description="Confidence for ACTION fallback when no patterns match"
     )
 
-    @field_validator("improvisation_level")
+    @field_validator("improvisation_level", mode="before")
     @classmethod
-    def validate_improvisation_level(cls, v: int) -> int:
-        """Ensure improvisation level is between 0 and 4."""
-        if not 0 <= v <= 4:
-            raise ValueError("improvisation_level must be between 0 and 4")
-        return v
+    def validate_improvisation_level(cls, v: Union[int, str, ImprovisationLevel]) -> ImprovisationLevel:
+        """
+        Ensure improvisation level is valid, with backward compatibility.
+
+        Accepts:
+        - ImprovisationLevel enum value
+        - String matching enum value ("none", "low", "medium", "high", "full")
+        - Integer (0-4) for backward compatibility with old configs
+        """
+        # Already an enum, pass through
+        if isinstance(v, ImprovisationLevel):
+            return v
+
+        # String value - let pydantic handle enum conversion
+        if isinstance(v, str):
+            try:
+                return ImprovisationLevel(v.lower())
+            except ValueError:
+                raise ValueError(
+                    f"improvisation_level must be one of: {', '.join(l.value for l in ImprovisationLevel)}"
+                )
+
+        # Integer for backward compatibility
+        if isinstance(v, int):
+            if not 0 <= v <= 4:
+                raise ValueError("improvisation_level (as int) must be between 0 and 4")
+            level_map = {
+                0: ImprovisationLevel.NONE,
+                1: ImprovisationLevel.LOW,
+                2: ImprovisationLevel.MEDIUM,
+                3: ImprovisationLevel.HIGH,
+                4: ImprovisationLevel.FULL,
+            }
+            return level_map[v]
+
+        raise ValueError(
+            f"improvisation_level must be ImprovisationLevel, str, or int, got {type(v)}"
+        )
 
     @field_validator("temperature")
     @classmethod
