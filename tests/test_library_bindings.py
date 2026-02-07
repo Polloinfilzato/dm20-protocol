@@ -351,7 +351,8 @@ class TestLibraryBindings:
         assert data["campaign_id"] == "test-campaign"
         # updated_at changes when enable_source is called, so we just verify it's a valid ISO timestamp
         assert "updated_at" in data
-        assert data["updated_at"].startswith("2026-02-02")
+        from datetime import datetime as dt
+        dt.fromisoformat(data["updated_at"])  # validates it's a proper ISO timestamp
         assert "source-a" in data["sources"]
         assert "source-b" in data["sources"]
         assert data["sources"]["source-b"]["content_filter"]["class"] == "*"

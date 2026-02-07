@@ -2,7 +2,7 @@
 # Epic Status Display - Shows real-time status of all tasks in an epic
 # Usage: ./epic-status.sh <epic-name>
 
-set -e
+# Note: Don't use 'set -e' as (( )) returns 1 for zero values
 
 epic_name="$1"
 
@@ -31,13 +31,17 @@ if [ ! -f "$epic_file" ]; then
   exit 1
 fi
 
-# Get repository info
-REPO=$(git remote get-url origin 2>/dev/null | sed 's|.*github.com[:/]||' | sed 's|\.git$||' || echo "")
+# Get repository info - Use fork for operations if available
+if git remote get-url fork >/dev/null 2>&1; then
+  REPO=$(git remote get-url fork 2>/dev/null | sed 's|.*github.com[:/]||' | sed 's|\.git$||' || echo "")
+else
+  REPO=$(git remote get-url origin 2>/dev/null | sed 's|.*github.com[:/]||' | sed 's|\.git$||' || echo "")
+fi
 
 # Extract epic metadata
 epic_title=$(grep "^# Epic:" "$epic_file" | head -1 | sed 's/^# Epic: *//' || basename "$epic_name")
 epic_github=$(grep "^github:" "$epic_file" | head -1 | sed 's/^github: *//')
-epic_number=$(echo "$epic_github" | grep -oP 'issues/\K[0-9]+' || echo "")
+epic_number=$(echo "$epic_github" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p')
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════════════╗"
@@ -68,7 +72,7 @@ fi
 for task_file in "$epic_dir"/[0-9]*.md; do
   [ -f "$task_file" ] || continue
 
-  issue_num=$(grep "^github:.*issues/" "$task_file" | grep -oP 'issues/\K[0-9]+' | head -1 || echo "")
+  issue_num=$(grep "^github:.*issues/" "$task_file" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p' | head -1 || echo "")
 
   if [ -z "$issue_num" ] || [ -z "$REPO" ]; then
     ((pending_count++))
@@ -123,7 +127,7 @@ for task_file in "$epic_dir"/[0-9]*.md; do
 
   # Get task info
   task_name=$(grep "^name:" "$task_file" | head -1 | sed 's/^name: *//')
-  issue_num=$(grep "^github:.*issues/" "$task_file" | grep -oP 'issues/\K[0-9]+' | head -1 || echo "")
+  issue_num=$(grep "^github:.*issues/" "$task_file" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p' | head -1 || echo "")
 
   if [ -z "$issue_num" ]; then
     task_num=$(basename "$task_file" .md)
@@ -160,7 +164,12 @@ for task_file in "$epic_dir"/[0-9]*.md; do
       last_sync=$(grep "^last_sync:" "$progress_file" 2>/dev/null | sed 's/last_sync: *//')
 
       if [ -n "$last_sync" ]; then
-        last_sync_epoch=$(date -d "$last_sync" +%s 2>/dev/null || echo "0")
+        # macOS compatible date parsing
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          last_sync_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_sync" +%s 2>/dev/null || echo "0")
+        else
+          last_sync_epoch=$(date -d "$last_sync" +%s 2>/dev/null || echo "0")
+        fi
         now_epoch=$(date +%s)
         diff_minutes=$(( (now_epoch - last_sync_epoch) / 60 ))
 
@@ -224,7 +233,7 @@ fi
 next_pending=""
 for task_file in "$epic_dir"/[0-9]*.md; do
   [ -f "$task_file" ] || continue
-  issue_num=$(grep "^github:.*issues/" "$task_file" | grep -oP 'issues/\K[0-9]+' | head -1 || echo "")
+  issue_num=$(grep "^github:.*issues/" "$task_file" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p' | head -1 || echo "")
   [ -z "$issue_num" ] && continue
 
   issue_data=$(gh issue view "$issue_num" --repo "$REPO" --json state,labels 2>/dev/null | jq -r '{state: .state, labels: [.labels[].name]}' || echo "")

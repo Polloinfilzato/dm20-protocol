@@ -17,8 +17,13 @@ if [ ! -d "$EPIC_DIR" ]; then
   exit 1
 fi
 
-# Get repo info
-REPO=$(git remote get-url origin | sed 's|.*github.com[:/]||' | sed 's|\.git$||')
+# Get repo info - Use fork for write operations
+# Try fork first, fallback to origin
+if git remote get-url fork >/dev/null 2>&1; then
+  REPO=$(git remote get-url fork | sed 's|.*github.com[:/]||' | sed 's|\.git$||')
+else
+  REPO=$(git remote get-url origin | sed 's|.*github.com[:/]||' | sed 's|\.git$||')
+fi
 echo "📦 Repository: $REPO"
 echo "📂 Epic: $EPIC_NAME"
 echo ""
@@ -58,7 +63,7 @@ awk '
 
 # Create epic (without labels since they might not exist)
 EPIC_URL=$(gh issue create --repo "$REPO" --title "$EPIC_TITLE" --body-file /tmp/epic-body.md 2>&1 | grep "https://github.com")
-EPIC_NUMBER=$(echo "$EPIC_URL" | grep -oP '/issues/\K[0-9]+')
+EPIC_NUMBER=$(echo "$EPIC_URL" | sed 's|.*/issues/||')
 
 echo "✅ Epic created: #$EPIC_NUMBER"
 echo ""
@@ -78,7 +83,7 @@ for task_file in $TASK_FILES; do
   awk 'BEGIN{fs=0} /^---$/{fs++; next} fs==2{print}' "$task_file" > /tmp/task-body.md
 
   task_url=$(gh issue create --repo "$REPO" --title "$task_name" --body-file /tmp/task-body.md 2>&1 | grep "https://github.com")
-  task_number=$(echo "$task_url" | grep -oP '/issues/\K[0-9]+')
+  task_number=$(echo "$task_url" | sed 's|.*/issues/||')
 
   echo "$task_file:$task_number" >> /tmp/task-mapping.txt
   echo "✓ Created #$task_number: $task_name"
@@ -118,15 +123,15 @@ echo ""
 echo "Updating frontmatter..."
 current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Update epic frontmatter
-sed -i "s|^github:.*|github: https://github.com/$REPO/issues/$EPIC_NUMBER|" "$EPIC_DIR/epic.md"
-sed -i "s|^updated:.*|updated: $current_date|" "$EPIC_DIR/epic.md"
+# Update epic frontmatter (macOS sed requires '' after -i)
+sed -i '' "s|^github:.*|github: https://github.com/$REPO/issues/$EPIC_NUMBER|" "$EPIC_DIR/epic.md"
+sed -i '' "s|^updated:.*|updated: $current_date|" "$EPIC_DIR/epic.md"
 echo "✓ Updated epic frontmatter"
 
 # Update task frontmatter
 while IFS=: read -r task_file task_number; do
-  sed -i "s|^github:.*|github: https://github.com/$REPO/issues/$task_number|" "$task_file"
-  sed -i "s|^updated:.*|updated: $current_date|" "$task_file"
+  sed -i '' "s|^github:.*|github: https://github.com/$REPO/issues/$task_number|" "$task_file"
+  sed -i '' "s|^updated:.*|updated: $current_date|" "$task_file"
 done < /tmp/task-mapping.txt
 echo "✓ Updated task frontmatter"
 

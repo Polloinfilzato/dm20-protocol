@@ -74,3 +74,28 @@ Quando un task/issue viene completato:
    gh issue close {numero} --repo Polloinfilzato/gamemaster-mcp --comment "✅ Completed. {breve descrizione}"
    ```
 3. Aggiornare `execution-status.md` se presente
+
+## Memoria di Progetto
+
+**IMPORTANTE:** Prima di eseguire comandi shell o iniziare un task, consultare SEMPRE la memoria di progetto in:
+
+```
+/Users/ema/.claude/projects/-Users-ema-Library-Mobile-Documents-com-apple-CloudDocs-GitHub-la-Clonazione-gamemaster-mcp/memory/MEMORY.md
+```
+
+Contiene informazioni critiche su:
+- **Compatibilità macOS** — comandi che non funzionano come su Linux (es. `grep -P`, `sed -i`, `date -d`)
+- **Configurazione GitHub** — remote origin vs fork
+- **Convenzioni di progetto** — naming, pre-analisi task, lezioni apprese
+
+Non ripetere errori già documentati nella memoria.
+
+## PM Scripts Path
+
+When `/pm:*` commands reference shell scripts, they are located at:
+
+```
+.claude/scripts/pm/
+```
+
+**NOT** at `ccpm/scripts/pm/` (which is the default path in other projects).

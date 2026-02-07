@@ -38,8 +38,11 @@ If progress file exists at `.claude/epics/{epic}/updates/$ARGUMENTS/progress.md`
 
 ### 4. Close on GitHub
 
-Add completion comment and close:
+Remove in-progress label, add completion comment, and close:
 ```bash
+# Remove in-progress label (ignore error if label doesn't exist)
+gh issue edit $ARGUMENTS --remove-label "in-progress" 2>/dev/null || true
+
 # Add final comment
 echo "✅ Task completed
 

@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Annotated
 from shortuuid import random
 from pydantic import BaseModel, Field
-from logging import Handler, LogRecord
+from logging import Handler
 
 from .logutils import logger
 
@@ -128,28 +128,20 @@ class GameStats(BaseModel):
 
 class GameStatHandler(Handler):
     """Connects the logging module to the GameStats object."""
-    def __init__(self, gamestats: GameStats, func) -> None:
+    def __init__(self, gamestats: GameStats) -> None:
         super().__init__()
         self.gamestats = gamestats
-        self.func = func  # Store the user-specified function
 
     def emit(self, record):
         try:
-            self.func(record)  # Execute the function with the log record
-        except Exception as e:
-            self.handleError(record)  # Handle errors gracefully
-
-    def inc_stat(self, stat_tracker: GameStats, record: LogRecord):
-
-        if "ERROR" in record.levelname:
-            # Increment error count stat
-            stat_tracker.inc("errors")
+            if "ERROR" in record.levelname:
+                self.gamestats.inc("errors")
+        except Exception:
+            self.handleError(record)
 
 # Load GameStats object and attach logging handler
 gamestats = GameStats()
-
-func = GameStatHandler.inc_stat
-logger.addHandler(GameStatHandler(gamestats, func))
+logger.addHandler(GameStatHandler(gamestats))
 
 
 class AbilityScore(BaseModel):
