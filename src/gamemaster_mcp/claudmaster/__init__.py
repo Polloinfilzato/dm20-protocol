@@ -114,7 +114,25 @@ from .pc_tracking import (
     PCRegistry,
     PCIdentifier,
 )
+from .guidance import (
+    GuidanceType,
+    ParsedGuidance,
+    CompanionGuidance,
+    GuidanceParser,
+    GuidanceManager,
+    ACKNOWLEDGMENTS,
+)
 from .config import ClaudmasterConfig
+from .consistency import (
+    GameTime,
+    LocationState,
+    LocationStateManager,
+    StateChange,
+    StateChangeType,
+    TimelineEvent,
+    TimelineTracker,
+    TimeUnit,
+)
 
 __all__ = [
     "Agent",
@@ -210,6 +228,22 @@ __all__ = [
     "MultiPlayerConfig",
     "PCRegistry",
     "PCIdentifier",
+    # Player Guidance System (Issue #58)
+    "GuidanceType",
+    "ParsedGuidance",
+    "CompanionGuidance",
+    "GuidanceParser",
+    "GuidanceManager",
+    "ACKNOWLEDGMENTS",
+    # Timeline and Location State (Issue #50)
+    "GameTime",
+    "TimeUnit",
+    "TimelineEvent",
+    "TimelineTracker",
+    "StateChangeType",
+    "StateChange",
+    "LocationState",
+    "LocationStateManager",
     # Config
     "ClaudmasterConfig",
 ]
