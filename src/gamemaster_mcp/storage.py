@@ -1031,6 +1031,64 @@ class DnDStorage:
             return []
         return self._library_bindings.get_enabled_sources()
 
+    # ------------------------------------------------------------------
+    # Claudmaster Configuration Management
+    # ------------------------------------------------------------------
+
+    def get_claudmaster_config(self):
+        """Get Claudmaster configuration for the current campaign.
+
+        Returns:
+            ClaudmasterConfig instance for the campaign.
+
+        Raises:
+            ValueError: If no campaign is loaded.
+        """
+        from .claudmaster.config import ClaudmasterConfig
+
+        if not self._current_campaign:
+            raise ValueError("No current campaign")
+
+        if self._current_format != StorageFormat.SPLIT:
+            return ClaudmasterConfig()
+
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        config_path = campaign_dir / "claudmaster-config.json"
+
+        if not config_path.exists():
+            return ClaudmasterConfig()
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return ClaudmasterConfig.model_validate(data)
+        except Exception as e:
+            logger.warning(f"Failed to load Claudmaster config: {e}. Using default.")
+            return ClaudmasterConfig()
+
+    def save_claudmaster_config(self, config) -> None:
+        """Save Claudmaster configuration for the current campaign.
+
+        Args:
+            config: ClaudmasterConfig instance to save.
+
+        Raises:
+            ValueError: If no campaign is loaded.
+        """
+        if not self._current_campaign:
+            raise ValueError("No current campaign")
+
+        if self._current_format != StorageFormat.SPLIT:
+            logger.warning("Cannot save Claudmaster config for monolithic campaigns")
+            return
+
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        config_path = campaign_dir / "claudmaster-config.json"
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config.model_dump(mode="json"), f, indent=2)
+        logger.debug(f"Saved Claudmaster config for campaign '{self._current_campaign.name}'")
+
 
 class SplitStorageBackend:
     """Storage backend that splits campaign data into separate JSON files.
