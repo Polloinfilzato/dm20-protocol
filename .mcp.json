@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "gamemaster-mcp": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "gamemaster-mcp"
+      ],
+      "cwd": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/gamemaster-mcp",
+      "env": {
+        "GAMEMASTER_STORAGE_DIR": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/gamemaster-mcp/data"
+      }
+    }
+  }
+}

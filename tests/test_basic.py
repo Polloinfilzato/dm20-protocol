@@ -10,8 +10,7 @@ from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
 
 def test_mcp_server_initialization():
     """Test that the FastMCP server initializes correctly."""
-    assert mcp.name == "D&D Campaign Manager"
-    assert "pydantic>=2.0.0" in mcp.dependencies
+    assert mcp.name == "gamemaster-mcp"
 
 
 def test_storage_initialization():

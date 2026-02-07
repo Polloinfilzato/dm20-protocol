@@ -77,7 +77,7 @@ def split_campaign(tmp_path):
     campaign_dir = campaigns_dir / "Test Split Campaign"
     campaign_dir.mkdir(parents=True)
 
-    # Create metadata.json
+    # Create campaign.json
     metadata = {
         "name": "Test Split Campaign",
         "description": "A test campaign in split format",
@@ -87,7 +87,7 @@ def split_campaign(tmp_path):
         "updated_at": datetime.now().isoformat(),
     }
 
-    with open(campaign_dir / "metadata.json", 'w', encoding='utf-8') as f:
+    with open(campaign_dir / "campaign.json", 'w', encoding='utf-8') as f:
         json.dump(metadata, f)
 
     # Create empty characters directory
@@ -117,7 +117,7 @@ class TestFormatDetection:
         assert format_detected == StorageFormat.NOT_FOUND
 
     def test_detect_directory_without_metadata(self, tmp_path):
-        """Test detection of directory without metadata.json."""
+        """Test detection of directory without campaign.json."""
         storage_path = tmp_path / "test_data"
         campaigns_dir = storage_path / "campaigns"
         campaign_dir = campaigns_dir / "Invalid Campaign"
@@ -125,7 +125,7 @@ class TestFormatDetection:
 
         storage = DnDStorage(storage_path)
         format_detected = storage._detect_campaign_format("Invalid Campaign")
-        # Should be NOT_FOUND because metadata.json is missing
+        # Should be NOT_FOUND because campaign.json is missing
         assert format_detected == StorageFormat.NOT_FOUND
 
 
@@ -238,7 +238,7 @@ class TestMixedCampaigns:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
-        with open(split_dir / "metadata.json", 'w') as f:
+        with open(split_dir / "campaign.json", 'w') as f:
             json.dump(metadata, f)
 
         storage = DnDStorage(storage_path)
@@ -262,22 +262,8 @@ class TestNewCampaignFormat:
 
         assert campaign is not None
         assert campaign.name == "New Campaign"
-        # Currently defaults to monolithic until Task #2 is complete
-        assert temp_storage._current_format == StorageFormat.MONOLITHIC
-
-
-class TestSplitFormatPlaceholder:
-    """Test that split format operations raise NotImplementedError."""
-
-    def test_load_split_raises_not_implemented(self, split_campaign):
-        """Test that loading split campaigns raises NotImplementedError."""
-        storage = DnDStorage(split_campaign)
-
-        with pytest.raises(NotImplementedError) as exc_info:
-            storage.load_campaign("Test Split Campaign")
-
-        assert "Task #2" in str(exc_info.value)
-        assert "SplitStorageBackend" in str(exc_info.value)
+        # New campaigns now default to split format
+        assert temp_storage._current_format == StorageFormat.SPLIT
 
 
 class TestCharacterIndexing:

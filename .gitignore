@@ -1,7 +1,6 @@
 dev.bat
 dev.sh
 demo.py
-GUIDA_DM.md
 
 # Python
 __pycache__/
@@ -56,11 +55,13 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# D&D MCP Server data
+# D&D MCP Server data (user-generated, not tracked)
 data/
 dnd_data/
 demo_data/
-*.json
+campaigns/
+events/
+library/
 
 # Logs
 log/
@@ -81,7 +82,6 @@ dmypy.json
 fastmcp_cache/
 
 # uv
-uv.lock
 .uv_cache/
 
 # Ruff

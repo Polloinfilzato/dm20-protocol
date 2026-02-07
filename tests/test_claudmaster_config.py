@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
+from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
 
 
 class TestClaudmasterConfigDefaults:
@@ -40,9 +41,9 @@ class TestClaudmasterConfigDefaults:
         assert config.temperature == 0.7
 
     def test_default_improvisation_level(self) -> None:
-        """Test that default improvisation level is 2."""
+        """Test that default improvisation level is MEDIUM."""
         config = ClaudmasterConfig()
-        assert config.improvisation_level == 2
+        assert config.improvisation_level == ImprovisationLevel.MEDIUM
 
     def test_default_agent_timeout(self) -> None:
         """Test that default agent timeout is 30.0 seconds."""
@@ -101,7 +102,7 @@ class TestClaudmasterConfigCustomValues:
     def test_custom_improvisation_level(self) -> None:
         """Test setting custom improvisation level."""
         config = ClaudmasterConfig(improvisation_level=4)
-        assert config.improvisation_level == 4
+        assert config.improvisation_level == ImprovisationLevel.FULL
 
     def test_custom_narrative_style(self) -> None:
         """Test setting custom narrative style."""
@@ -126,12 +127,12 @@ class TestImprovisationLevelValidation:
     def test_improvisation_level_zero_valid(self) -> None:
         """Test that improvisation level 0 is valid."""
         config = ClaudmasterConfig(improvisation_level=0)
-        assert config.improvisation_level == 0
+        assert config.improvisation_level == ImprovisationLevel.NONE
 
     def test_improvisation_level_four_valid(self) -> None:
         """Test that improvisation level 4 is valid."""
         config = ClaudmasterConfig(improvisation_level=4)
-        assert config.improvisation_level == 4
+        assert config.improvisation_level == ImprovisationLevel.FULL
 
     def test_improvisation_level_negative_invalid(self) -> None:
         """Test that negative improvisation level raises error."""
@@ -265,7 +266,8 @@ class TestConfigSerialization:
         
         expected_fields = {
             "llm_provider", "llm_model", "max_tokens", "temperature",
-            "improvisation_level", "agent_timeout", "narrative_style",
+            "improvisation_level", "allow_level_change_mid_session",
+            "agent_timeout", "narrative_style",
             "dialogue_style", "difficulty", "fudge_rolls", "house_rules",
             "ambiguity_threshold", "intent_weight_overrides", "fallback_confidence"
         }
@@ -282,7 +284,7 @@ class TestConfigSerialization:
         dumped = config.model_dump()
         
         assert dumped["llm_provider"] == "openai"
-        assert dumped["improvisation_level"] == 3
+        assert dumped["improvisation_level"] == ImprovisationLevel.HIGH
         assert dumped["difficulty"] == "deadly"
         assert dumped["house_rules"] == {"custom_rule": "value"}
 

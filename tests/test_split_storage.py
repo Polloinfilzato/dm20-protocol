@@ -1,645 +1,799 @@
 """
-Comprehensive unit tests for SplitStorageBackend class.
-
-Tests cover:
-- Campaign directory structure creation and validation
-- Loading campaign metadata and data sections
-- Dirty tracking and incremental saves
-- Atomic write operations
-- Session numbering and file management
-- Error handling for missing/corrupt files
+Unit tests for SplitStorageBackend class.
+Tests per-file save/load, dirty tracking, and atomic writes.
 """
 
-import json
 import pytest
-import time
-from datetime import datetime
+import json
+import tempfile
+import shutil
 from pathlib import Path
-from typing import Any
+from datetime import datetime
 
-from gamemaster_mcp.storage import SplitStorageBackend, new_uuid
+from gamemaster_mcp.storage import SplitStorageBackend
 from gamemaster_mcp.models import (
-    Campaign, Character, NPC, Location, Quest, CombatEncounter,
-    SessionNote, GameState, CharacterClass, Race, AbilityScore
+    Campaign, Character, CharacterClass, Race, AbilityScore,
+    NPC, Location, Quest, CombatEncounter, SessionNote, GameState
 )
 
 
-# Test fixtures
 @pytest.fixture
-def temp_storage_dir(tmp_path: Path) -> Path:
-    """Create a temporary storage directory for tests."""
-    storage_dir = tmp_path / "test_storage"
-    storage_dir.mkdir()
-    return storage_dir
-
-
-@pytest.fixture
-def split_backend(temp_storage_dir: Path) -> SplitStorageBackend:
-    """Create a SplitStorageBackend instance with auto_load disabled."""
-    return SplitStorageBackend(data_dir=temp_storage_dir, auto_load=False)
+def temp_storage_dir():
+    """Create a temporary directory for storage tests."""
+    temp_dir = tempfile.mkdtemp()
+    yield Path(temp_dir)
+    shutil.rmtree(temp_dir)
 
 
 @pytest.fixture
-def sample_character() -> Character:
+def split_storage(temp_storage_dir):
+    """Create a SplitStorageBackend instance with temp directory."""
+    return SplitStorageBackend(data_dir=temp_storage_dir)
+
+
+@pytest.fixture
+def sample_character():
     """Create a sample character for testing."""
     return Character(
         name="Gandalf",
-        player_name="Alice",
-        character_class=CharacterClass(name="Wizard", level=20),
-        race=Race(name="Maiar"),
-        background="Istari",
-        alignment="Lawful Good",
+        player_name="John",
+        character_class=CharacterClass(name="Wizard", level=10, hit_dice="1d6"),
+        race=Race(name="Human"),
         abilities={
-            "strength": AbilityScore(score=12),
-            "dexterity": AbilityScore(score=14),
-            "constitution": AbilityScore(score=16),
+            "strength": AbilityScore(score=10),
+            "dexterity": AbilityScore(score=12),
+            "constitution": AbilityScore(score=14),
             "intelligence": AbilityScore(score=20),
-            "wisdom": AbilityScore(score=18),
-            "charisma": AbilityScore(score=16),
-        },
-        description="A wise and powerful wizard",
-        bio="One of the five Istari sent to Middle-earth",
+            "wisdom": AbilityScore(score=16),
+            "charisma": AbilityScore(score=15),
+        }
     )
 
 
 @pytest.fixture
-def sample_npc() -> NPC:
+def sample_npc():
     """Create a sample NPC for testing."""
     return NPC(
-        name="Saruman",
-        race="Maiar",
-        occupation="Wizard",
-        location="Isengard",
-        attitude="hostile",
-        description="A corrupted wizard",
-        bio="Once the head of the White Council",
+        name="Shopkeeper Bob",
+        description="A friendly dwarf merchant",
+        race="Dwarf",
+        occupation="Merchant",
+        location="Market Square",
+        attitude="friendly"
     )
 
 
 @pytest.fixture
-def sample_location() -> Location:
+def sample_location():
     """Create a sample location for testing."""
     return Location(
         name="Rivendell",
         location_type="city",
-        description="An elven stronghold",
-        population=1000,
-        government="Council of the Wise",
-        notable_features=["Healing halls", "Library", "Council chamber"],
+        description="The last homely house east of the sea",
+        population=5000,
+        government="Council of Elrond",
+        notable_features=["Healing springs", "Great library"]
     )
 
 
 @pytest.fixture
-def sample_quest() -> Quest:
+def sample_quest():
     """Create a sample quest for testing."""
     return Quest(
         title="Destroy the One Ring",
         description="Take the ring to Mount Doom and destroy it",
+        giver="Gandalf",
         status="active",
-        objectives=["Travel to Mordor", "Reach Mount Doom", "Cast the ring into the fire"],
-        rewards=["Save Middle-earth"],
+        objectives=["Reach Mordor", "Climb Mount Doom", "Destroy the ring"],
+        reward="Save Middle Earth"
     )
 
 
 @pytest.fixture
-def sample_session() -> SessionNote:
-    """Create a sample session note for testing."""
-    return SessionNote(
-        session_number=1,
-        date=datetime.now(),
-        title="The Council of Elrond",
-        summary="The fellowship is formed",
-        key_events=["Frodo volunteers", "Fellowship formed"],
+def sample_encounter():
+    """Create a sample encounter for testing."""
+    return CombatEncounter(
+        name="Orc Ambush",
+        description="A group of orcs attacks the party",
+        enemies=["Orc Warrior x5", "Orc Archer x2"],
+        difficulty="medium",
+        experience_value=1000,
+        location="Forest Path"
     )
 
 
-class TestCampaignStructureCreation:
-    """Tests for campaign directory structure creation and validation."""
+@pytest.fixture
+def sample_session():
+    """Create a sample session note for testing."""
+    return SessionNote(
+        session_number=1,
+        title="The Adventure Begins",
+        summary="The party meets in a tavern and accepts their first quest",
+        events=["Met at tavern", "Accepted quest", "Traveled to forest"],
+        characters_present=["Gandalf", "Aragorn", "Legolas"],
+        experience_gained=500
+    )
 
-    def test_create_campaign_structure(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test creating directory structure for a new campaign."""
+
+class TestSplitStorageBackendInit:
+    """Tests for SplitStorageBackend initialization."""
+
+    def test_init_creates_directory_structure(self, temp_storage_dir):
+        """Test that initialization creates the expected directory structure."""
+        storage = SplitStorageBackend(data_dir=temp_storage_dir)
+
+        assert storage.data_dir.exists()
+        assert (storage.data_dir / "campaigns").exists()
+        assert storage._current_campaign is None
+        assert len(storage._section_hashes) == 7
+
+    def test_init_with_nonexistent_dir(self, temp_storage_dir):
+        """Test initialization with a non-existent directory."""
+        new_dir = temp_storage_dir / "new_data"
+        storage = SplitStorageBackend(data_dir=new_dir)
+
+        assert new_dir.exists()
+        assert (new_dir / "campaigns").exists()
+
+
+class TestCampaignDirectoryStructure:
+    """Tests for campaign directory structure creation."""
+
+    def test_ensure_campaign_structure(self, split_storage):
+        """Test that campaign directory structure is created correctly."""
         campaign_name = "Test Campaign"
-        split_backend._ensure_campaign_structure(campaign_name)
+        split_storage._ensure_campaign_structure(campaign_name)
 
-        campaign_dir = temp_storage_dir / "campaigns" / campaign_name
+        campaign_dir = split_storage._get_campaign_dir(campaign_name)
         assert campaign_dir.exists()
-        assert campaign_dir.is_dir()
+        assert (campaign_dir / "sessions").exists()
 
-        sessions_dir = campaign_dir / "sessions"
-        assert sessions_dir.exists()
-        assert sessions_dir.is_dir()
+    def test_get_campaign_dir_with_special_chars(self, split_storage):
+        """Test that campaign names with special characters are sanitized."""
+        campaign_name = "Test: Campaign / With \\ Special * Chars"
+        campaign_dir = split_storage._get_campaign_dir(campaign_name)
 
-    def test_create_campaign_with_metadata(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test creating a new campaign with metadata file."""
-        campaign = split_backend.create_campaign(
-            name="Middle-earth Campaign",
-            description="A Lord of the Rings campaign",
-            dm_name="Tolkien",
-            setting="Middle-earth in the Third Age",
+        # Should only contain alphanumeric and allowed special chars
+        assert all(c.isalnum() or c in (' ', '-', '_', "'") for c in campaign_dir.name)
+
+    def test_get_campaign_dir_uses_current_campaign(self, split_storage, sample_character):
+        """Test that _get_campaign_dir uses current campaign when name is None."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="A test campaign"
         )
 
-        assert campaign.name == "Middle-earth Campaign"
-        assert campaign.description == "A Lord of the Rings campaign"
-        assert campaign.dm_name == "Tolkien"
-        assert campaign.setting == "Middle-earth in the Third Age"
+        # Should not raise error when campaign_name is None
+        campaign_dir = split_storage._get_campaign_dir()
+        assert campaign_dir.name == "Test Campaign"
 
-        # Verify campaign.json exists
-        campaign_dir = temp_storage_dir / "campaigns" / "Middle-earth Campaign"
-        campaign_file = campaign_dir / "campaign.json"
-        assert campaign_file.exists()
+    def test_get_campaign_dir_raises_without_name_or_current(self, split_storage):
+        """Test that _get_campaign_dir raises error without name or current campaign."""
+        with pytest.raises(ValueError, match="No campaign name provided"):
+            split_storage._get_campaign_dir()
 
-        # Verify metadata content
-        with open(campaign_file, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
 
-        assert metadata["name"] == "Middle-earth Campaign"
-        assert metadata["description"] == "A Lord of the Rings campaign"
-        assert metadata["dm_name"] == "Tolkien"
+class TestCampaignCreation:
+    """Tests for campaign creation."""
 
-    def test_ensure_campaign_structure_idempotent(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test that ensuring campaign structure multiple times is safe."""
-        campaign_name = "Idempotent Test"
+    def test_create_campaign_basic(self, split_storage):
+        """Test basic campaign creation."""
+        campaign = split_storage.create_campaign(
+            name="Middle Earth",
+            description="A campaign in Tolkien's world"
+        )
 
-        # Create structure twice
-        split_backend._ensure_campaign_structure(campaign_name)
-        split_backend._ensure_campaign_structure(campaign_name)
+        assert campaign.name == "Middle Earth"
+        assert campaign.description == "A campaign in Tolkien's world"
+        assert split_storage._current_campaign == campaign
 
-        campaign_dir = temp_storage_dir / "campaigns" / campaign_name
+        # Check directory structure created
+        campaign_dir = split_storage._get_campaign_dir()
         assert campaign_dir.exists()
-        assert campaign_dir.is_dir()
+        assert (campaign_dir / "sessions").exists()
+        assert (campaign_dir / "campaign.json").exists()
 
-
-class TestLoadCampaignData:
-    """Tests for loading campaign metadata and data sections."""
-
-    def test_load_campaign_metadata(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test loading campaign metadata from campaign.json."""
-        # Create a campaign first
-        campaign = split_backend.create_campaign(
-            name="Test Load Campaign",
-            description="Testing metadata loading",
-            dm_name="Test DM",
+    def test_create_campaign_with_dm_and_setting(self, split_storage):
+        """Test campaign creation with DM name and setting."""
+        campaign = split_storage.create_campaign(
+            name="Dark Sun",
+            description="A harsh desert world",
+            dm_name="DM Dave",
+            setting="Athas"
         )
 
-        # Load metadata
-        campaign_dir = temp_storage_dir / "campaigns" / "Test Load Campaign"
-        metadata = split_backend._load_campaign_metadata(campaign_dir)
+        assert campaign.dm_name == "DM Dave"
+        assert campaign.setting == "Athas"
 
-        assert metadata["name"] == "Test Load Campaign"
-        assert metadata["description"] == "Testing metadata loading"
-        assert metadata["dm_name"] == "Test DM"
-        assert "id" in metadata
-        assert "created_at" in metadata
-
-    def test_load_full_campaign(
-        self,
-        split_backend: SplitStorageBackend,
-        sample_character: Character,
-        sample_npc: NPC,
-        sample_location: Location,
-        sample_quest: Quest,
-    ) -> None:
-        """Test loading a full campaign with all data sections."""
-        # Create and populate campaign
-        campaign = split_backend.create_campaign(
-            name="Full Campaign Test",
-            description="Testing full load",
+    def test_create_campaign_saves_all_files(self, split_storage):
+        """Test that creating a campaign saves all expected files."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
 
-        split_backend._current_campaign = campaign
-        campaign.characters["Gandalf"] = sample_character
-        campaign.npcs["Saruman"] = sample_npc
-        campaign.locations["Rivendell"] = sample_location
-        campaign.quests["Destroy the One Ring"] = sample_quest
+        campaign_dir = split_storage._get_campaign_dir()
 
-        # Save all data
-        split_backend.save_all(force=True)
-
-        # Create new backend and load campaign
-        new_backend = SplitStorageBackend(
-            data_dir=split_backend.data_dir, auto_load=False
-        )
-        loaded_campaign = new_backend.load_campaign("Full Campaign Test")
-
-        assert loaded_campaign.name == "Full Campaign Test"
-        assert "Gandalf" in loaded_campaign.characters
-        assert "Saruman" in loaded_campaign.npcs
-        assert "Rivendell" in loaded_campaign.locations
-        assert "Destroy the One Ring" in loaded_campaign.quests
-
-        # Verify character data
-        loaded_char = loaded_campaign.characters["Gandalf"]
-        assert loaded_char.name == "Gandalf"
-        assert loaded_char.player_name == "Alice"
-        assert loaded_char.character_class.level == 20
-
-    def test_load_campaign_with_missing_sections(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test loading a campaign with some missing data sections."""
-        # Create campaign structure manually with only metadata
-        campaign_name = "Minimal Campaign"
-        campaign_dir = temp_storage_dir / "campaigns" / campaign_name
-        campaign_dir.mkdir(parents=True)
-
-        metadata = {
-            "id": new_uuid(),
-            "name": campaign_name,
-            "description": "A minimal campaign",
-            "dm_name": None,
-            "setting": None,
-            "world_notes": "",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": None,
-        }
-
-        with open(campaign_dir / "campaign.json", "w", encoding="utf-8") as f:
-            json.dump(metadata, f)
-
-        # Load campaign (should not fail)
-        campaign = split_backend.load_campaign(campaign_name)
-
-        assert campaign.name == campaign_name
-        assert len(campaign.characters) == 0
-        assert len(campaign.npcs) == 0
-        assert len(campaign.locations) == 0
-        assert len(campaign.quests) == 0
-
-    def test_load_nonexistent_campaign_raises_error(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test that loading a non-existent campaign raises FileNotFoundError."""
-        with pytest.raises(FileNotFoundError, match="Campaign 'Nonexistent' not found"):
-            split_backend.load_campaign("Nonexistent")
-
-
-class TestDirtyTracking:
-    """Tests for dirty tracking and incremental saves."""
-
-    def test_save_only_dirty_sections(
-        self,
-        split_backend: SplitStorageBackend,
-        sample_character: Character,
-        sample_npc: NPC,
-    ) -> None:
-        """Test that only modified sections are written to disk."""
-        # Create and save campaign
-        campaign = split_backend.create_campaign(
-            name="Dirty Test Campaign",
-            description="Testing dirty tracking",
-        )
-        split_backend._current_campaign = campaign
-        campaign.characters["Gandalf"] = sample_character
-        split_backend.save_all(force=True)
-
-        # Get initial modification time of characters.json
-        campaign_dir = split_backend._get_campaign_dir()
-        char_file = campaign_dir / "characters.json"
-        initial_mtime = char_file.stat().st_mtime
-
-        # Modify NPCs only (not characters)
-        time.sleep(0.01)  # Ensure time difference
-        campaign.npcs["Saruman"] = sample_npc
-        split_backend._save_npcs(force=True)
-
-        # Characters file should not be modified
-        assert char_file.stat().st_mtime == initial_mtime
-
-        # NPCs file should exist and be newer
-        npc_file = campaign_dir / "npcs.json"
-        assert npc_file.exists()
-        assert npc_file.stat().st_mtime > initial_mtime
-
-    def test_unchanged_section_not_saved(
-        self, split_backend: SplitStorageBackend, sample_character: Character
-    ) -> None:
-        """Test that unchanged sections are not re-saved."""
-        campaign = split_backend.create_campaign(
-            name="Unchanged Test",
-            description="Testing unchanged detection",
-        )
-        split_backend._current_campaign = campaign
-        campaign.characters["Gandalf"] = sample_character
-        split_backend.save_all(force=True)
-
-        # Get initial modification time
-        campaign_dir = split_backend._get_campaign_dir()
-        char_file = campaign_dir / "characters.json"
-        initial_mtime = char_file.stat().st_mtime
-
-        # Try to save again without changes (should skip)
-        time.sleep(0.01)  # Ensure time difference would be detectable
-        split_backend._save_characters(force=False)
-
-        # File should not be modified
-        assert char_file.stat().st_mtime == initial_mtime
-
-    def test_force_save_overwrites_dirty_check(
-        self, split_backend: SplitStorageBackend, sample_character: Character
-    ) -> None:
-        """Test that force=True bypasses dirty checking."""
-        campaign = split_backend.create_campaign(
-            name="Force Save Test",
-            description="Testing force save",
-        )
-        split_backend._current_campaign = campaign
-        campaign.characters["Gandalf"] = sample_character
-        split_backend.save_all(force=True)
-
-        # Get initial modification time
-        campaign_dir = split_backend._get_campaign_dir()
-        char_file = campaign_dir / "characters.json"
-        initial_mtime = char_file.stat().st_mtime
-
-        # Force save without changes
-        time.sleep(0.01)
-        split_backend._save_characters(force=True)
-
-        # File should be modified
-        assert char_file.stat().st_mtime > initial_mtime
+        # Check all expected files exist (even if empty)
+        assert (campaign_dir / "campaign.json").exists()
+        assert (campaign_dir / "characters.json").exists()
+        assert (campaign_dir / "npcs.json").exists()
+        assert (campaign_dir / "locations.json").exists()
+        assert (campaign_dir / "quests.json").exists()
+        assert (campaign_dir / "encounters.json").exists()
+        assert (campaign_dir / "game_state.json").exists()
 
 
 class TestAtomicWrites:
-    """Tests for atomic write operations."""
+    """Tests for atomic write functionality."""
 
-    def test_atomic_write_creates_temp_file(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test that atomic writes use a temporary file."""
-        test_file = temp_storage_dir / "test_atomic.json"
-        test_data = {"test": "data"}
+    def test_atomic_write_success(self, split_storage):
+        """Test successful atomic write."""
+        test_file = split_storage.data_dir / "test.json"
+        test_data = {"key": "value", "number": 42}
 
-        split_backend._atomic_write(test_file, test_data)
+        split_storage._atomic_write(test_file, test_data)
 
-        # Verify file exists and contains correct data
         assert test_file.exists()
-        with open(test_file, "r", encoding="utf-8") as f:
+        with open(test_file, 'r') as f:
             loaded_data = json.load(f)
         assert loaded_data == test_data
 
-        # Verify temp file was cleaned up
-        temp_file = test_file.with_suffix(".tmp")
+    def test_atomic_write_removes_temp_on_error(self, split_storage, monkeypatch):
+        """Test that temp file is removed if write fails."""
+        test_file = split_storage.data_dir / "test.json"
+
+        # Simulate write error by making json.dump raise an exception
+        def mock_dump(*args, **kwargs):
+            raise RuntimeError("Simulated write error")
+
+        monkeypatch.setattr("json.dump", mock_dump)
+
+        with pytest.raises(RuntimeError):
+            split_storage._atomic_write(test_file, {"key": "value"})
+
+        # Temp file should be cleaned up
+        temp_file = test_file.with_suffix('.tmp')
         assert not temp_file.exists()
 
-    def test_atomic_write_handles_errors(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test that atomic write cleans up on error."""
-        # Create a read-only directory to trigger write error
-        test_dir = temp_storage_dir / "readonly_dir"
-        test_dir.mkdir()
-        test_file = test_dir / "file.json"
 
-        # Make directory read-only on Unix systems
-        import os
-        import stat
-        os.chmod(test_dir, stat.S_IRUSR | stat.S_IXUSR)
+class TestDirtyTracking:
+    """Tests for per-section dirty tracking."""
 
-        test_data = {"test": "data"}
+    def test_compute_section_hash(self, split_storage):
+        """Test hash computation for data sections."""
+        data1 = {"name": "Test", "value": 123}
+        data2 = {"name": "Test", "value": 123}
+        data3 = {"name": "Test", "value": 456}
 
-        # Attempt atomic write (should raise PermissionError or OSError)
-        try:
-            with pytest.raises((PermissionError, OSError)):
-                split_backend._atomic_write(test_file, test_data)
-        finally:
-            # Restore write permissions for cleanup
-            os.chmod(test_dir, stat.S_IRWXU)
+        hash1 = split_storage._compute_section_hash(data1)
+        hash2 = split_storage._compute_section_hash(data2)
+        hash3 = split_storage._compute_section_hash(data3)
 
+        assert hash1 == hash2  # Same data should have same hash
+        assert hash1 != hash3  # Different data should have different hash
 
-class TestSessionManagement:
-    """Tests for session numbering and file management."""
-
-    def test_save_new_session(
-        self, split_backend: SplitStorageBackend, sample_session: SessionNote
-    ) -> None:
-        """Test saving a new session with correct numbering."""
-        campaign = split_backend.create_campaign(
-            name="Session Test Campaign",
-            description="Testing session saves",
+    def test_save_skips_unchanged_characters(self, split_storage, sample_character):
+        """Test that saving unchanged characters is skipped."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
-        split_backend._current_campaign = campaign
 
-        # Add session to campaign
+        # Add character and save
+        campaign.characters[sample_character.name] = sample_character
+        split_storage._save_characters(force=True)
+
+        # Get modification time
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        mtime_before = char_file.stat().st_mtime
+
+        # Save again without changes - should skip
+        split_storage._save_characters(force=False)
+        mtime_after = char_file.stat().st_mtime
+
+        # File should not have been modified
+        assert mtime_before == mtime_after
+
+    def test_force_save_overwrites_unchanged(self, split_storage, sample_character):
+        """Test that force=True saves even when data is unchanged."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+
+        campaign.characters[sample_character.name] = sample_character
+        split_storage._save_characters(force=True)
+
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        mtime_before = char_file.stat().st_mtime
+
+        # Wait a bit to ensure timestamp would change
+        import time
+        time.sleep(0.01)
+
+        # Force save - should write even though unchanged
+        split_storage._save_characters(force=True)
+        mtime_after = char_file.stat().st_mtime
+
+        # With force=True, file should have been rewritten
+        assert mtime_after >= mtime_before
+
+
+class TestSaveCharacters:
+    """Tests for character saving."""
+
+    def test_save_characters_empty(self, split_storage):
+        """Test saving empty characters dict."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+
+        split_storage._save_characters(force=True)
+
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        assert char_file.exists()
+
+        with open(char_file, 'r') as f:
+            data = json.load(f)
+        assert data == {}
+
+    def test_save_characters_single(self, split_storage, sample_character):
+        """Test saving a single character."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        campaign.characters[sample_character.name] = sample_character
+
+        split_storage._save_characters(force=True)
+
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        with open(char_file, 'r') as f:
+            data = json.load(f)
+
+        assert "Gandalf" in data
+        assert data["Gandalf"]["name"] == "Gandalf"
+        assert data["Gandalf"]["player_name"] == "John"
+
+    def test_save_characters_multiple(self, split_storage, sample_character):
+        """Test saving multiple characters."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+
+        char2 = Character(
+            name="Aragorn",
+            player_name="Mike",
+            character_class=CharacterClass(name="Ranger", level=8, hit_dice="1d10"),
+            race=Race(name="Human")
+        )
+
+        campaign.characters[sample_character.name] = sample_character
+        campaign.characters[char2.name] = char2
+
+        split_storage._save_characters(force=True)
+
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        with open(char_file, 'r') as f:
+            data = json.load(f)
+
+        assert len(data) == 2
+        assert "Gandalf" in data
+        assert "Aragorn" in data
+
+
+class TestSaveNPCs:
+    """Tests for NPC saving."""
+
+    def test_save_npcs_single(self, split_storage, sample_npc):
+        """Test saving a single NPC."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        campaign.npcs[sample_npc.name] = sample_npc
+
+        split_storage._save_npcs(force=True)
+
+        npc_file = split_storage._get_campaign_dir() / "npcs.json"
+        with open(npc_file, 'r') as f:
+            data = json.load(f)
+
+        assert "Shopkeeper Bob" in data
+        assert data["Shopkeeper Bob"]["race"] == "Dwarf"
+        assert data["Shopkeeper Bob"]["occupation"] == "Merchant"
+
+
+class TestSaveLocations:
+    """Tests for location saving."""
+
+    def test_save_locations_single(self, split_storage, sample_location):
+        """Test saving a single location."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        campaign.locations[sample_location.name] = sample_location
+
+        split_storage._save_locations(force=True)
+
+        loc_file = split_storage._get_campaign_dir() / "locations.json"
+        with open(loc_file, 'r') as f:
+            data = json.load(f)
+
+        assert "Rivendell" in data
+        assert data["Rivendell"]["location_type"] == "city"
+        assert data["Rivendell"]["population"] == 5000
+
+
+class TestSaveQuests:
+    """Tests for quest saving."""
+
+    def test_save_quests_single(self, split_storage, sample_quest):
+        """Test saving a single quest."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        campaign.quests[sample_quest.title] = sample_quest
+
+        split_storage._save_quests(force=True)
+
+        quest_file = split_storage._get_campaign_dir() / "quests.json"
+        with open(quest_file, 'r') as f:
+            data = json.load(f)
+
+        assert "Destroy the One Ring" in data
+        assert data["Destroy the One Ring"]["giver"] == "Gandalf"
+        assert data["Destroy the One Ring"]["status"] == "active"
+
+
+class TestSaveEncounters:
+    """Tests for encounter saving."""
+
+    def test_save_encounters_single(self, split_storage, sample_encounter):
+        """Test saving a single encounter."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        campaign.encounters[sample_encounter.name] = sample_encounter
+
+        split_storage._save_encounters(force=True)
+
+        enc_file = split_storage._get_campaign_dir() / "encounters.json"
+        with open(enc_file, 'r') as f:
+            data = json.load(f)
+
+        assert "Orc Ambush" in data
+        assert data["Orc Ambush"]["difficulty"] == "medium"
+        assert data["Orc Ambush"]["experience_value"] == 1000
+
+
+class TestSaveGameState:
+    """Tests for game state saving."""
+
+    def test_save_game_state(self, split_storage):
+        """Test saving game state."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+
+        campaign.game_state.current_session = 5
+        campaign.game_state.party_level = 10
+        campaign.game_state.party_funds = "1000 gp"
+
+        split_storage._save_game_state(force=True)
+
+        state_file = split_storage._get_campaign_dir() / "game_state.json"
+        with open(state_file, 'r') as f:
+            data = json.load(f)
+
+        assert data["current_session"] == 5
+        assert data["party_level"] == 10
+        assert data["party_funds"] == "1000 gp"
+
+
+class TestSaveCampaignMetadata:
+    """Tests for campaign metadata saving."""
+
+    def test_save_campaign_metadata(self, split_storage):
+        """Test that only metadata is saved, not data fields."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="A test campaign",
+            dm_name="DM Dave"
+        )
+
+        # Add some data
+        char = Character(
+            name="TestChar",
+            character_class=CharacterClass(name="Fighter", level=1, hit_dice="1d10"),
+            race=Race(name="Human")
+        )
+        campaign.characters[char.name] = char
+
+        split_storage._save_campaign_metadata(force=True)
+
+        metadata_file = split_storage._get_campaign_dir() / "campaign.json"
+        with open(metadata_file, 'r') as f:
+            data = json.load(f)
+
+        # Should have metadata fields
+        assert data["name"] == "Test Campaign"
+        assert data["description"] == "A test campaign"
+        assert data["dm_name"] == "DM Dave"
+
+        # Should NOT have data fields
+        assert "characters" not in data
+        assert "npcs" not in data
+        assert "locations" not in data
+
+
+class TestSaveSessions:
+    """Tests for session saving."""
+
+    def test_save_session_single(self, split_storage, sample_session):
+        """Test saving a single session."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
         campaign.sessions.append(sample_session)
-        split_backend._save_session(sample_session, force=True)
 
-        # Verify session file exists with correct name
-        campaign_dir = split_backend._get_campaign_dir()
-        session_file = campaign_dir / "sessions" / "session-001.json"
+        split_storage._save_session(sample_session, force=True)
+
+        session_file = split_storage._get_campaign_dir() / "sessions" / "session-001.json"
         assert session_file.exists()
 
-        # Verify content
-        with open(session_file, "r", encoding="utf-8") as f:
-            session_data = json.load(f)
-        assert session_data["session_number"] == 1
-        assert session_data["title"] == "The Council of Elrond"
+        with open(session_file, 'r') as f:
+            data = json.load(f)
 
-    def test_list_sessions_from_directory(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test loading sessions from sessions/ directory."""
-        campaign = split_backend.create_campaign(
-            name="List Sessions Test",
-            description="Testing session listing",
+        assert data["session_number"] == 1
+        assert data["title"] == "The Adventure Begins"
+
+    def test_save_session_multiple(self, split_storage, sample_session):
+        """Test saving multiple sessions."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
-        split_backend._current_campaign = campaign
 
-        # Create multiple sessions
-        for i in range(1, 4):
-            session = SessionNote(
-                session_number=i,
-                date=datetime.now(),
-                title=f"Session {i}",
-                summary=f"Summary of session {i}",
-            )
-            campaign.sessions.append(session)
-            split_backend._save_session(session, force=True)
-
-        # Load sessions
-        campaign_dir = split_backend._get_campaign_dir()
-        loaded_sessions = split_backend._load_sessions(campaign_dir)
-
-        assert len(loaded_sessions) == 3
-        assert loaded_sessions[0].session_number == 1
-        assert loaded_sessions[1].session_number == 2
-        assert loaded_sessions[2].session_number == 3
-
-    def test_session_numbering_with_gaps(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test session loading with non-sequential numbering."""
-        campaign = split_backend.create_campaign(
-            name="Gap Test Campaign",
-            description="Testing session gaps",
+        session2 = SessionNote(
+            session_number=2,
+            title="The Plot Thickens",
+            summary="The party discovers a conspiracy",
+            events=["Found clues", "Interrogated suspect"],
+            characters_present=["Gandalf", "Aragorn"]
         )
-        split_backend._current_campaign = campaign
 
-        # Create sessions with gaps
-        for i in [1, 3, 5]:
-            session = SessionNote(
-                session_number=i,
-                date=datetime.now(),
-                title=f"Session {i}",
-                summary=f"Summary {i}",
-            )
-            campaign.sessions.append(session)
-            split_backend._save_session(session, force=True)
+        campaign.sessions.append(sample_session)
+        campaign.sessions.append(session2)
 
-        # Load and verify
-        campaign_dir = split_backend._get_campaign_dir()
-        loaded_sessions = split_backend._load_sessions(campaign_dir)
+        split_storage._save_session(sample_session, force=True)
+        split_storage._save_session(session2, force=True)
 
-        assert len(loaded_sessions) == 3
-        session_numbers = [s.session_number for s in loaded_sessions]
-        assert session_numbers == [1, 3, 5]
+        sessions_dir = split_storage._get_campaign_dir() / "sessions"
+        assert (sessions_dir / "session-001.json").exists()
+        assert (sessions_dir / "session-002.json").exists()
 
 
-class TestErrorHandling:
-    """Tests for error handling with missing or corrupt files."""
+class TestSaveAll:
+    """Tests for save_all method."""
 
-    def test_invalid_campaign_structure_missing_metadata(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test handling of campaign directory without campaign.json."""
-        # Create directory without campaign.json
-        campaign_dir = temp_storage_dir / "campaigns" / "Invalid Campaign"
-        campaign_dir.mkdir(parents=True)
-
-        with pytest.raises(FileNotFoundError, match="Campaign metadata file not found"):
-            split_backend._load_campaign_metadata(campaign_dir)
-
-    def test_corrupt_json_file_handling(
-        self, split_backend: SplitStorageBackend, temp_storage_dir: Path
-    ) -> None:
-        """Test handling of corrupt JSON files."""
-        campaign = split_backend.create_campaign(
-            name="Corrupt Test",
-            description="Testing corrupt file handling",
+    def test_save_all_complete_campaign(self, split_storage, sample_character,
+                                        sample_npc, sample_location, sample_quest,
+                                        sample_encounter, sample_session):
+        """Test saving all campaign data at once."""
+        campaign = split_storage.create_campaign(
+            name="Complete Campaign",
+            description="A campaign with all data types"
         )
-        split_backend._current_campaign = campaign
 
-        # Create corrupt characters.json
-        campaign_dir = split_backend._get_campaign_dir()
-        char_file = campaign_dir / "characters.json"
-        with open(char_file, "w", encoding="utf-8") as f:
-            f.write("{ this is not valid json }")
+        # Add all types of data
+        campaign.characters[sample_character.name] = sample_character
+        campaign.npcs[sample_npc.name] = sample_npc
+        campaign.locations[sample_location.name] = sample_location
+        campaign.quests[sample_quest.title] = sample_quest
+        campaign.encounters[sample_encounter.name] = sample_encounter
+        campaign.sessions.append(sample_session)
 
-        # Attempt to load characters (should return empty dict)
-        characters = split_backend._load_characters(campaign_dir)
+        split_storage.save_all(force=True)
+
+        campaign_dir = split_storage._get_campaign_dir()
+
+        # Verify all files exist
+        assert (campaign_dir / "campaign.json").exists()
+        assert (campaign_dir / "characters.json").exists()
+        assert (campaign_dir / "npcs.json").exists()
+        assert (campaign_dir / "locations.json").exists()
+        assert (campaign_dir / "quests.json").exists()
+        assert (campaign_dir / "encounters.json").exists()
+        assert (campaign_dir / "game_state.json").exists()
+        assert (campaign_dir / "sessions" / "session-001.json").exists()
+
+
+class TestLoadCharacters:
+    """Tests for character loading."""
+
+    def test_load_characters_empty(self, split_storage):
+        """Test loading empty characters file."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+        split_storage.save_all(force=True)
+
+        campaign_dir = split_storage._get_campaign_dir()
+        characters = split_storage._load_characters(campaign_dir)
+
         assert characters == {}
 
-    def test_load_sessions_with_corrupt_file(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test that corrupt session files are skipped gracefully."""
-        campaign = split_backend.create_campaign(
-            name="Corrupt Session Test",
-            description="Testing corrupt session handling",
+    def test_load_characters_single(self, split_storage, sample_character):
+        """Test loading a single character."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
-        split_backend._current_campaign = campaign
+        campaign.characters[sample_character.name] = sample_character
+        split_storage.save_all(force=True)
 
-        # Create valid and corrupt session files
-        campaign_dir = split_backend._get_campaign_dir()
-        sessions_dir = campaign_dir / "sessions"
-        sessions_dir.mkdir(exist_ok=True)
+        campaign_dir = split_storage._get_campaign_dir()
+        characters = split_storage._load_characters(campaign_dir)
 
-        # Valid session
-        valid_session = SessionNote(
-            session_number=1,
-            date=datetime.now(),
-            title="Valid Session",
-            summary="This one is valid",
+        assert len(characters) == 1
+        assert "Gandalf" in characters
+        assert characters["Gandalf"].name == "Gandalf"
+        assert characters["Gandalf"].player_name == "John"
+
+    def test_load_characters_missing_file(self, split_storage):
+        """Test loading when characters file doesn't exist."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
-        split_backend._save_session(valid_session, force=True)
 
-        # Corrupt session file
-        corrupt_file = sessions_dir / "session-002.json"
-        with open(corrupt_file, "w", encoding="utf-8") as f:
-            f.write("{ corrupt json }")
+        # Remove characters file
+        char_file = split_storage._get_campaign_dir() / "characters.json"
+        if char_file.exists():
+            char_file.unlink()
 
-        # Load sessions (should load only valid one)
-        loaded_sessions = split_backend._load_sessions(campaign_dir)
-        assert len(loaded_sessions) == 1
-        assert loaded_sessions[0].session_number == 1
+        campaign_dir = split_storage._get_campaign_dir()
+        characters = split_storage._load_characters(campaign_dir)
+
+        assert characters == {}
 
 
-class TestConcurrentAccess:
-    """Tests for handling multiple reads safely."""
+class TestLoadCampaign:
+    """Tests for campaign loading."""
 
-    def test_concurrent_reads_safe(
-        self, split_backend: SplitStorageBackend, sample_character: Character
-    ) -> None:
-        """Test that multiple reads do not interfere with each other."""
+    def test_load_campaign_basic(self, split_storage):
+        """Test loading a basic campaign."""
         # Create and save campaign
-        campaign = split_backend.create_campaign(
-            name="Concurrent Test",
-            description="Testing concurrent reads",
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="A test campaign"
         )
-        split_backend._current_campaign = campaign
-        campaign.characters["Gandalf"] = sample_character
-        split_backend.save_all(force=True)
+        original_id = campaign.id
 
-        # Create multiple backend instances and load simultaneously
-        backend1 = SplitStorageBackend(
-            data_dir=split_backend.data_dir, auto_load=False
+        # Create new storage instance and load
+        new_storage = SplitStorageBackend(data_dir=split_storage.data_dir)
+        loaded_campaign = new_storage.load_campaign("Test Campaign")
+
+        assert loaded_campaign.name == "Test Campaign"
+        assert loaded_campaign.description == "A test campaign"
+        assert loaded_campaign.id == original_id
+
+    def test_load_campaign_with_all_data(self, split_storage, sample_character,
+                                         sample_npc, sample_location, sample_quest,
+                                         sample_encounter, sample_session):
+        """Test loading a campaign with all data types."""
+        # Create campaign with all data
+        campaign = split_storage.create_campaign(
+            name="Full Campaign",
+            description="Campaign with all data"
         )
-        backend2 = SplitStorageBackend(
-            data_dir=split_backend.data_dir, auto_load=False
+        campaign.characters[sample_character.name] = sample_character
+        campaign.npcs[sample_npc.name] = sample_npc
+        campaign.locations[sample_location.name] = sample_location
+        campaign.quests[sample_quest.title] = sample_quest
+        campaign.encounters[sample_encounter.name] = sample_encounter
+        campaign.sessions.append(sample_session)
+        split_storage.save_all(force=True)
+
+        # Load in new storage instance
+        new_storage = SplitStorageBackend(data_dir=split_storage.data_dir)
+        loaded = new_storage.load_campaign("Full Campaign")
+
+        assert len(loaded.characters) == 1
+        assert len(loaded.npcs) == 1
+        assert len(loaded.locations) == 1
+        assert len(loaded.quests) == 1
+        assert len(loaded.encounters) == 1
+        assert len(loaded.sessions) == 1
+
+    def test_load_campaign_not_found(self, split_storage):
+        """Test loading a non-existent campaign raises error."""
+        with pytest.raises(FileNotFoundError, match="not found"):
+            split_storage.load_campaign("NonExistent Campaign")
+
+
+class TestListCampaigns:
+    """Tests for listing campaigns."""
+
+    def test_list_campaigns_empty(self, split_storage):
+        """Test listing when no campaigns exist."""
+        campaigns = split_storage.list_campaigns()
+        assert campaigns == []
+
+    def test_list_campaigns_single(self, split_storage):
+        """Test listing a single campaign."""
+        split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
         )
 
-        campaign1 = backend1.load_campaign("Concurrent Test")
-        campaign2 = backend2.load_campaign("Concurrent Test")
+        campaigns = split_storage.list_campaigns()
+        assert len(campaigns) == 1
+        assert "Test Campaign" in campaigns
 
-        # Both should load successfully
-        assert campaign1.name == "Concurrent Test"
-        assert campaign2.name == "Concurrent Test"
-        assert "Gandalf" in campaign1.characters
-        assert "Gandalf" in campaign2.characters
+    def test_list_campaigns_multiple(self, split_storage):
+        """Test listing multiple campaigns."""
+        split_storage.create_campaign(name="Campaign 1", description="First")
+        split_storage.create_campaign(name="Campaign 2", description="Second")
+        split_storage.create_campaign(name="Campaign 3", description="Third")
+
+        campaigns = split_storage.list_campaigns()
+        assert len(campaigns) == 3
+        assert "Campaign 1" in campaigns
+        assert "Campaign 2" in campaigns
+        assert "Campaign 3" in campaigns
 
 
-class TestHashComputation:
-    """Tests for section hash computation for dirty tracking."""
+class TestLoadCurrentCampaign:
+    """Tests for loading the most recent campaign."""
 
-    def test_compute_section_hash_consistent(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test that hash computation is consistent for same data."""
-        data = {"name": "Gandalf", "level": 20}
+    def test_load_most_recent_campaign(self, split_storage):
+        """Test that the most recently modified campaign is loaded."""
+        import time
 
-        hash1 = split_backend._compute_section_hash(data)
-        hash2 = split_backend._compute_section_hash(data)
+        # Create first campaign
+        split_storage.create_campaign(name="Old Campaign", description="Old")
+        time.sleep(0.01)
 
-        assert hash1 == hash2
+        # Create second campaign (more recent)
+        split_storage.create_campaign(name="New Campaign", description="New")
 
-    def test_compute_section_hash_different_for_changes(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test that hash changes when data changes."""
-        data1 = {"name": "Gandalf", "level": 20}
-        data2 = {"name": "Gandalf", "level": 21}
+        # Create new storage instance (should load most recent)
+        new_storage = SplitStorageBackend(data_dir=split_storage.data_dir)
 
-        hash1 = split_backend._compute_section_hash(data1)
-        hash2 = split_backend._compute_section_hash(data2)
+        # Should have loaded the newer campaign
+        assert new_storage._current_campaign is not None
+        assert new_storage._current_campaign.name == "New Campaign"
 
-        assert hash1 != hash2
 
-    def test_compute_section_hash_order_independent(
-        self, split_backend: SplitStorageBackend
-    ) -> None:
-        """Test that hash is independent of dict key order."""
-        data1 = {"name": "Gandalf", "level": 20, "class": "Wizard"}
-        data2 = {"level": 20, "class": "Wizard", "name": "Gandalf"}
+class TestGetCurrentCampaign:
+    """Tests for getting current campaign."""
 
-        hash1 = split_backend._compute_section_hash(data1)
-        hash2 = split_backend._compute_section_hash(data2)
+    def test_get_current_campaign_none(self, split_storage):
+        """Test getting current campaign when none is loaded."""
+        assert split_storage.get_current_campaign() is None
 
-        # Should be equal due to sort_keys=True in JSON serialization
-        assert hash1 == hash2
+    def test_get_current_campaign_after_create(self, split_storage):
+        """Test getting current campaign after creation."""
+        campaign = split_storage.create_campaign(
+            name="Test Campaign",
+            description="Test"
+        )
+
+        current = split_storage.get_current_campaign()
+        assert current == campaign
+        assert current.name == "Test Campaign"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

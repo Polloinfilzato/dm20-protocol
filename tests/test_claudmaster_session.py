@@ -15,6 +15,7 @@ from datetime import datetime
 
 from gamemaster_mcp.claudmaster.session import ClaudmasterSession
 from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
+from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
 
 
 class TestSessionCreation:
@@ -294,4 +295,4 @@ class TestGetContext:
         context = session.get_context()
         assert isinstance(context["config"], dict)
         assert context["config"]["llm_provider"] == "openai"
-        assert context["config"]["improvisation_level"] == 3
+        assert context["config"]["improvisation_level"] == ImprovisationLevel.HIGH
