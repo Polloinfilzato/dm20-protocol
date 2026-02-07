@@ -1,6 +1,14 @@
 """Claudmaster agent implementations."""
 
-from .narrator import NarratorAgent, NarrativeStyle, LLMClient
+from .narrator import (
+    NarratorAgent,
+    NarrativeStyle,
+    LLMClient,
+    VoiceProfile,
+    DialogueLine,
+    DialogueContext,
+    Conversation,
+)
 from .archivist import (
     ArchivistAgent,
     HPStatus,
@@ -28,6 +36,10 @@ __all__ = [
     "NarratorAgent",
     "NarrativeStyle",
     "LLMClient",
+    "VoiceProfile",
+    "DialogueLine",
+    "DialogueContext",
+    "Conversation",
     # Archivist Agent exports
     "ArchivistAgent",
     "HPStatus",
