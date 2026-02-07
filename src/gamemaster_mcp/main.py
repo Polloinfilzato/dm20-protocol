@@ -43,7 +43,7 @@ storage = DnDStorage(data_dir=data_path)
 logger.debug("✅ Storage layer initialized")
 
 # Initialize library manager for PDF rulebook library
-library_dir = data_path / "library" if data_path else Path("dnd_data/library")
+library_dir = data_path / "library"
 library_manager = LibraryManager(library_dir)
 library_manager.ensure_directories()
 loaded_indexes = library_manager.load_all_indexes()
@@ -1524,6 +1524,53 @@ Adjusted XP: {adjusted_xp}
 # ----------------------------------------------------------------------
 
 @mcp.tool
+def open_library_folder() -> str:
+    """Open the library folder where users can drop PDF and Markdown rulebooks.
+
+    Creates the library/pdfs/ directory if it doesn't exist, then opens it
+    in the system file manager (Finder on macOS, file manager on Linux).
+
+    Returns the absolute path to the folder with instructions on next steps.
+    """
+    import platform
+    import subprocess
+
+    pdfs_dir = library_manager.pdfs_dir
+    pdfs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Open in system file manager
+    system = platform.system()
+    try:
+        if system == "Darwin":
+            subprocess.Popen(["open", str(pdfs_dir)])
+        elif system == "Linux":
+            subprocess.Popen(["xdg-open", str(pdfs_dir)])
+        elif system == "Windows":
+            subprocess.Popen(["explorer", str(pdfs_dir)])
+        folder_opened = True
+    except Exception:
+        folder_opened = False
+
+    lines = ["# 📂 Library Folder"]
+    lines.append("")
+    lines.append(f"**Path:** `{pdfs_dir}`")
+    lines.append("")
+
+    if folder_opened:
+        lines.append("The folder has been opened in your file manager.")
+    else:
+        lines.append("Could not open the folder automatically. Please navigate to the path above.")
+
+    lines.append("")
+    lines.append("**Next steps:**")
+    lines.append("1. Drop your PDF or Markdown (.md) files into this folder")
+    lines.append("2. Run `scan_library` to index the new files")
+    lines.append("3. Use `search_library` or `ask_books` to query your content")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
 def scan_library() -> str:
     """Scan the library folder for new PDF/Markdown files and index them.
 
@@ -1537,7 +1584,12 @@ def scan_library() -> str:
     files = library_manager.scan_library()
 
     if not files:
-        return "📚 No PDF or Markdown files found in library.\n\nAdd files to: " + str(library_manager.pdfs_dir)
+        return (
+            "📚 No PDF or Markdown files found in library.\n\n"
+            f"**Library folder:** `{library_manager.pdfs_dir}`\n\n"
+            "Use `open_library_folder` to open it in your file manager, "
+            "then drop your PDF or Markdown files there."
+        )
 
     indexed_count = 0
     skipped_count = 0
@@ -1573,6 +1625,7 @@ def scan_library() -> str:
 
     # Build response
     lines = ["# 📚 Library Scan Complete", ""]
+    lines.append(f"**Library folder:** `{library_manager.pdfs_dir}`")
     lines.append(f"**Total files:** {len(files)}")
     lines.append(f"**Newly indexed:** {indexed_count}")
     lines.append(f"**Skipped (up-to-date):** {skipped_count}")
