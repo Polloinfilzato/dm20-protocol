@@ -102,6 +102,18 @@ from .improvisation import (
     get_constraints,
     validate_level_transition,
 )
+from .element_locks import (
+    ElementCategory,
+    ElementLock,
+    LockConfiguration,
+    CATEGORY_HIERARCHY,
+)
+from .pc_tracking import (
+    PCState,
+    MultiPlayerConfig,
+    PCRegistry,
+    PCIdentifier,
+)
 from .config import ClaudmasterConfig
 
 __all__ = [
@@ -188,6 +200,16 @@ __all__ = [
     "get_adherence_percentage",
     "get_constraints",
     "validate_level_transition",
+    # Locked/Flexible Elements (Issue #52)
+    "ElementCategory",
+    "ElementLock",
+    "LockConfiguration",
+    "CATEGORY_HIERARCHY",
+    # Multi-PC Tracking (Issue #59)
+    "PCState",
+    "MultiPlayerConfig",
+    "PCRegistry",
+    "PCIdentifier",
     # Config
     "ClaudmasterConfig",
 ]
