@@ -248,26 +248,20 @@ Run the server locally:
 uv run python -m dm20_protocol
 ```
 
-## Roadmap
+## Claudmaster — AI Dungeon Master
 
-The next major feature is **Claudmaster** — an autonomous AI Dungeon Master powered by a multi-agent architecture:
-
-- **Narrator Agent** — Scene descriptions, NPC dialogue, atmosphere
-- **Archivist Agent** — Game state, rules lookup, combat management
-- **Module Keeper Agent** — RAG-based adventure module content
-- **Consistency Engine** — Fact tracking, contradiction detection
-
-Play published adventures (Curse of Strahd, Lost Mines of Phandelver, etc.) with AI following the module plot while adapting to player choices. Supports solo play, group play, and DM assistant modes.
+The **Claudmaster** multi-agent AI DM system is architecturally complete — Narrator, Archivist, and Module Keeper agents, consistency engine, improvisation control, and multi-player support are all implemented. Next step is wiring agents to real LLM calls and validating with actual gameplay.
 
 Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches.
 
-**Status:** In development.
+See the full **[Roadmap](ROADMAP.md)** for what's next.
 
 ## Documentation
 
 - [User Guide](docs/GUIDE.md) — System prompt, tools reference, data structure, PDF library
 - [Storage Structure](docs/STORAGE_STRUCTURE.md) — How campaign data is organized on disk
 - [Development Guide](docs/DEVELOPMENT.md) — Architecture, contributing, API details
+- [Roadmap](ROADMAP.md) — What's implemented, what's next
 - [Changelog](CHANGELOG.md) — Version history
 
 ## Credits
