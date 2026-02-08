@@ -10,9 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.manager import LibraryManager
-from gamemaster_mcp.library.search import LibrarySearch, SearchResult
-from gamemaster_mcp.library.models import (
+from dm20_protocol.library.manager import LibraryManager
+from dm20_protocol.library.search import LibrarySearch, SearchResult
+from dm20_protocol.library.models import (
     IndexEntry,
     TOCEntry,
     ContentType,

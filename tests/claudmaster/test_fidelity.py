@@ -8,7 +8,7 @@ deviation detection, warning system, forced text injection, and audit logging.
 import pytest
 from datetime import datetime
 
-from gamemaster_mcp.claudmaster.fidelity import (
+from dm20_protocol.claudmaster.fidelity import (
     NarrationContext,
     Deviation,
     EnforcementResult,
@@ -21,12 +21,12 @@ from gamemaster_mcp.claudmaster.fidelity import (
     NarratorLockEnforcer,
     get_applicable_locks,
 )
-from gamemaster_mcp.claudmaster.element_locks import (
+from dm20_protocol.claudmaster.element_locks import (
     ElementCategory,
     ElementLock,
     LockConfiguration,
 )
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 # Fixtures

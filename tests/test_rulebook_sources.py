@@ -6,14 +6,14 @@ import asyncio
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.rulebooks.sources import (
+from dm20_protocol.rulebooks.sources import (
     RulebookSourceBase,
     CustomSource,
     CustomSourceError,
     SearchResult,
     ContentCounts,
 )
-from gamemaster_mcp.rulebooks.models import RulebookSource
+from dm20_protocol.rulebooks.models import RulebookSource
 
 
 # Path to test fixtures

@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from gamemaster_mcp.claudmaster.private_info import (
+from dm20_protocol.claudmaster.private_info import (
     InfoVisibility,
     PrivateInfo,
     PrivateMessage,
@@ -25,7 +25,7 @@ from gamemaster_mcp.claudmaster.private_info import (
     SecretKnowledge,
     PrivateInfoManager,
 )
-from gamemaster_mcp.claudmaster.pc_tracking import (
+from dm20_protocol.claudmaster.pc_tracking import (
     PCRegistry,
     PCState,
     MultiPlayerConfig,

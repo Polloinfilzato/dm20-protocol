@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from gamemaster_mcp.claudmaster.consistency import (
+from dm20_protocol.claudmaster.consistency import (
     Contradiction,
     ContradictionDetector,
     ContradictionSeverity,

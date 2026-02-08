@@ -1,1 +1,1 @@
-"""Tests package for gamemaster-mcp."""
+"""Tests package for dm20-protocol."""

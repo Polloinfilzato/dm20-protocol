@@ -22,7 +22,7 @@ def anyio_backend():
     return "asyncio"
 
 
-from gamemaster_mcp.claudmaster.combat_narrator import (
+from dm20_protocol.claudmaster.combat_narrator import (
     CombatNarrator,
     DamageSeverity,
     SpellInfo,
@@ -30,7 +30,7 @@ from gamemaster_mcp.claudmaster.combat_narrator import (
     DramaticMoment,
     DescriptionTracker,
 )
-from gamemaster_mcp.claudmaster.agents.archivist import InitiativeEntry
+from dm20_protocol.claudmaster.agents.archivist import InitiativeEntry
 
 
 # ============================================================================

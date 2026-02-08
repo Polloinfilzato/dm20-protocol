@@ -7,7 +7,7 @@ This module tests the player_action MCP tool and its supporting components.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gamemaster_mcp.claudmaster.tools.action_tools import (
+from dm20_protocol.claudmaster.tools.action_tools import (
     DiceRoll,
     NPCResponse,
     StateChange,
@@ -16,12 +16,12 @@ from gamemaster_mcp.claudmaster.tools.action_tools import (
     ActionProcessor,
     player_action,
 )
-from gamemaster_mcp.claudmaster.orchestrator import (
+from dm20_protocol.claudmaster.orchestrator import (
     IntentType,
     PlayerIntent,
     OrchestratorResponse,
 )
-from gamemaster_mcp.claudmaster.base import AgentResponse, AgentRole
+from dm20_protocol.claudmaster.base import AgentResponse, AgentRole
 
 
 # ============================================================================
@@ -593,7 +593,7 @@ async def test_process_action_orchestrator_error(action_processor, mock_session_
 @pytest.mark.anyio
 async def test_player_action_tool_basic():
     """Test player_action MCP tool function basic usage."""
-    with patch('gamemaster_mcp.claudmaster.tools.action_tools._session_manager') as mock_mgr:
+    with patch('dm20_protocol.claudmaster.tools.action_tools._session_manager') as mock_mgr:
         # Setup mocks
         mock_orchestrator = MagicMock()
         mock_session = MagicMock()
@@ -623,7 +623,7 @@ async def test_player_action_tool_basic():
 @pytest.mark.anyio
 async def test_player_action_tool_with_character_name():
     """Test player_action with character_name parameter."""
-    with patch('gamemaster_mcp.claudmaster.tools.action_tools._session_manager') as mock_mgr:
+    with patch('dm20_protocol.claudmaster.tools.action_tools._session_manager') as mock_mgr:
         mock_orchestrator = MagicMock()
         mock_session = MagicMock()
         mock_session.turn_count = 1
@@ -649,7 +649,7 @@ async def test_player_action_tool_with_character_name():
 @pytest.mark.anyio
 async def test_player_action_tool_with_context():
     """Test player_action with context parameter."""
-    with patch('gamemaster_mcp.claudmaster.tools.action_tools._session_manager') as mock_mgr:
+    with patch('dm20_protocol.claudmaster.tools.action_tools._session_manager') as mock_mgr:
         mock_orchestrator = MagicMock()
         mock_session = MagicMock()
         mock_session.turn_count = 2
@@ -675,7 +675,7 @@ async def test_player_action_tool_with_context():
 @pytest.mark.anyio
 async def test_player_action_tool_invalid_session():
     """Test player_action with invalid session ID."""
-    with patch('gamemaster_mcp.claudmaster.tools.action_tools._session_manager') as mock_mgr:
+    with patch('dm20_protocol.claudmaster.tools.action_tools._session_manager') as mock_mgr:
         mock_mgr._active_sessions = {}
 
         result = await player_action(
@@ -691,7 +691,7 @@ async def test_player_action_tool_invalid_session():
 @pytest.mark.anyio
 async def test_player_action_tool_with_all_response_fields():
     """Test player_action returning response with all fields populated."""
-    with patch('gamemaster_mcp.claudmaster.tools.action_tools._session_manager') as mock_mgr:
+    with patch('dm20_protocol.claudmaster.tools.action_tools._session_manager') as mock_mgr:
         mock_orchestrator = MagicMock()
         mock_session = MagicMock()
         mock_session.turn_count = 5

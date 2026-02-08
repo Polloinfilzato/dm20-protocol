@@ -12,8 +12,8 @@ import json
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.storage import DnDStorage, StorageFormat
-from gamemaster_mcp.rulebooks.manager import RulebookManager
+from dm20_protocol.storage import DnDStorage, StorageFormat
+from dm20_protocol.rulebooks.manager import RulebookManager
 
 
 # Test fixtures

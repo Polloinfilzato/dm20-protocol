@@ -8,7 +8,7 @@ in-game time progression and event tracking.
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.claudmaster.consistency.timeline import (
+from dm20_protocol.claudmaster.consistency.timeline import (
     GameTime,
     TimeUnit,
     TimelineEvent,

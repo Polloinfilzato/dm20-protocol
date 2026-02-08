@@ -3,14 +3,14 @@ Test file for the D&D MCP Server (FastMCP 2.8.0+ compliant).
 """
 
 import pytest
-from gamemaster_mcp.main import mcp
-from gamemaster_mcp.storage import DnDStorage
-from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.main import mcp
+from dm20_protocol.storage import DnDStorage
+from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore
 
 
 def test_mcp_server_initialization():
     """Test that the FastMCP server initializes correctly."""
-    assert mcp.name == "gamemaster-mcp"
+    assert mcp.name == "dm20-protocol"
 
 
 def test_storage_initialization():

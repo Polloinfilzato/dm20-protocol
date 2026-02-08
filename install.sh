@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Gamemaster MCP — Interactive Installer
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mcp/main/install.sh)
+# DM20 Protocol — Interactive Installer
+# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh)
 # Or:    bash install.sh  (from the repo root)
 
 set -euo pipefail
 
-VERSION="0.1.1"
-REPO_URL="https://github.com/Polloinfilzato/gamemaster-mcp.git"
+VERSION="0.2.0"
+REPO_URL="https://github.com/Polloinfilzato/dm20-protocol.git"
 
 # ─── Colors ────────────────────────────────────────────────────────────────────
 
@@ -73,15 +73,20 @@ banner() {
     echo -e "${CYAN}"
     cat << 'BANNER'
 
-   ____                                     _
-  / ___| __ _ _ __ ___   ___ _ __ ___   __ _(_) ___  _ __
- | |  _ / _` | '_ ` _ \ / _ \ '_ ` _ \ / _` | |/ _ \| '__|
- | |_| | (_| | | | | | |  __/ | | | | | (_| | | (_) | |
-  \____|\__,_|_| |_| |_|\___|_| |_| |_|\__,_|_|\___/|_|
+  ____  __  __ ____   ___
+ |  _ \|  \/  |___ \ / _ \
+ | | | | |\/| | __) | | | |
+ | |_| | |  | |/ __/| |_| |
+ |____/|_|  |_|_____|\___/
+   ____            _                  _
+  |  _ \ _ __ ___ | |_ ___   ___ ___|_|
+  | |_) | '__/ _ \| __/ _ \ / __/ _ \| |
+  |  __/| | | (_) | || (_) | (_| (_) | |
+  |_|   |_|  \___/ \__\___/ \___\___/|_|
 
 BANNER
     echo -e "${NC}"
-    echo -e "  ${BOLD}Gamemaster MCP${NC} v${VERSION} — Interactive Installer"
+    echo -e "  ${BOLD}DM20 Protocol${NC} v${VERSION} — Interactive Installer"
     echo -e "  ${DIM}AI-powered D&D campaign management via MCP${NC}"
     echo ""
 }
@@ -180,16 +185,16 @@ gather_options() {
 
     # ── Install directory ──────────────────────────────────────────────────
     echo ""
-    echo -e "${BOLD}Where should Gamemaster MCP be installed?${NC}"
+    echo -e "${BOLD}Where should DM20 Protocol be installed?${NC}"
 
     # Detect if running from inside an existing clone
-    if [[ -f "pyproject.toml" ]] && grep -q 'name = "gamemaster-mcp"' pyproject.toml 2>/dev/null; then
+    if [[ -f "pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' pyproject.toml 2>/dev/null; then
         info "Detected existing clone in current directory"
         INSTALL_DIR="$(pwd)"
         CLONE_NEEDED=false
     else
-        prompt_default "Install directory" "$HOME/gamemaster-mcp" INSTALL_DIR
-        if [[ -d "$INSTALL_DIR" && -f "$INSTALL_DIR/pyproject.toml" ]] && grep -q 'name = "gamemaster-mcp"' "$INSTALL_DIR/pyproject.toml" 2>/dev/null; then
+        prompt_default "Install directory" "$HOME/dm20-protocol" INSTALL_DIR
+        if [[ -d "$INSTALL_DIR" && -f "$INSTALL_DIR/pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' "$INSTALL_DIR/pyproject.toml" 2>/dev/null; then
             info "Found existing clone at ${INSTALL_DIR}"
             CLONE_NEEDED=false
         else
@@ -219,7 +224,7 @@ gather_options() {
         local scope_choice
         scope_choice=$(prompt_choice "Claude Code config scope?" \
             "Global (~/.claude/mcp.json) — available in all projects" \
-            "Project (.mcp.json) — only in gamemaster-mcp directory")
+            "Project (.mcp.json) — only in dm20-protocol directory")
 
         case "$scope_choice" in
             2) CODE_SCOPE="project" ;;
@@ -231,15 +236,15 @@ gather_options() {
     echo ""
     local data_choice
     data_choice=$(prompt_choice "Where should campaign data be stored?" \
-        "~/gamemaster-data (recommended — separate from code)" \
+        "~/dm20-data (recommended — separate from code)" \
         "Inside the repository (${INSTALL_DIR}/data)" \
         "Custom location")
 
     case "$data_choice" in
-        1) DATA_DIR="$HOME/gamemaster-data" ;;
+        1) DATA_DIR="$HOME/dm20-data" ;;
         2) DATA_DIR="${INSTALL_DIR}/data" ;;
-        3) prompt_default "Data directory" "$HOME/gamemaster-data" DATA_DIR ;;
-        *) DATA_DIR="$HOME/gamemaster-data" ;;
+        3) prompt_default "Data directory" "$HOME/dm20-data" DATA_DIR ;;
+        *) DATA_DIR="$HOME/dm20-data" ;;
     esac
 
     # ── RAG dependencies ───────────────────────────────────────────────────
@@ -263,7 +268,7 @@ do_clone() {
     if [[ "$CLONE_NEEDED" == true ]]; then
         step "Cloning repository"
         if [[ -d "$INSTALL_DIR" ]]; then
-            warn "Directory ${INSTALL_DIR} exists but is not a gamemaster-mcp clone"
+            warn "Directory ${INSTALL_DIR} exists but is not a dm20-protocol clone"
             prompt_yn "Remove it and clone fresh?" "n" REMOVE_DIR
             if [[ "$REMOVE_DIR" == true ]]; then
                 rm -rf "$INSTALL_DIR"
@@ -323,7 +328,7 @@ do_write_env() {
     fi
 
     cat > "$env_file" << EOF
-GAMEMASTER_STORAGE_DIR=${DATA_DIR}
+DM20_STORAGE_DIR=${DATA_DIR}
 EOF
     success ".env written"
 }
@@ -360,10 +365,10 @@ server_entry = {}
 if add_type:
     server_entry["type"] = "stdio"
 server_entry["command"] = uv_cmd
-server_entry["args"] = ["run", "gamemaster-mcp"]
+server_entry["args"] = ["run", "dm20-protocol"]
 server_entry["cwd"] = install_dir
 server_entry["env"] = {
-    "GAMEMASTER_STORAGE_DIR": data_dir
+    "DM20_STORAGE_DIR": data_dir
 }
 
 # Read existing config or create new
@@ -384,7 +389,7 @@ else:
 if "mcpServers" not in config:
     config["mcpServers"] = {}
 
-config["mcpServers"]["gamemaster-mcp"] = server_entry
+config["mcpServers"]["dm20-protocol"] = server_entry
 
 # Write
 with open(config_file, "w") as f:
@@ -432,7 +437,7 @@ do_verify() {
     cd "$INSTALL_DIR"
 
     # Smoke test: import the package
-    if uv run python3 -c "from gamemaster_mcp.main import main; print('Import OK')" 2>/dev/null; then
+    if uv run python3 -c "from dm20_protocol.main import main; print('Import OK')" 2>/dev/null; then
         success "Server module loads correctly"
     else
         warn "Server module failed to load. Check the output above for errors."
@@ -467,12 +472,12 @@ print_summary() {
     fi
 
     echo -e "  ${BOLD}Run manually:${NC}"
-    echo "    cd ${INSTALL_DIR} && uv run gamemaster-mcp"
+    echo "    cd ${INSTALL_DIR} && uv run dm20-protocol"
     echo ""
     echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
     echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
     echo ""
-    echo -e "  ${DIM}Documentation: https://github.com/Polloinfilzato/gamemaster-mcp${NC}"
+    echo -e "  ${DIM}Documentation: https://github.com/Polloinfilzato/dm20-protocol${NC}"
     echo ""
 }
 

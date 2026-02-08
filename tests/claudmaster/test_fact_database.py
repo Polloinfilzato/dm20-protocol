@@ -14,7 +14,7 @@ import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from gamemaster_mcp.claudmaster.consistency import Fact, FactCategory, FactDatabase
+from dm20_protocol.claudmaster.consistency import Fact, FactCategory, FactDatabase
 
 
 class TestFactModel:

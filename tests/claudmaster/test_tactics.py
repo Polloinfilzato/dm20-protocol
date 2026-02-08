@@ -15,14 +15,14 @@ Tests cover:
 import pytest
 from pydantic import ValidationError
 
-from gamemaster_mcp.claudmaster.tactics import (
+from dm20_protocol.claudmaster.tactics import (
     TacticalPriority,
     Combatant,
     TacticalDecision,
     BattlefieldState,
     TacticsEngine,
 )
-from gamemaster_mcp.claudmaster.companions import (
+from dm20_protocol.claudmaster.companions import (
     CompanionProfile,
     CompanionArchetype,
     CombatStyle,

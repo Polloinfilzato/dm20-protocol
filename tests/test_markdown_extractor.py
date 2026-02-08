@@ -10,15 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.extractors.toc import (
+from dm20_protocol.library.extractors.toc import (
     MarkdownTOCExtractor,
     get_toc_extractor,
     MARKDOWN_HEADER_PATTERN,
 )
-from gamemaster_mcp.library.extractors.content import (
+from dm20_protocol.library.extractors.content import (
     MarkdownContentExtractor,
 )
-from gamemaster_mcp.library.models import (
+from dm20_protocol.library.models import (
     ContentType,
     IndexEntry,
     SourceType,
@@ -564,7 +564,7 @@ class TestGetTOCExtractor:
 
     def test_pdf_extractor(self):
         """Test that PDF files get TOCExtractor."""
-        from gamemaster_mcp.library.extractors.toc import TOCExtractor
+        from dm20_protocol.library.extractors.toc import TOCExtractor
 
         extractor = get_toc_extractor(Path("test.pdf"))
         assert isinstance(extractor, TOCExtractor)
@@ -585,7 +585,7 @@ class TestGetTOCExtractor:
         assert isinstance(extractor, MarkdownTOCExtractor)
 
         extractor = get_toc_extractor(Path("test.PDF"))
-        from gamemaster_mcp.library.extractors.toc import TOCExtractor
+        from dm20_protocol.library.extractors.toc import TOCExtractor
         assert isinstance(extractor, TOCExtractor)
 
     def test_unsupported_extension(self):
@@ -664,7 +664,7 @@ class TestScanLibraryMarkdownIntegration:
 
     def test_library_manager_indexes_markdown(self):
         """Test that LibraryManager can index Markdown files via scan workflow."""
-        from gamemaster_mcp.library.manager import LibraryManager, generate_source_id
+        from dm20_protocol.library.manager import LibraryManager, generate_source_id
 
         with TemporaryDirectory() as tmpdir:
             # Setup library structure
@@ -706,8 +706,8 @@ class TestScanLibraryMarkdownIntegration:
 
     def test_markdown_in_scan_library_workflow(self):
         """Test the exact code path used by scan_library MCP tool."""
-        from gamemaster_mcp.library.manager import LibraryManager, generate_source_id
-        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+        from dm20_protocol.library.manager import LibraryManager, generate_source_id
+        from dm20_protocol.library.extractors import MarkdownTOCExtractor
 
         with TemporaryDirectory() as tmpdir:
             # Setup
@@ -749,8 +749,8 @@ class TestScanLibraryMarkdownIntegration:
 
     def test_markdown_search_after_indexing(self):
         """Test that Markdown content is searchable after indexing."""
-        from gamemaster_mcp.library.manager import LibraryManager
-        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+        from dm20_protocol.library.manager import LibraryManager
+        from dm20_protocol.library.extractors import MarkdownTOCExtractor
 
         with TemporaryDirectory() as tmpdir:
             library_dir = Path(tmpdir) / "library"
@@ -779,8 +779,8 @@ class TestScanLibraryMarkdownIntegration:
 
     def test_markdown_ask_books_semantic_search(self):
         """Test that Markdown content works with ask_books semantic search."""
-        from gamemaster_mcp.library.manager import LibraryManager
-        from gamemaster_mcp.library.extractors import MarkdownTOCExtractor
+        from dm20_protocol.library.manager import LibraryManager
+        from dm20_protocol.library.extractors import MarkdownTOCExtractor
 
         with TemporaryDirectory() as tmpdir:
             library_dir = Path(tmpdir) / "library"

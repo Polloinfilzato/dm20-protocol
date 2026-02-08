@@ -10,12 +10,12 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.manager import (
+from dm20_protocol.library.manager import (
     LibraryManager,
     generate_source_id,
     compute_file_hash,
 )
-from gamemaster_mcp.library.models import (
+from dm20_protocol.library.models import (
     LibrarySource,
     IndexEntry,
     TOCEntry,

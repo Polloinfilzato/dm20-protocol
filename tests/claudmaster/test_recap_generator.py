@@ -14,23 +14,23 @@ import pytest
 from datetime import datetime
 from pathlib import Path
 
-from gamemaster_mcp.claudmaster.continuity import (
+from dm20_protocol.claudmaster.continuity import (
     SessionRecapGenerator,
     SessionRecap,
     StoryThread,
     QuestSummary,
 )
-from gamemaster_mcp.claudmaster.consistency import (
+from dm20_protocol.claudmaster.consistency import (
     Fact,
     FactCategory,
     FactDatabase,
 )
-from gamemaster_mcp.claudmaster.consistency.npc_knowledge import NPCKnowledgeTracker
-from gamemaster_mcp.claudmaster.consistency.models import (
+from dm20_protocol.claudmaster.consistency.npc_knowledge import NPCKnowledgeTracker
+from dm20_protocol.claudmaster.consistency.models import (
     PlayerInteraction,
     KnowledgeSource,
 )
-from gamemaster_mcp.claudmaster.consistency.timeline import TimelineTracker
+from dm20_protocol.claudmaster.consistency.timeline import TimelineTracker
 
 
 class TestSessionRecapGeneratorInitialization:

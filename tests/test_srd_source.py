@@ -11,8 +11,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gamemaster_mcp.rulebooks.sources import SRDSource, SRDSourceError
-from gamemaster_mcp.rulebooks.models import RulebookSource
+from dm20_protocol.rulebooks.sources import SRDSource, SRDSourceError
+from dm20_protocol.rulebooks.models import RulebookSource
 
 
 def run_async(coro):

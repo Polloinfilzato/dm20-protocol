@@ -70,9 +70,9 @@
 ## 📁 Project Structure
 
 ```text
-gamemaster-mcp/
+dm20-protocol/
 ├── src/
-│   ├── gamemaster_mcp/           # Renamed for FastMCP compliance
+│   ├── dm20_protocol/           # Renamed for FastMCP compliance
 │   │   ├── __init__.py          # Package initialization
 │   │   ├── __main__.py          # Module entry point
 │   │   ├── main.py              # FastMCP 2.9.0+ server implementation
@@ -235,7 +235,7 @@ def advanced_example(
 
 ## 💾 Storage Layer Guide
 
-The `DnDStorage` class, defined in [`src/gamemaster_mcp/storage.py`](src/gamemaster_mcp/storage.py:27), is the persistence layer for the D&D MCP Server. It handles all reading from and writing to the file system, ensuring that campaign data is safely stored and retrieved between sessions. It uses JSON files to store data, with Pydantic models providing validation and structure.
+The `DnDStorage` class, defined in [`src/dm20_protocol/storage.py`](src/dm20_protocol/storage.py:27), is the persistence layer for the D&D MCP Server. It handles all reading from and writing to the file system, ensuring that campaign data is safely stored and retrieved between sessions. It uses JSON files to store data, with Pydantic models providing validation and structure.
 
 ### **Data Flow and Architecture**
 
@@ -320,7 +320,7 @@ These methods follow the same CRUD (Create, Read, Update, Delete) pattern as Cha
 - **`search_events(query: str) -> list[AdventureEvent]`**: Searches event titles and descriptions for a given query string.
 
 ## 📖 Data Models Guide
-This section provides a detailed overview of the Pydantic data models used in the D&D MCP Server, defined in `src/gamemaster_mcp/models.py`. These models are the backbone of the data persistence and validation layer.
+This section provides a detailed overview of the Pydantic data models used in the D&D MCP Server, defined in `src/dm20_protocol/models.py`. These models are the backbone of the data persistence and validation layer.
 
 ### **`AbilityScore`**
 Represents a single D&D ability score (e.g., Strength, Dexterity).
@@ -548,8 +548,8 @@ uv pip install -e .[dev]
 
 # 3. Run the development server
 # `uv run` executes the command within the virtual environment.
-# `gamemaster-mcp` is the script defined in pyproject.toml.
-uv run gamemaster-mcp
+# `dm20-protocol` is the script defined in pyproject.toml.
+uv run dm20-protocol
 
 # 4. Run tests
 uv run pytest
@@ -568,7 +568,7 @@ FastMCP provides better testing capabilities:
 ```python
 # Test tools directly
 import asyncio
-from gamemaster_mcp.main import mcp
+from dm20_protocol.main import mcp
 
 async def test_create_campaign():
     # Tools can be tested as regular Python functions
@@ -636,10 +636,10 @@ from typing import Annotated, Optional, Literal, List, Dict
 fastmcp version
 
 # Validate tool schemas
-fastmcp dev src/gamemaster_mcp/main.py:mcp --validate
+fastmcp dev src/dm20_protocol/main.py:mcp --validate
 
 # Debug with inspector
-fastmcp dev src/gamemaster_mcp/main.py:mcp --debug
+fastmcp dev src/dm20_protocol/main.py:mcp --debug
 ```
 
 ## 🚀 Deployment & Execution
@@ -657,7 +657,7 @@ uv venv
 uv pip install -e .[dev]
 
 # 3. Run the server
-uv run gamemaster-mcp
+uv run dm20-protocol
 ```
 
 ### **Running as a Standalone Tool (with `uvx`)**
@@ -665,10 +665,10 @@ You can run the server directly from the source code without a persistent instal
 
 ```bash
 # From the root of the project directory:
-uvx . gamemaster-mcp
+uvx . dm20-protocol
 ```
 
-This command tells `uvx` to treat the current directory (`.`) as a package to install, along with its dependencies, into a temporary environment, and then execute the `gamemaster-mcp` script.
+This command tells `uvx` to treat the current directory (`.`) as a package to install, along with its dependencies, into a temporary environment, and then execute the `dm20-protocol` script.
 
 ### **Claude Desktop Integration**
 To integrate with the Claude Desktop app, you need to provide a command that can launch the server. Using `uvx` is a clean way to do this, as it handles the environment setup.
@@ -682,17 +682,17 @@ Update your Claude `settings.json`:
       // Use uvx to run the server from its project directory
       "command": "uvx",
       "args": [
-        "/absolute/path/to/gamemaster-mcp/project",
-        "gamemaster-mcp"
+        "/absolute/path/to/dm20-protocol/project",
+        "dm20-protocol"
       ],
       // Ensure the working directory is the project root
-      "cwd": "/absolute/path/to/gamemaster-mcp/project"
+      "cwd": "/absolute/path/to/dm20-protocol/project"
     }
   }
 }
 ```
 
-**Note:** Replace `/absolute/path/to/gamemaster-mcp/project` with the actual absolute path to this project on your machine.
+**Note:** Replace `/absolute/path/to/dm20-protocol/project` with the actual absolute path to this project on your machine.
 
 ## 📝 Code Style & Standards (Updated)
 

@@ -16,8 +16,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 # ============================================================================
@@ -199,12 +199,12 @@ class TestConfigureCludmasterTool:
 
     def _call_tool(self, mock_storage, **kwargs) -> str:
         """Helper to call the impl function with mocked storage."""
-        from gamemaster_mcp.main import _configure_claudmaster_impl
+        from dm20_protocol.main import _configure_claudmaster_impl
         return _configure_claudmaster_impl(mock_storage, **kwargs)
 
     def test_no_active_campaign(self):
         """Tool returns error when no campaign is loaded."""
-        from gamemaster_mcp.main import _configure_claudmaster_impl
+        from dm20_protocol.main import _configure_claudmaster_impl
         storage_mock = MagicMock()
         storage_mock._current_campaign = None
         result = _configure_claudmaster_impl(storage_mock)
@@ -295,21 +295,21 @@ class TestFormatConfig:
     """Test the config formatting helper."""
 
     def test_format_default(self):
-        from gamemaster_mcp.main import _format_claudmaster_config
+        from dm20_protocol.main import _format_claudmaster_config
         config = ClaudmasterConfig()
         result = _format_claudmaster_config(config)
         assert "descriptive" in result
         assert "Medium (2/4)" in result
 
     def test_format_with_house_rules(self):
-        from gamemaster_mcp.main import _format_claudmaster_config
+        from dm20_protocol.main import _format_claudmaster_config
         config = ClaudmasterConfig(house_rules={"flanking": "advantage"})
         result = _format_claudmaster_config(config)
         assert "House Rules" in result
         assert "flanking" in result
 
     def test_format_custom_header(self):
-        from gamemaster_mcp.main import _format_claudmaster_config
+        from dm20_protocol.main import _format_claudmaster_config
         config = ClaudmasterConfig()
         result = _format_claudmaster_config(config, header="Test Header")
         assert "Test Header" in result

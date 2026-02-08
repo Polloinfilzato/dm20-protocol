@@ -10,8 +10,8 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-from gamemaster_mcp.storage import SplitStorageBackend
-from gamemaster_mcp.models import (
+from dm20_protocol.storage import SplitStorageBackend
+from dm20_protocol.models import (
     Campaign, Character, CharacterClass, Race, AbilityScore,
     NPC, Location, Quest, CombatEncounter, SessionNote, GameState
 )

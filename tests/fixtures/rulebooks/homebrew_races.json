@@ -1,0 +1,42 @@
+{
+  "$schema": "dm20-protocol/rulebook-v1",
+  "name": "Test Homebrew Races",
+  "version": "1.0",
+  "content": {
+    "races": [
+      {
+        "name": "Aetherborn",
+        "speed": 30,
+        "ability_bonuses": [
+          {"ability_score": "CHA", "bonus": 2},
+          {"ability_score": "DEX", "bonus": 1}
+        ],
+        "size": "Medium",
+        "languages": ["Common"],
+        "traits": [
+          {
+            "index": "born-of-aether",
+            "name": "Born of Aether",
+            "desc": ["You don't need to breathe."]
+          }
+        ]
+      },
+      {
+        "name": "Warforged",
+        "speed": 30,
+        "ability_bonuses": [
+          {"ability_score": "CON", "bonus": 2}
+        ],
+        "size": "Medium",
+        "languages": ["Common"],
+        "traits": [
+          {
+            "index": "constructed-resilience",
+            "name": "Constructed Resilience",
+            "desc": ["You were created to have remarkable fortitude."]
+          }
+        ]
+      }
+    ]
+  }
+}

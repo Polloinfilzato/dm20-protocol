@@ -10,7 +10,7 @@ import random
 
 import pytest
 
-from gamemaster_mcp.claudmaster.companion_dialogue import (
+from dm20_protocol.claudmaster.companion_dialogue import (
     DialogueTrigger,
     EmotionalState,
     DialogueContext,
@@ -19,7 +19,7 @@ from gamemaster_mcp.claudmaster.companion_dialogue import (
     DIALOGUE_TEMPLATES,
     REACTION_PROBABILITY,
 )
-from gamemaster_mcp.claudmaster.companions import (
+from dm20_protocol.claudmaster.companions import (
     CompanionProfile,
     CompanionArchetype,
     CombatStyle,

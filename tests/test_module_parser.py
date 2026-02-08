@@ -8,8 +8,8 @@ D&D adventure module TOC structures.
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.library.models import TOCEntry, ContentType as LibraryContentType
-from gamemaster_mcp.claudmaster.models.module import (
+from dm20_protocol.library.models import TOCEntry, ContentType as LibraryContentType
+from dm20_protocol.claudmaster.models.module import (
     ContentType,
     ModuleElement,
     NPCReference,
@@ -536,7 +536,7 @@ class TestModuleParserPatterns:
         Note: Only explicit (NPC) suffix is supported to avoid false positives
         with regular text that looks like proper names.
         """
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         assert parser._matches_patterns("Ismark the Lesser (NPC)", parser.NPC_PATTERNS)
@@ -548,7 +548,7 @@ class TestModuleParserPatterns:
 
     def test_encounter_patterns(self):
         """Test encounter pattern matching."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         assert parser._matches_patterns("Encounter: Blood on the Vine", parser.ENCOUNTER_PATTERNS)
@@ -560,7 +560,7 @@ class TestModuleParserPatterns:
 
     def test_location_patterns(self):
         """Test location pattern matching."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         assert parser._matches_patterns("Areas of Vallaki", parser.LOCATION_PATTERNS)
@@ -571,7 +571,7 @@ class TestModuleParserPatterns:
 
     def test_appendix_patterns(self):
         """Test appendix pattern matching."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         assert parser._matches_patterns("Appendix D: NPCs", parser.APPENDIX_PATTERNS)
@@ -584,7 +584,7 @@ class TestModuleParserExtraction:
 
     def test_extract_chapters_strahd(self):
         """Test chapter extraction with Curse of Strahd structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         chapters = parser.extract_chapters(SAMPLE_TOC_STRAHD)
@@ -609,7 +609,7 @@ class TestModuleParserExtraction:
 
     def test_extract_chapters_lmop(self):
         """Test chapter extraction with Lost Mine structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         chapters = parser.extract_chapters(SAMPLE_TOC_LMOP)
@@ -623,7 +623,7 @@ class TestModuleParserExtraction:
 
     def test_extract_npcs_strahd(self):
         """Test NPC extraction from Curse of Strahd structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         npcs = parser.extract_npcs(SAMPLE_TOC_STRAHD)
@@ -640,7 +640,7 @@ class TestModuleParserExtraction:
 
     def test_extract_npcs_lmop(self):
         """Test NPC extraction from Lost Mine structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         npcs = parser.extract_npcs(SAMPLE_TOC_LMOP)
@@ -650,7 +650,7 @@ class TestModuleParserExtraction:
 
     def test_extract_encounters_strahd(self):
         """Test encounter extraction from Curse of Strahd structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         encounters = parser.extract_encounters(SAMPLE_TOC_STRAHD)
@@ -664,7 +664,7 @@ class TestModuleParserExtraction:
 
     def test_extract_encounters_lmop(self):
         """Test encounter extraction from Lost Mine structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         encounters = parser.extract_encounters(SAMPLE_TOC_LMOP)
@@ -680,7 +680,7 @@ class TestModuleParserExtraction:
 
     def test_extract_locations_strahd(self):
         """Test location extraction from Curse of Strahd structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         locations = parser.extract_locations(SAMPLE_TOC_STRAHD)
@@ -690,7 +690,7 @@ class TestModuleParserExtraction:
 
     def test_extract_locations_lmop(self):
         """Test location extraction from Lost Mine structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         locations = parser.extract_locations(SAMPLE_TOC_LMOP)
@@ -704,7 +704,7 @@ class TestModuleParserEdgeCases:
 
     def test_empty_toc(self):
         """Test parsing with empty TOC."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         chapters = parser.extract_chapters([])
@@ -719,7 +719,7 @@ class TestModuleParserEdgeCases:
 
     def test_no_matching_patterns(self):
         """Test TOC with no recognizable patterns."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         toc = [
@@ -739,7 +739,7 @@ class TestModuleParserEdgeCases:
 
     def test_deeply_nested_toc(self):
         """Test with deeply nested TOC structure."""
-        from gamemaster_mcp.claudmaster.module_parser import ModuleParser
+        from dm20_protocol.claudmaster.module_parser import ModuleParser
         parser = ModuleParser("/tmp/fake")
 
         toc = [

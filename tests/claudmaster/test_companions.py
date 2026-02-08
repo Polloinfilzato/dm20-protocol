@@ -15,7 +15,7 @@ Tests cover:
 import pytest
 from pydantic import ValidationError
 
-from gamemaster_mcp.claudmaster.companions import (
+from dm20_protocol.claudmaster.companions import (
     CombatStyle,
     CompanionArchetype,
     PersonalityTraits,

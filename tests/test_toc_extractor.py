@@ -9,11 +9,11 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.extractors.toc import (
+from dm20_protocol.library.extractors.toc import (
     TOCExtractor,
     CONTENT_TYPE_PATTERNS,
 )
-from gamemaster_mcp.library.models import (
+from dm20_protocol.library.models import (
     ContentType,
     IndexEntry,
     SourceType,

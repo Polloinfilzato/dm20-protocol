@@ -13,8 +13,8 @@ Tests cover:
 import pytest
 from pydantic import ValidationError
 
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 class TestClaudmasterConfigDefaults:

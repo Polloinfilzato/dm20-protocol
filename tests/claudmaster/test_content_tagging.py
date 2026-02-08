@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from gamemaster_mcp.claudmaster.content_tagging import (
+from dm20_protocol.claudmaster.content_tagging import (
     ContentOrigin,
     ContentTag,
     ContentTagger,
@@ -22,7 +22,7 @@ from gamemaster_mcp.claudmaster.content_tagging import (
     TaggedNarrative,
     TaggedSegment,
 )
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 class TestContentOriginEnum:

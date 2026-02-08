@@ -9,7 +9,7 @@ import asyncio
 import pytest
 from typing import Any
 
-from gamemaster_mcp.claudmaster.agents.narrator import (
+from dm20_protocol.claudmaster.agents.narrator import (
     NarratorAgent,
     NarrativeStyle,
     VoiceProfile,

@@ -6,14 +6,14 @@ import asyncio
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
-from gamemaster_mcp.rulebooks import (
+from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.rulebooks import (
     CharacterValidator,
     ValidationSeverity,
     ValidationReport,
     RulebookManager,
 )
-from gamemaster_mcp.rulebooks.models import (
+from dm20_protocol.rulebooks.models import (
     ClassDefinition,
     SubclassDefinition,
     RaceDefinition,
@@ -21,7 +21,7 @@ from gamemaster_mcp.rulebooks.models import (
     ClassLevelInfo,
     RulebookSource,
 )
-from gamemaster_mcp.rulebooks.sources.base import (
+from dm20_protocol.rulebooks.sources.base import (
     RulebookSourceBase,
     SearchResult,
     ContentCounts,
@@ -344,7 +344,7 @@ class TestValidationReport:
 
     def test_report_with_mixed_issues(self):
         """Test ValidationReport with different severity levels."""
-        from gamemaster_mcp.rulebooks.validators import ValidationIssue
+        from dm20_protocol.rulebooks.validators import ValidationIssue
 
         issues = [
             ValidationIssue(
@@ -382,7 +382,7 @@ class TestValidationReport:
 
     def test_report_string_representation(self):
         """Test that ValidationReport can be converted to string."""
-        from gamemaster_mcp.rulebooks.validators import ValidationIssue
+        from dm20_protocol.rulebooks.validators import ValidationIssue
 
         report = ValidationReport(
             character_id="test-char",

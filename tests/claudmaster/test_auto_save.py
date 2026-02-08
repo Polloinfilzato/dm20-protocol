@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gamemaster_mcp.claudmaster.continuity import AutoSaveManager
-from gamemaster_mcp.claudmaster.session import ClaudmasterSession
-from gamemaster_mcp.claudmaster.persistence.session_serializer import SessionSerializer
+from dm20_protocol.claudmaster.continuity import AutoSaveManager
+from dm20_protocol.claudmaster.session import ClaudmasterSession
+from dm20_protocol.claudmaster.persistence.session_serializer import SessionSerializer
 
 
 class TestAutoSaveManagerInitialization:

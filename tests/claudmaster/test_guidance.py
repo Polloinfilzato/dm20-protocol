@@ -6,7 +6,7 @@ for AI companions in the Claudmaster framework.
 """
 
 import pytest
-from gamemaster_mcp.claudmaster.guidance import (
+from dm20_protocol.claudmaster.guidance import (
     GuidanceType,
     ParsedGuidance,
     CompanionGuidance,

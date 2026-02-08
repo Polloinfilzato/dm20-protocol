@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.manager import LibraryManager
-from gamemaster_mcp.library.bindings import LibraryBindings
+from dm20_protocol.library.manager import LibraryManager
+from dm20_protocol.library.bindings import LibraryBindings
 
 
 class TestGetCustomSourcesForCampaign:
@@ -59,7 +59,7 @@ class TestGetCustomSourcesForCampaign:
 
             # Create a class JSON file
             class_data = {
-                "$schema": "gamemaster-mcp/rulebook-v1",
+                "$schema": "dm20-protocol/rulebook-v1",
                 "name": "Extracted from tome-of-heroes",
                 "version": "1.0",
                 "content": {
@@ -99,7 +99,7 @@ class TestGetCustomSourcesForCampaign:
             # Create multiple content files
             for content_type, name in [("class", "dragon-knight"), ("race", "dragonborn"), ("spell", "fireball")]:
                 content_data = {
-                    "$schema": "gamemaster-mcp/rulebook-v1",
+                    "$schema": "dm20-protocol/rulebook-v1",
                     "name": f"Extracted from {source_id}",
                     "version": "1.0",
                     "content": {f"{content_type}s": [{"index": name, "name": name.title()}]},
@@ -128,7 +128,7 @@ class TestGetCustomSourcesForCampaign:
                 extracted_dir = manager.extracted_dir / source_id
                 extracted_dir.mkdir(parents=True)
                 content_data = {
-                    "$schema": "gamemaster-mcp/rulebook-v1",
+                    "$schema": "dm20-protocol/rulebook-v1",
                     "name": f"Extracted from {source_id}",
                     "version": "1.0",
                     "content": {"classes": [{"index": "test", "name": "Test"}]},
@@ -159,7 +159,7 @@ class TestGetCustomSourcesForCampaign:
                 extracted_dir = manager.extracted_dir / source_id
                 extracted_dir.mkdir(parents=True)
                 content_data = {
-                    "$schema": "gamemaster-mcp/rulebook-v1",
+                    "$schema": "dm20-protocol/rulebook-v1",
                     "name": f"Extracted from {source_id}",
                     "version": "1.0",
                     "content": {"classes": [{"index": "test", "name": "Test"}]},
@@ -184,7 +184,7 @@ class TestLibraryContentLoadWithCampaign:
     def test_library_content_loads_with_campaign(self):
         """Test that library content is loaded when campaign loads."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -202,7 +202,7 @@ class TestLibraryContentLoadWithCampaign:
 
             # Create extracted class content
             class_data = {
-                "$schema": "gamemaster-mcp/rulebook-v1",
+                "$schema": "dm20-protocol/rulebook-v1",
                 "name": "Extracted from test-source",
                 "version": "1.0",
                 "content": {
@@ -245,7 +245,7 @@ class TestLibraryContentLoadWithCampaign:
     def test_library_content_skipped_without_rulebook_manager(self):
         """Test that library content loading is skipped when no RulebookManager exists."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -262,7 +262,7 @@ class TestLibraryContentLoadWithCampaign:
             extracted_dir.mkdir(parents=True)
 
             class_data = {
-                "$schema": "gamemaster-mcp/rulebook-v1",
+                "$schema": "dm20-protocol/rulebook-v1",
                 "name": "Test",
                 "version": "1.0",
                 "content": {"classes": [{"index": "test", "name": "Test"}]},
@@ -282,7 +282,7 @@ class TestLibraryContentLoadWithCampaign:
     def test_library_content_skipped_without_bindings(self):
         """Test that library content loading is skipped when no bindings exist."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -328,7 +328,7 @@ class TestLibraryContentInSearchRules:
     def test_library_class_appears_in_search(self):
         """Test that library classes appear in search results."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -355,7 +355,7 @@ class TestLibraryContentInSearchRules:
             extracted_dir.mkdir(parents=True)
 
             class_data = {
-                "$schema": "gamemaster-mcp/rulebook-v1",
+                "$schema": "dm20-protocol/rulebook-v1",
                 "name": "Homebrew Classes",
                 "version": "1.0",
                 "content": {
@@ -388,7 +388,7 @@ class TestLibraryContentInSearchRules:
     def test_library_spell_appears_in_search(self):
         """Test that library spells appear in search results."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -412,7 +412,7 @@ class TestLibraryContentInSearchRules:
             extracted_dir.mkdir(parents=True)
 
             spell_data = {
-                "$schema": "gamemaster-mcp/rulebook-v1",
+                "$schema": "dm20-protocol/rulebook-v1",
                 "name": "Spell Compendium",
                 "version": "1.0",
                 "content": {
@@ -450,7 +450,7 @@ class TestLibraryContentPriority:
     def test_library_sources_loaded_in_order(self):
         """Test that multiple library sources are loaded and prioritized correctly."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
 
@@ -475,7 +475,7 @@ class TestLibraryContentPriority:
                 extracted_dir = library_dir / "extracted" / source_name
                 extracted_dir.mkdir(parents=True)
                 class_data = {
-                    "$schema": "gamemaster-mcp/rulebook-v1",
+                    "$schema": "dm20-protocol/rulebook-v1",
                     "name": source_name,
                     "version": "1.0",
                     "content": {

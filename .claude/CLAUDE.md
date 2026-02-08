@@ -1,4 +1,4 @@
-# Istruzioni Progetto: gamemaster-mcp
+# Istruzioni Progetto: dm20-protocol
 
 ## Lingua
 
@@ -39,31 +39,21 @@ La comunicazione diretta con l'utente avviene in italiano:
 
 ## Git Remote Configuration
 
-Questo repository è un **fork** del progetto originale.
+Questo repository è un progetto indipendente su `Polloinfilzato/dm20-protocol`.
 
 | Remote | URL | Permessi |
 |--------|-----|----------|
-| `origin` | `study-flamingo/gamemaster-mcp` | Solo lettura |
-| `fork` | `Polloinfilzato/gamemaster-mcp` | Lettura/Scrittura |
+| `origin` | `Polloinfilzato/dm20-protocol` | Lettura/Scrittura |
 
 ### Regole di Interazione con GitHub
 
-**IMPORTANTE:** Non abbiamo permessi di scrittura su `origin`. Tutte le operazioni che modificano il repository GitHub devono essere eseguite sul **fork** (`Polloinfilzato/gamemaster-mcp`).
-
-Questo include:
-- **Push di branch e tag** → `git push fork <branch>`, `git push fork --tags`
-- **Creazione di Issues** → `gh issue create --repo Polloinfilzato/gamemaster-mcp`
-- **Creazione di Labels** → `gh label create --repo Polloinfilzato/gamemaster-mcp`
-- **Modifica di Issues** → `gh issue edit --repo Polloinfilzato/gamemaster-mcp`
-- **Creazione di Pull Request** → `gh pr create --repo Polloinfilzato/gamemaster-mcp`
-- **Qualsiasi comando `gh`** → aggiungere sempre `--repo Polloinfilzato/gamemaster-mcp`
-
-**NON usare MAI:**
-- `git push origin` → fallirà per mancanza di permessi
-- `gh issue/label/pr ... --repo study-flamingo/gamemaster-mcp` → fallirà per mancanza di permessi
-- Comandi `gh` senza specificare `--repo` se il default è `origin`
-
-**Nota:** Quando l'utente confermerà che una Pull Request è stata accettata e il merge è avvenuto, queste istruzioni potranno essere aggiornate.
+Tutte le operazioni GitHub usano il remote `origin` (`Polloinfilzato/dm20-protocol`):
+- **Push di branch e tag** → `git push origin <branch>`, `git push origin --tags`
+- **Creazione di Issues** → `gh issue create --repo Polloinfilzato/dm20-protocol`
+- **Creazione di Labels** → `gh label create --repo Polloinfilzato/dm20-protocol`
+- **Modifica di Issues** → `gh issue edit --repo Polloinfilzato/dm20-protocol`
+- **Creazione di Pull Request** → `gh pr create --repo Polloinfilzato/dm20-protocol`
+- **Qualsiasi comando `gh`** → aggiungere sempre `--repo Polloinfilzato/dm20-protocol`
 
 ### Gestione Issue Lifecycle
 
@@ -71,7 +61,7 @@ Quando un task/issue viene completato:
 1. Aggiornare lo status nel file locale (`.claude/epics/{epic}/{task}.md`) → `status: completed`
 2. **Chiudere la issue su GitHub** con commento di completamento:
    ```bash
-   gh issue close {numero} --repo Polloinfilzato/gamemaster-mcp --comment "✅ Completed. {breve descrizione}"
+   gh issue close {numero} --repo Polloinfilzato/dm20-protocol --comment "✅ Completed. {breve descrizione}"
    ```
 3. Aggiornare `execution-status.md` se presente
 
@@ -85,7 +75,7 @@ Quando un task/issue viene completato:
 
 Contiene informazioni critiche su:
 - **Compatibilità macOS** — comandi che non funzionano come su Linux (es. `grep -P`, `sed -i`, `date -d`)
-- **Configurazione GitHub** — remote origin vs fork
+- **Configurazione GitHub** — remote origin
 - **Convenzioni di progetto** — naming, pre-analisi task, lezioni apprese
 
 Non ripetere errori già documentati nella memoria.

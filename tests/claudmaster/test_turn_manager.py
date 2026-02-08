@@ -16,7 +16,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from gamemaster_mcp.claudmaster.turn_manager import (
+from dm20_protocol.claudmaster.turn_manager import (
     TurnPhase,
     TurnDistribution,
     TurnRecord,
@@ -25,7 +25,7 @@ from gamemaster_mcp.claudmaster.turn_manager import (
     TurnState,
     TurnManager,
 )
-from gamemaster_mcp.claudmaster.pc_tracking import (
+from dm20_protocol.claudmaster.pc_tracking import (
     PCRegistry,
     MultiPlayerConfig,
 )

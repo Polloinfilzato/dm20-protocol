@@ -1,8 +1,8 @@
-# Gamemaster MCP 🐉 - Project Roadmap
+# DM20 Protocol 🐉 - Project Roadmap
 
 ## 🏰 Vision Statement
 
-The Gamemaster MCP server aims to be the ultimate AI-assisted Dungeon Master for DnD 5e, providing:
+The DM20 Protocol server aims to be the ultimate AI-assisted Dungeon Master for DnD 5e, providing:
 
 - **For Groups**: A comprehensive toolkit to help human DMs run campaigns more effectively
 - **For Solo Players**: A complete virtual DM experience that facilitates immersive solo play
@@ -40,9 +40,9 @@ graph TD
 
 ### Core Concepts: Interplay of Data Models
 
-The Gamemaster MCP server organizes all campaign data around a central `Campaign` model, which acts as the primary container for the entire game world. This design ensures a cohesive and interconnected data structure, allowing the LLM client to easily manage and interact with various game elements.
+The DM20 Protocol server organizes all campaign data around a central `Campaign` model, which acts as the primary container for the entire game world. This design ensures a cohesive and interconnected data structure, allowing the LLM client to easily manage and interact with various game elements.
 
-Here's how the core data models in `src/gamemaster_mcp/models.py` interact and relate:
+Here's how the core data models in `src/dm20_protocol/models.py` interact and relate:
 
 * **`Campaign`**: The foundational model. It encapsulates all campaign-specific data, including:
     * **`characters`**: A dictionary of `Character` models, representing player characters. Each `Character` is a complex model composed of `CharacterClass`, `Race`, `AbilityScore` (for core stats), `Item` (for inventory and equipment), and `Spell` (for known spells).
@@ -70,7 +70,7 @@ The current version of the server provides a robust foundation for comprehensive
 
 ### Key Features
 
-* **Architecture**: Modern, type-safe architecture using FastMCP 2.9.0+, with clear separation of concerns between the server logic ([`main.py`](src/gamemaster_mcp/main.py)), data models ([`models.py`](src/gamemaster_mcp/models.py)), and persistence ([`storage.py`](src/gamemaster_mcp/storage.py)).
+* **Architecture**: Modern, type-safe architecture using FastMCP 2.9.0+, with clear separation of concerns between the server logic ([`main.py`](src/dm20_protocol/main.py)), data models ([`models.py`](src/dm20_protocol/models.py)), and persistence ([`storage.py`](src/dm20_protocol/storage.py)).
 * **Campaign Management**: Full CRUD operations for creating, loading, and managing multiple, distinct campaigns.
 * **Data Persistence**: A reliable storage layer that saves campaign data to JSON files (`dnd_data/campaigns/`) and maintains a global event log (`dnd_data/events/adventure_log.json`).
 * **Comprehensive Data Models**: A rich set of Pydantic models covering all core D&D concepts:

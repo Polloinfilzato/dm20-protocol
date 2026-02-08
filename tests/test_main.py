@@ -12,8 +12,8 @@ Tests cover:
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.storage import DnDStorage
-from gamemaster_mcp.models import (
+from dm20_protocol.storage import DnDStorage
+from dm20_protocol.models import (
     Character, NPC, Location, Quest,
     CharacterClass, Race, AbilityScore
 )

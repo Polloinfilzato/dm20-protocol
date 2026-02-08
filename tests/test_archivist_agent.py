@@ -18,8 +18,8 @@ import time
 import pytest
 from typing import Any
 
-from gamemaster_mcp.claudmaster.base import AgentResponse, AgentRole
-from gamemaster_mcp.claudmaster.agents.archivist import (
+from dm20_protocol.claudmaster.base import AgentResponse, AgentRole
+from dm20_protocol.claudmaster.agents.archivist import (
     ArchivistAgent,
     CharacterStats,
     CombatState,
@@ -34,7 +34,7 @@ from gamemaster_mcp.claudmaster.agents.archivist import (
     QueryType,
     StateCache,
 )
-from gamemaster_mcp.models import (
+from dm20_protocol.models import (
     Campaign,
     Character,
     CharacterClass,

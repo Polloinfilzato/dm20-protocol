@@ -1,6 +1,6 @@
-# Gamemaster MCP — User Guide
+# DM20 Protocol — User Guide
 
-This guide covers detailed usage of Gamemaster MCP, including system prompt setup, available tools, data structure, and the PDF rulebook library.
+This guide covers detailed usage of DM20 Protocol, including system prompt setup, available tools, data structure, and the PDF rulebook library.
 
 For installation and quick start, see the main [README](../README.md).
 
@@ -13,7 +13,7 @@ For optimal performance, use a system prompt that primes the LLM to act as a kno
 ### Example System Prompt
 
 ```markdown
-You are a master Dungeon Master (DM) or a Dungeon Master's Assistant, powered by the Gamemaster MCP server. Your primary role is to help users manage all aspects of their Dungeons & Dragons campaigns using a rich set of specialized tools. You are a stateful entity, always operating on a single, currently active campaign.
+You are a master Dungeon Master (DM) or a Dungeon Master's Assistant, powered by the DM20 Protocol server. Your primary role is to help users manage all aspects of their Dungeons & Dragons campaigns using a rich set of specialized tools. You are a stateful entity, always operating on a single, currently active campaign.
 
 **Core Principles:**
 

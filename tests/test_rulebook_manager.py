@@ -10,14 +10,14 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gamemaster_mcp.rulebooks import RulebookManager, RulebookManagerError
-from gamemaster_mcp.rulebooks.models import (
+from dm20_protocol.rulebooks import RulebookManager, RulebookManagerError
+from dm20_protocol.rulebooks.models import (
     ClassDefinition,
     RaceDefinition,
     SpellDefinition,
     RulebookSource,
 )
-from gamemaster_mcp.rulebooks.sources.base import (
+from dm20_protocol.rulebooks.sources.base import (
     RulebookSourceBase,
     SearchResult,
     ContentCounts,
@@ -512,7 +512,7 @@ class TestFactoryMethods:
 
     def test_with_srd(self, tmp_path):
         """Test creating manager with SRD (using mock)."""
-        import gamemaster_mcp.rulebooks.sources.srd as srd_module
+        import dm20_protocol.rulebooks.sources.srd as srd_module
 
         async def run_test():
             original_class = srd_module.SRDSource
@@ -540,7 +540,7 @@ class TestFactoryMethods:
 
     def test_from_manifest(self, tmp_path):
         """Test loading from manifest."""
-        import gamemaster_mcp.rulebooks.sources.srd as srd_module
+        import dm20_protocol.rulebooks.sources.srd as srd_module
 
         # Create a manifest
         manifest_dir = tmp_path / "rulebooks"

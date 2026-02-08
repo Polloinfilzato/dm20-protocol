@@ -1,6 +1,6 @@
 # D&D MCP Server - Data Storage Guide
 
-This guide details the file and folder structure used by the D&D MCP Server to persist campaign data. All data is managed by the `DnDStorage` class located in `src/gamemaster_mcp/storage.py`.
+This guide details the file and folder structure used by the D&D MCP Server to persist campaign data. All data is managed by the `DnDStorage` class located in `src/dm20_protocol/storage.py`.
 
 ## Root Directory
 

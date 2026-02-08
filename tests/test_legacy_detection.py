@@ -11,8 +11,8 @@ from pathlib import Path
 from datetime import datetime
 
 # Direct module imports (bypassing package __init__ which imports main)
-import gamemaster_mcp.storage as storage_module
-import gamemaster_mcp.models as models_module
+import dm20_protocol.storage as storage_module
+import dm20_protocol.models as models_module
 
 DnDStorage = storage_module.DnDStorage
 StorageFormat = storage_module.StorageFormat

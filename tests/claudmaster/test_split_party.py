@@ -8,7 +8,7 @@ messaging, and edge cases.
 import pytest
 from datetime import timedelta
 
-from gamemaster_mcp.claudmaster.split_party import (
+from dm20_protocol.claudmaster.split_party import (
     PartyGroup,
     SplitEvent,
     ReunificationEvent,
@@ -16,11 +16,11 @@ from gamemaster_mcp.claudmaster.split_party import (
     SplitProposal,
     SplitPartyManager,
 )
-from gamemaster_mcp.claudmaster.pc_tracking import (
+from dm20_protocol.claudmaster.pc_tracking import (
     PCRegistry,
     MultiPlayerConfig,
 )
-from gamemaster_mcp.claudmaster.turn_manager import (
+from dm20_protocol.claudmaster.turn_manager import (
     TurnManager,
     TurnPhase,
 )

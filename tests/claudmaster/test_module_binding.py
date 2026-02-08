@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from gamemaster_mcp.claudmaster.module_binding import (
+from dm20_protocol.claudmaster.module_binding import (
     BindingResult,
     CampaignModuleManager,
     ModuleBinding,

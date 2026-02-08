@@ -1,15 +1,15 @@
 {
   "mcpServers": {
-    "gamemaster-mcp": {
+    "dm20-protocol": {
       "type": "stdio",
       "command": "uv",
       "args": [
         "run",
-        "gamemaster-mcp"
+        "dm20-protocol"
       ],
       "cwd": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/gamemaster-mcp",
       "env": {
-        "GAMEMASTER_STORAGE_DIR": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/gamemaster-mcp/data"
+        "DM20_STORAGE_DIR": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/gamemaster-mcp/data"
       }
     }
   }

@@ -1,11 +1,20 @@
 # Changelog
 
-All notable changes to Gamemaster MCP will be documented in this file.
+All notable changes to DM20 Protocol will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-02-08
+
+### Changed
+- **Project renamed** from `gamemaster-mcp` to `dm20-protocol`
+- Python package: `gamemaster_mcp` → `dm20_protocol`
+- Environment variable: `GAMEMASTER_STORAGE_DIR` → `DM20_STORAGE_DIR`
+- Entry point: `gamemaster-mcp` → `dm20-protocol`
+- Repository moved to `Polloinfilzato/dm20-protocol`
 
 ## [0.1.1] - 2025-02-01
 
@@ -86,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `calculate_experience` - Calculate XP distribution for encounters
   - Advantage/disadvantage support for d20 rolls
 
-[Unreleased]: https://github.com/Polloinfilzato/gamemaster-mcp/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/Polloinfilzato/gamemaster-mcp/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/Polloinfilzato/gamemaster-mcp/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Polloinfilzato/dm20-protocol/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Polloinfilzato/dm20-protocol/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/Polloinfilzato/dm20-protocol/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Polloinfilzato/dm20-protocol/releases/tag/v0.1.0

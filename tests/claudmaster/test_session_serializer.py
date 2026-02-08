@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from gamemaster_mcp.claudmaster.persistence.session_serializer import (
+from dm20_protocol.claudmaster.persistence.session_serializer import (
     SessionSerializer,
     SessionMetadata,
 )

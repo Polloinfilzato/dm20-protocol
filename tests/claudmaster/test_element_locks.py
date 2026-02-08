@@ -2,13 +2,13 @@
 
 import pytest
 
-from gamemaster_mcp.claudmaster.element_locks import (
+from dm20_protocol.claudmaster.element_locks import (
     ElementCategory,
     ElementLock,
     LockConfiguration,
     CATEGORY_HIERARCHY,
 )
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 # Test ElementCategory

@@ -1,4 +1,4 @@
-$schema: gamemaster-mcp/rulebook-v1
+$schema: dm20-protocol/rulebook-v1
 name: House Rules
 version: "1.0"
 content:

@@ -3,7 +3,7 @@
 CLI entry point for the D&D MCP Server (FastMCP 2.8.0+ compatible).
 """
 
-from gamemaster_mcp.main import main
+from dm20_protocol.main import main
 
 def cli_main():
     """Main CLI entry point."""

@@ -19,14 +19,14 @@ import time
 
 import pytest
 
-from gamemaster_mcp.claudmaster.base import AgentRequest
-from gamemaster_mcp.claudmaster.performance.benchmarks import (
+from dm20_protocol.claudmaster.base import AgentRequest
+from dm20_protocol.claudmaster.performance.benchmarks import (
     BenchmarkResult,
     BenchmarkSuite,
     PERFORMANCE_TARGETS,
     PerformanceBenchmark,
 )
-from gamemaster_mcp.claudmaster.performance.context_optimizer import (
+from dm20_protocol.claudmaster.performance.context_optimizer import (
     ContextBuildResult,
     OptimizedContextBuilder,
 )

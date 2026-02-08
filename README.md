@@ -1,4 +1,4 @@
-# Gamemaster MCP
+# DM20 Protocol
 
 A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) server for managing AI-assisted Dungeons & Dragons campaigns, built with **FastMCP 2.9+**.
 
@@ -38,7 +38,7 @@ This server implements the open [Model Context Protocol](https://modelcontextpro
 ### Quick Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/gamemaster-mcp/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh)
 ```
 
 The interactive installer handles cloning, dependencies, MCP client configuration, and data directory setup. It detects your CPU architecture and warns about platform-specific limitations.
@@ -48,8 +48,8 @@ The interactive installer handles cloning, dependencies, MCP client configuratio
 Clone and install dependencies (same for all clients):
 
 ```bash
-git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
-cd gamemaster-mcp
+git clone https://github.com/Polloinfilzato/dm20-protocol.git
+cd dm20-protocol
 uv sync
 ```
 
@@ -63,12 +63,12 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ```json
 {
   "mcpServers": {
-    "gamemaster-mcp": {
+    "dm20-protocol": {
       "command": "/absolute/path/to/uv",
-      "args": ["run", "gamemaster-mcp"],
-      "cwd": "/absolute/path/to/gamemaster-mcp",
+      "args": ["run", "dm20-protocol"],
+      "cwd": "/absolute/path/to/dm20-protocol",
       "env": {
-        "GAMEMASTER_STORAGE_DIR": "/absolute/path/to/your/data"
+        "DM20_STORAGE_DIR": "/absolute/path/to/your/data"
       }
     }
   }
@@ -87,13 +87,13 @@ Add to `~/.claude/mcp.json` (global) or `.mcp.json` (project-level):
 ```json
 {
   "mcpServers": {
-    "gamemaster-mcp": {
+    "dm20-protocol": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "gamemaster-mcp"],
-      "cwd": "/path/to/gamemaster-mcp",
+      "args": ["run", "dm20-protocol"],
+      "cwd": "/path/to/dm20-protocol",
       "env": {
-        "GAMEMASTER_STORAGE_DIR": "/path/to/your/data"
+        "DM20_STORAGE_DIR": "/path/to/your/data"
       }
     }
   }
@@ -114,12 +114,12 @@ These editors have built-in MCP support. Add the server through their MCP settin
 ```json
 {
   "mcpServers": {
-    "gamemaster-mcp": {
+    "dm20-protocol": {
       "command": "uv",
-      "args": ["run", "gamemaster-mcp"],
-      "cwd": "/path/to/gamemaster-mcp",
+      "args": ["run", "dm20-protocol"],
+      "cwd": "/path/to/dm20-protocol",
       "env": {
-        "GAMEMASTER_STORAGE_DIR": "/path/to/your/data"
+        "DM20_STORAGE_DIR": "/path/to/your/data"
       }
     }
   }
@@ -137,12 +137,12 @@ Add to your VS Code `settings.json` or `.vscode/mcp.json`:
 {
   "mcp": {
     "servers": {
-      "gamemaster-mcp": {
+      "dm20-protocol": {
         "command": "uv",
-        "args": ["run", "gamemaster-mcp"],
-        "cwd": "/path/to/gamemaster-mcp",
+        "args": ["run", "dm20-protocol"],
+        "cwd": "/path/to/dm20-protocol",
         "env": {
-          "GAMEMASTER_STORAGE_DIR": "/path/to/your/data"
+          "DM20_STORAGE_DIR": "/path/to/your/data"
         }
       }
     }
@@ -159,9 +159,9 @@ Requires Copilot Chat in **Agent Mode** (VS Code 1.99+).
 
 Any MCP-compatible client can use this server. The key configuration:
 
-- **Command:** `uv run gamemaster-mcp`
+- **Command:** `uv run dm20-protocol`
 - **Working directory:** The cloned repository root
-- **Environment:** `GAMEMASTER_STORAGE_DIR` — path where campaign data is stored (defaults to `./data`)
+- **Environment:** `DM20_STORAGE_DIR` — path where campaign data is stored (defaults to `./data`)
 
 Refer to your client's documentation for where to add MCP server entries. The transport is **stdio** (the default for most clients).
 
@@ -180,8 +180,8 @@ uv sync --extra rag
 ## Development
 
 ```bash
-git clone https://github.com/Polloinfilzato/gamemaster-mcp.git
-cd gamemaster-mcp
+git clone https://github.com/Polloinfilzato/dm20-protocol.git
+cd dm20-protocol
 uv sync --group dev
 ```
 
@@ -194,7 +194,7 @@ uv run pytest tests/
 Run the server locally:
 
 ```bash
-uv run gamemaster-mcp
+uv run dm20-protocol
 ```
 
 ## Roadmap
@@ -218,6 +218,17 @@ Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-
 - [Storage Structure](docs/STORAGE_STRUCTURE.md) — How campaign data is organized on disk
 - [Development Guide](docs/DEVELOPMENT.md) — Architecture, contributing, API details
 - [Changelog](CHANGELOG.md) — Version history
+
+## Credits
+
+This project started as a fork of [gamemaster-mcp](https://github.com/study-flamingo/gamemaster-mcp) by **Joel Casimir**, who created the initial foundation for D&D campaign management via MCP.
+
+| Component | Origin | Lines |
+|-----------|--------|-------|
+| Original code (v0.1.0 foundation) | Joel Casimir | ~3.9% |
+| New code (library system, claudmaster, tools, tests) | DM20 Protocol contributors | ~96.1% |
+
+The project has since been extensively rewritten and expanded with 50+ new tools, a PDF rulebook library system, the Claudmaster multi-agent architecture, and comprehensive test coverage.
 
 ## License
 

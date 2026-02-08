@@ -13,8 +13,8 @@ import pytest
 from datetime import datetime
 from pathlib import Path
 
-from gamemaster_mcp.storage import DnDStorage, StorageFormat, new_uuid
-from gamemaster_mcp.models import (
+from dm20_protocol.storage import DnDStorage, StorageFormat, new_uuid
+from dm20_protocol.models import (
     Campaign, Character, GameState, CharacterClass, Race, AbilityScore
 )
 

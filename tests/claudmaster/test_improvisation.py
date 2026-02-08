@@ -14,7 +14,7 @@ Tests cover:
 import pytest
 from pydantic import ValidationError
 
-from gamemaster_mcp.claudmaster.improvisation import (
+from dm20_protocol.claudmaster.improvisation import (
     ImprovisationLevel,
     ADHERENCE_PERCENTAGES,
     PROMPT_CONSTRAINTS,
@@ -22,7 +22,7 @@ from gamemaster_mcp.claudmaster.improvisation import (
     get_constraints,
     validate_level_transition,
 )
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
 
 
 # ============================================================================

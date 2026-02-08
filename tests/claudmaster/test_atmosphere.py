@@ -9,7 +9,7 @@ import asyncio
 import pytest
 from typing import Any
 
-from gamemaster_mcp.claudmaster.atmosphere import (
+from dm20_protocol.claudmaster.atmosphere import (
     AtmosphereManager,
     Tone,
     Pacing,

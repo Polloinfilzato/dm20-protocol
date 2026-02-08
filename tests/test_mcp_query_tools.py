@@ -14,16 +14,16 @@ import asyncio
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.storage import DnDStorage
+from dm20_protocol.storage import DnDStorage
 
 
 def run_async(coro):
     """Helper to run async code in sync tests."""
     return asyncio.get_event_loop().run_until_complete(coro)
-from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
-from gamemaster_mcp.rulebooks import RulebookManager
-from gamemaster_mcp.rulebooks.sources.custom import CustomSource
-from gamemaster_mcp.rulebooks.validators import CharacterValidator
+from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.rulebooks import RulebookManager
+from dm20_protocol.rulebooks.sources.custom import CustomSource
+from dm20_protocol.rulebooks.validators import CharacterValidator
 
 
 @pytest.fixture

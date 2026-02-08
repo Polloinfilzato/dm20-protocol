@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, MagicMock
 
-from gamemaster_mcp.claudmaster.consistency import (
+from dm20_protocol.claudmaster.consistency import (
     Fact,
     FactCategory,
     FactDatabase,

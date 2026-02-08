@@ -18,7 +18,7 @@ import time
 
 import pytest
 
-from gamemaster_mcp.claudmaster.performance.profiler import (
+from dm20_protocol.claudmaster.performance.profiler import (
     PerformanceProfiler,
     PerformanceReport,
     OperationMetrics,

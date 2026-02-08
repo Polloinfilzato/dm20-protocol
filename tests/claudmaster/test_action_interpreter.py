@@ -21,8 +21,8 @@ pytestmark = pytest.mark.anyio
 def anyio_backend():
     return "asyncio"
 
-from gamemaster_mcp.models import GameState, Character, CharacterClass, Race, AbilityScore
-from gamemaster_mcp.claudmaster.action_interpreter import (
+from dm20_protocol.models import GameState, Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.claudmaster.action_interpreter import (
     ActionInterpreter,
     ActionIntent,
     ParsedAction,
@@ -32,13 +32,13 @@ from gamemaster_mcp.claudmaster.action_interpreter import (
     InterpretationResult,
     ClarificationRequest,
 )
-from gamemaster_mcp.claudmaster.agents.archivist import (
+from dm20_protocol.claudmaster.agents.archivist import (
     ArchivistAgent,
     CharacterStats,
     HPStatus,
 )
-from gamemaster_mcp.models import GameState, Character, CharacterClass, Race, AbilityScore
-from gamemaster_mcp.claudmaster.action_interpreter import (
+from dm20_protocol.models import GameState, Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.claudmaster.action_interpreter import (
     ActionInterpreter,
     ActionIntent,
     ParsedAction,
@@ -48,7 +48,7 @@ from gamemaster_mcp.claudmaster.action_interpreter import (
     InterpretationResult,
     ClarificationRequest,
 )
-from gamemaster_mcp.claudmaster.agents.archivist import (
+from dm20_protocol.claudmaster.agents.archivist import (
     ArchivistAgent,
     CharacterStats,
     HPStatus,

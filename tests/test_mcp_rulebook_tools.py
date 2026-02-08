@@ -20,10 +20,10 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from gamemaster_mcp.storage import DnDStorage
-from gamemaster_mcp.rulebooks import RulebookManager
-from gamemaster_mcp.rulebooks.sources.srd import SRDSource
-from gamemaster_mcp.rulebooks.sources.custom import CustomSource
+from dm20_protocol.storage import DnDStorage
+from dm20_protocol.rulebooks import RulebookManager
+from dm20_protocol.rulebooks.sources.srd import SRDSource
+from dm20_protocol.rulebooks.sources.custom import CustomSource
 
 
 def run_async(coro):

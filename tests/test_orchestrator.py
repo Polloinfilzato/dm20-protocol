@@ -6,8 +6,8 @@ import asyncio
 import pytest
 from datetime import datetime
 
-from gamemaster_mcp.models import Campaign, GameState, Character, CharacterClass, Race
-from gamemaster_mcp.claudmaster import (
+from dm20_protocol.models import Campaign, GameState, Character, CharacterClass, Race
+from dm20_protocol.claudmaster import (
     Agent,
     AgentRequest,
     AgentResponse,
@@ -22,7 +22,7 @@ from gamemaster_mcp.claudmaster import (
     IntentClassificationError,
     Orchestrator,
 )
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
 
 
 # ============================================================================

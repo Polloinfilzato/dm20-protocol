@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from gamemaster_mcp.claudmaster.base import Agent, AgentResponse, AgentRole
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
-from gamemaster_mcp.claudmaster.exceptions import (
+from dm20_protocol.claudmaster.base import Agent, AgentResponse, AgentRole
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.exceptions import (
     AgentError,
     ClaudmasterError,
     ClaudmasterTimeoutError,
@@ -22,19 +22,19 @@ from gamemaster_mcp.claudmaster.exceptions import (
     SessionError,
     StateError,
 )
-from gamemaster_mcp.claudmaster.recovery import RecoveryResult
-from gamemaster_mcp.claudmaster.recovery.agent_recovery import AgentRecoveryManager
-from gamemaster_mcp.claudmaster.recovery.crash_recovery import CrashRecoveryManager
-from gamemaster_mcp.claudmaster.recovery.degradation import (
+from dm20_protocol.claudmaster.recovery import RecoveryResult
+from dm20_protocol.claudmaster.recovery.agent_recovery import AgentRecoveryManager
+from dm20_protocol.claudmaster.recovery.crash_recovery import CrashRecoveryManager
+from dm20_protocol.claudmaster.recovery.degradation import (
     DegradationLevel,
     DegradationManager,
 )
-from gamemaster_mcp.claudmaster.recovery.error_messages import ErrorMessageFormatter
-from gamemaster_mcp.claudmaster.recovery.rollback import (
+from dm20_protocol.claudmaster.recovery.error_messages import ErrorMessageFormatter
+from dm20_protocol.claudmaster.recovery.rollback import (
     StateRollbackManager,
     StateSnapshot,
 )
-from gamemaster_mcp.claudmaster.session import ClaudmasterSession
+from dm20_protocol.claudmaster.session import ClaudmasterSession
 
 
 # ============================================================================

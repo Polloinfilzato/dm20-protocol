@@ -15,15 +15,15 @@ pytestmark = pytest.mark.anyio
 def anyio_backend():
     return "asyncio"
 
-# Import models from gamemaster_mcp for campaign/game state
+# Import models from dm20_protocol for campaign/game state
 try:
-    from gamemaster_mcp.models import Campaign, GameState, Character, CharacterClass, Race, AbilityScore
+    from dm20_protocol.models import Campaign, GameState, Character, CharacterClass, Race, AbilityScore
     MODELS_AVAILABLE = True
 except ImportError:
     MODELS_AVAILABLE = False
 
 # Import session tools
-from gamemaster_mcp.claudmaster.tools.session_tools import (
+from dm20_protocol.claudmaster.tools.session_tools import (
     CampaignSummary,
     ModuleSummary,
     GameStateSummary,
@@ -35,9 +35,9 @@ from gamemaster_mcp.claudmaster.tools.session_tools import (
     get_session_state,
     _session_manager,
 )
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
-from gamemaster_mcp.claudmaster.session import ClaudmasterSession
-from gamemaster_mcp.claudmaster.orchestrator import Orchestrator
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.session import ClaudmasterSession
+from dm20_protocol.claudmaster.orchestrator import Orchestrator
 
 
 # ============================================================================
@@ -644,7 +644,7 @@ async def test_end_session_tool_pause_mode(session_manager, mock_campaign, mock_
     session_id = state.session_id
 
     # Patch the module-level singleton to use our test instance
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(session_id=session_id, mode="pause")
@@ -662,7 +662,7 @@ async def test_end_session_tool_end_mode(session_manager, mock_campaign, mock_co
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
     session_id = state.session_id
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(session_id=session_id, mode="end")
@@ -678,7 +678,7 @@ async def test_end_session_tool_with_disk_persistence(
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
     session_id = state.session_id
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(
@@ -697,7 +697,7 @@ async def test_end_session_tool_invalid_mode(session_manager, mock_campaign, moc
     """Test end_session MCP tool with invalid mode."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(session_id=state.session_id, mode="destroy")
@@ -708,7 +708,7 @@ async def test_end_session_tool_invalid_mode(session_manager, mock_campaign, moc
 @pytest.mark.anyio
 async def test_end_session_tool_nonexistent_session(session_manager, monkeypatch):
     """Test end_session MCP tool with non-existent session."""
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(session_id="nonexistent-id")
@@ -721,7 +721,7 @@ async def test_end_session_tool_stats(session_manager, mock_campaign, mock_confi
     """Test end_session returns proper statistics."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(session_id=state.session_id, mode="end")
@@ -738,7 +738,7 @@ async def test_end_session_tool_removes_from_active(session_manager, mock_campai
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
     session_id = state.session_id
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     assert session_id in session_manager._active_sessions
@@ -755,7 +755,7 @@ async def test_get_session_state_tool_standard(session_manager, mock_campaign, m
     """Test get_session_state MCP tool with standard detail level."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id)
@@ -773,7 +773,7 @@ async def test_get_session_state_tool_minimal(session_manager, mock_campaign, mo
     """Test get_session_state MCP tool with minimal detail level."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id, detail_level="minimal")
@@ -787,7 +787,7 @@ async def test_get_session_state_tool_full(session_manager, mock_campaign, mock_
     """Test get_session_state MCP tool with full detail level."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id, detail_level="full")
@@ -800,7 +800,7 @@ async def test_get_session_state_tool_full(session_manager, mock_campaign, mock_
 @pytest.mark.anyio
 async def test_get_session_state_tool_nonexistent(session_manager, monkeypatch):
     """Test get_session_state MCP tool with non-existent session."""
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id="nonexistent-session")
@@ -813,7 +813,7 @@ async def test_get_session_state_tool_invalid_detail_level(session_manager, mock
     """Test get_session_state MCP tool with invalid detail level."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id, detail_level="ultra")
@@ -826,7 +826,7 @@ async def test_get_session_state_tool_no_history(session_manager, mock_campaign,
     """Test get_session_state MCP tool with history disabled."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(
@@ -841,7 +841,7 @@ async def test_get_session_state_tool_party_info(session_manager, mock_campaign,
     """Test get_session_state includes party information."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id)
@@ -854,7 +854,7 @@ async def test_get_session_state_tool_session_info_fields(session_manager, mock_
     """Test get_session_state session_info contains all expected fields."""
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await get_session_state(session_id=state.session_id)
@@ -877,7 +877,7 @@ async def test_get_state_then_end_session(session_manager, mock_campaign, mock_c
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
     session_id = state.session_id
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     # Get state while active
@@ -901,7 +901,7 @@ async def test_end_session_with_persistence_and_verify(
     state = await session_manager.start_session(campaign=mock_campaign, config=mock_config)
     session_id = state.session_id
 
-    import gamemaster_mcp.claudmaster.tools.session_tools as st
+    import dm20_protocol.claudmaster.tools.session_tools as st
     monkeypatch.setattr(st, "_session_manager", session_manager)
 
     result = await end_session(

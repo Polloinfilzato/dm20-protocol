@@ -5,7 +5,7 @@ Tests for the summarize_session tool.
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from gamemaster_mcp.main import (
+from dm20_protocol.main import (
     _summarize_session_impl,
     _create_overlapping_chunks,
     _generate_summary_prompt,
@@ -186,7 +186,7 @@ def mock_storage():
 class TestSummarizeSessionTool:
     """Tests for the summarize_session tool."""
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_raw_text(self, mock_storage_patch):
         """Test summarize_session with raw transcription text."""
         # Setup mocks
@@ -209,7 +209,7 @@ class TestSummarizeSessionTool:
         assert transcription in result
         assert "SessionNote" in result
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_with_speaker_map(self, mock_storage_patch):
         """Test summarize_session with speaker mapping."""
         # Setup mocks
@@ -232,7 +232,7 @@ class TestSummarizeSessionTool:
         assert "Aragorn" in result
         assert "Speaker 1" not in result or "Speaker 2" not in result  # At least one should be replaced
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_file_input(self, mock_storage_patch, tmp_path):
         """Test summarize_session with file path input."""
         # Setup mocks
@@ -255,7 +255,7 @@ class TestSummarizeSessionTool:
         assert transcription_content in result
         assert "file: session1.txt" in result
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_large_transcription(self, mock_storage_patch):
         """Test summarize_session with large transcription (chunking)."""
         # Setup mocks
@@ -278,7 +278,7 @@ class TestSummarizeSessionTool:
         assert "Phase 2" in result
         assert "deduplicate" in result.lower()
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_loads_campaign_context(self, mock_storage_patch):
         """Test that summarize_session loads campaign context."""
         # Setup detailed mock with JSON-serializable values
@@ -307,7 +307,7 @@ class TestSummarizeSessionTool:
         mock_storage_patch.list_locations_detailed.assert_called_once()
         mock_storage_patch.list_quests.assert_called_once()
 
-    @patch('gamemaster_mcp.main.storage')
+    @patch('dm20_protocol.main.storage')
     def test_summarize_session_detail_levels(self, mock_storage_patch):
         """Test that different detail levels produce different prompts."""
         # Setup mocks

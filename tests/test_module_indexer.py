@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from gamemaster_mcp.claudmaster.module_indexer import (
+from dm20_protocol.claudmaster.module_indexer import (
     ChunkConfig,
     IndexingResult,
     ModuleIndexer,
@@ -24,14 +24,14 @@ from gamemaster_mcp.claudmaster.module_indexer import (
     _is_stat_block,
     extract_text_from_pdf,
 )
-from gamemaster_mcp.claudmaster.models.module import (
+from dm20_protocol.claudmaster.models.module import (
     ContentType,
     ModuleElement,
     ModuleStructure,
     NPCReference,
     LocationReference,
 )
-from gamemaster_mcp.claudmaster.vector_store import (
+from dm20_protocol.claudmaster.vector_store import (
     CollectionNotFoundError,
     VectorStoreManager,
 )
@@ -526,7 +526,7 @@ class TestIndexModule:
         indexer = ModuleIndexer(mock_store)
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             return_value="The mists close in around the party. Strahd watches from Castle Ravenloft.",
         ):
             result = indexer.index_module(sample_structure, str(tmp_pdf))
@@ -577,7 +577,7 @@ class TestIndexModule:
         indexer = ModuleIndexer(mock_store)
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             return_value="Some adventure text about Strahd.",
         ):
             result = indexer.index_module(
@@ -600,7 +600,7 @@ class TestIndexModule:
         indexer = ModuleIndexer(mock_store)
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             side_effect=RuntimeError("PDF read failure"),
         ):
             result = indexer.index_module(sample_structure, str(tmp_pdf))
@@ -619,7 +619,7 @@ class TestIndexModule:
         indexer = ModuleIndexer(mock_store)
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             return_value="",
         ):
             result = indexer.index_module(sample_structure, str(tmp_pdf))
@@ -637,7 +637,7 @@ class TestIndexModule:
         indexer = ModuleIndexer(mock_store)
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             return_value="Strahd lurks in Castle Ravenloft, watching.",
         ):
             result = indexer.index_module(sample_structure, str(tmp_pdf))
@@ -815,7 +815,7 @@ class TestFullPipeline:
         )
 
         with patch(
-            "gamemaster_mcp.claudmaster.module_indexer.extract_text_from_pdf",
+            "dm20_protocol.claudmaster.module_indexer.extract_text_from_pdf",
             return_value=long_text,
         ):
             result = indexer.index_module(structure, str(pdf_file))
@@ -861,7 +861,7 @@ class TestExports:
     """Verify public API exports from the package."""
 
     def test_module_indexer_importable_from_package(self) -> None:
-        from gamemaster_mcp.claudmaster import (
+        from dm20_protocol.claudmaster import (
             ChunkConfig,
             IndexingResult,
             ModuleIndexer,
@@ -871,7 +871,7 @@ class TestExports:
         assert ModuleIndexer is not None
 
     def test_module_indexer_in_all(self) -> None:
-        import gamemaster_mcp.claudmaster as pkg
+        import dm20_protocol.claudmaster as pkg
         assert "ChunkConfig" in pkg.__all__
         assert "IndexingResult" in pkg.__all__
         assert "ModuleIndexer" in pkg.__all__

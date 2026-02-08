@@ -8,8 +8,8 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from gamemaster_mcp.storage import DnDStorage, StorageFormat
-from gamemaster_mcp.models import Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.storage import DnDStorage, StorageFormat
+from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore
 
 
 def test_basic_integration():

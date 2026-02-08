@@ -5,7 +5,7 @@ Tests for rulebook data models.
 import pytest
 from datetime import datetime
 
-from gamemaster_mcp.rulebooks.models import (
+from dm20_protocol.rulebooks.models import (
     # Enums
     RulebookSource,
     Size,

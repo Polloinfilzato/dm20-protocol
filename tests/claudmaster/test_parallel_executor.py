@@ -16,9 +16,9 @@ import asyncio
 
 import pytest
 
-from gamemaster_mcp.claudmaster.base import Agent, AgentRequest, AgentResponse, AgentRole
-from gamemaster_mcp.claudmaster.exceptions import ClaudmasterTimeoutError
-from gamemaster_mcp.claudmaster.performance.parallel_executor import (
+from dm20_protocol.claudmaster.base import Agent, AgentRequest, AgentResponse, AgentRole
+from dm20_protocol.claudmaster.exceptions import ClaudmasterTimeoutError
+from dm20_protocol.claudmaster.performance.parallel_executor import (
     ExecutionBatch,
     ParallelAgentExecutor,
     ParallelExecutionResult,

@@ -7,7 +7,7 @@ for the Claudmaster multi-agent framework.
 
 import pytest
 from datetime import datetime
-from gamemaster_mcp.claudmaster.pc_tracking import (
+from dm20_protocol.claudmaster.pc_tracking import (
     PCState,
     MultiPlayerConfig,
     PCRegistry,

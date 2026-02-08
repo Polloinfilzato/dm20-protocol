@@ -8,13 +8,13 @@ tracking persistent state changes in locations.
 import pytest
 from pathlib import Path
 
-from gamemaster_mcp.claudmaster.consistency.location_state import (
+from dm20_protocol.claudmaster.consistency.location_state import (
     StateChange,
     StateChangeType,
     LocationState,
     LocationStateManager,
 )
-from gamemaster_mcp.claudmaster.consistency.timeline import GameTime
+from dm20_protocol.claudmaster.consistency.timeline import GameTime
 
 
 class TestStateChange:

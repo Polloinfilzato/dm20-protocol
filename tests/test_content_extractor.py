@@ -10,15 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.manager import LibraryManager
-from gamemaster_mcp.library.models import (
+from dm20_protocol.library.manager import LibraryManager
+from dm20_protocol.library.models import (
     ContentType,
     IndexEntry,
     TOCEntry,
     ContentSummary,
     SourceType,
 )
-from gamemaster_mcp.library.extractors.content import (
+from dm20_protocol.library.extractors.content import (
     ContentExtractor,
     ExtractedContent,
     CLASS_PATTERNS,
@@ -467,7 +467,7 @@ class TestContentExtractorCustomSourceFormat:
 
         result = extractor._to_custom_source_format(extracted)
 
-        assert result["$schema"] == "gamemaster-mcp/rulebook-v1"
+        assert result["$schema"] == "dm20-protocol/rulebook-v1"
         assert "content" in result
         assert "classes" in result["content"]
         assert len(result["content"]["classes"]) == 1

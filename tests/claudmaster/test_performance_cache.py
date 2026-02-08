@@ -24,12 +24,12 @@ import pytest
 # Configure pytest to use anyio with asyncio backend for async tests
 pytestmark = pytest.mark.anyio
 
-from gamemaster_mcp.claudmaster.performance.cache import (
+from dm20_protocol.claudmaster.performance.cache import (
     ModuleCache,
     CacheEntry,
     CacheStats,
 )
-from gamemaster_mcp.claudmaster.performance.lazy_load import (
+from dm20_protocol.claudmaster.performance.lazy_load import (
     LazyLoadManager,
     LoadableSection,
 )

@@ -16,15 +16,15 @@ pytestmark = pytest.mark.anyio
 def anyio_backend():
     return "asyncio"
 
-from gamemaster_mcp.claudmaster.agents.module_keeper import (
+from dm20_protocol.claudmaster.agents.module_keeper import (
     ModuleKeeperAgent,
     NPCKnowledge,
     LocationDescription,
     EncounterTrigger,
     PlotContext,
 )
-from gamemaster_mcp.claudmaster.base import AgentRole
-from gamemaster_mcp.claudmaster.models.module import (
+from dm20_protocol.claudmaster.base import AgentRole
+from dm20_protocol.claudmaster.models.module import (
     ModuleStructure,
     NPCReference,
     LocationReference,

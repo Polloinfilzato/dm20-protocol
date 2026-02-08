@@ -13,9 +13,9 @@ Tests cover:
 import pytest
 from datetime import datetime
 
-from gamemaster_mcp.claudmaster.session import ClaudmasterSession
-from gamemaster_mcp.claudmaster.config import ClaudmasterConfig
-from gamemaster_mcp.claudmaster.improvisation import ImprovisationLevel
+from dm20_protocol.claudmaster.session import ClaudmasterSession
+from dm20_protocol.claudmaster.config import ClaudmasterConfig
+from dm20_protocol.claudmaster.improvisation import ImprovisationLevel
 
 
 class TestSessionCreation:

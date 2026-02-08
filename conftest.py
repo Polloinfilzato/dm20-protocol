@@ -1,5 +1,5 @@
 """
-Pytest configuration file for gamemaster-mcp tests.
+Pytest configuration file for dm20-protocol tests.
 """
 
 import sys

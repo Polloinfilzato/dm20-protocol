@@ -11,7 +11,7 @@ from typing import Any
 
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
-from gamemaster_mcp.claudmaster.vector_store import (
+from dm20_protocol.claudmaster.vector_store import (
     VectorStoreManager,
     VectorStoreError,
     CollectionNotFoundError,

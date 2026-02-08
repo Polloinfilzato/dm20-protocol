@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from gamemaster_mcp.library.bindings import SourceBinding, LibraryBindings
-from gamemaster_mcp.library.models import ContentType
+from dm20_protocol.library.bindings import SourceBinding, LibraryBindings
+from dm20_protocol.library.models import ContentType
 
 
 class TestSourceBinding:
@@ -477,7 +477,7 @@ class TestStorageIntegration:
     def test_bindings_created_on_campaign_load(self):
         """Test that library bindings are created when loading a campaign."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
             storage.create_campaign(
@@ -492,7 +492,7 @@ class TestStorageIntegration:
     def test_enable_and_disable_library_source(self):
         """Test enabling and disabling library sources through storage."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
             storage.create_campaign(
@@ -511,7 +511,7 @@ class TestStorageIntegration:
     def test_bindings_persist_across_load(self):
         """Test that library bindings are persisted and loaded correctly."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             # Create campaign and enable sources
             storage1 = DnDStorage(data_dir=tmpdir)
@@ -545,7 +545,7 @@ class TestStorageIntegration:
     def test_bindings_file_location(self):
         """Test that bindings are saved to correct location."""
         with TemporaryDirectory() as tmpdir:
-            from gamemaster_mcp.storage import DnDStorage
+            from dm20_protocol.storage import DnDStorage
 
             storage = DnDStorage(data_dir=tmpdir)
             storage.create_campaign(
