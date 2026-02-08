@@ -1,0 +1,542 @@
+{
+  "id": "shdfn001",
+  "name": "Shadows of Shadowfen",
+  "description": "The cursed marshes of Shadowfen conceal forgotten secrets among their haunting mists and sunken ruins of a lost civilization, where dark presences move within the shadows and the voices of the dead whisper through blackened reeds. Adventurers, the forsaken, and seekers of truth converge upon this desolate land, drawn by myths of hidden treasures, ancient powers, and the promise of redemption\u2014or damnation. Your roads cross at the Grey Mere tavern, where the line between destiny and chance blurs into darkness, and every choice pulls you deeper into the mysteries that Shadowfen jealously guards.",
+  "dm_name": null,
+  "setting": null,
+  "characters": {
+    "elara": {
+      "id": "chr_ela1",
+      "name": "Elara Moonwhisper",
+      "player_name": "Player 1",
+      "character_class": {
+        "name": "Wizard",
+        "level": 3,
+        "hit_dice": "1d6",
+        "subclass": "School of Divination"
+      },
+      "race": {
+        "name": "High Elf",
+        "subrace": null,
+        "traits": [
+          "Darkvision",
+          "Fey Ancestry",
+          "Trance",
+          "Cantrip (Prestidigitation)"
+        ]
+      },
+      "background": "Sage",
+      "alignment": "Neutral Good",
+      "description": "A studious elf with silver-streaked hair and ink-stained fingers, always carrying a worn leather journal.",
+      "abilities": {
+        "strength": {
+          "score": 8
+        },
+        "dexterity": {
+          "score": 14
+        },
+        "constitution": {
+          "score": 12
+        },
+        "intelligence": {
+          "score": 16
+        },
+        "wisdom": {
+          "score": 13
+        },
+        "charisma": {
+          "score": 10
+        }
+      },
+      "armor_class": 12,
+      "hit_points_max": 18,
+      "hit_points_current": 18,
+      "temporary_hit_points": 0,
+      "hit_dice_remaining": "3d6",
+      "proficiency_bonus": 2,
+      "skill_proficiencies": [
+        "Arcana",
+        "History",
+        "Investigation",
+        "Perception"
+      ],
+      "saving_throw_proficiencies": [
+        "Intelligence",
+        "Wisdom"
+      ],
+      "inventory": [
+        {
+          "id": "itm_spbk",
+          "name": "Spellbook",
+          "description": "Bound in blue leather with silver clasps",
+          "quantity": 1,
+          "weight": 3.0,
+          "value": "50 gp",
+          "item_type": "misc",
+          "properties": {}
+        },
+        {
+          "id": "itm_cpak",
+          "name": "Component Pouch",
+          "quantity": 1,
+          "weight": 2.0,
+          "value": "25 gp",
+          "item_type": "misc",
+          "properties": {}
+        }
+      ],
+      "equipment": {
+        "weapon_main": {
+          "id": "itm_qstf",
+          "name": "Quarterstaff",
+          "description": "Carved with arcane runes",
+          "quantity": 1,
+          "weight": 4.0,
+          "value": "2 sp",
+          "item_type": "weapon",
+          "properties": {
+            "damage": "1d6 bludgeoning",
+            "versatile": "1d8"
+          }
+        },
+        "weapon_off": null,
+        "armor": null,
+        "shield": null
+      },
+      "spellcasting_ability": "Intelligence",
+      "spell_slots": {
+        "1": 4,
+        "2": 2
+      },
+      "spell_slots_used": {
+        "1": 1,
+        "2": 0
+      },
+      "spells_known": [
+        {
+          "id": "spl_mm01",
+          "name": "Magic Missile",
+          "level": 1,
+          "school": "Evocation",
+          "casting_time": "1 action",
+          "range": 120,
+          "duration": "Instantaneous",
+          "components": [
+            "V",
+            "S"
+          ],
+          "description": "Three darts of magical force hit targets automatically for 1d4+1 each.",
+          "prepared": true
+        },
+        {
+          "id": "spl_sh01",
+          "name": "Shield",
+          "level": 1,
+          "school": "Abjuration",
+          "casting_time": "1 reaction",
+          "range": 5,
+          "duration": "1 round",
+          "components": [
+            "V",
+            "S"
+          ],
+          "description": "+5 AC until start of next turn, including against the triggering attack.",
+          "prepared": true
+        },
+        {
+          "id": "spl_dt01",
+          "name": "Detect Magic",
+          "level": 1,
+          "school": "Divination",
+          "casting_time": "1 action",
+          "range": 5,
+          "duration": "Concentration, up to 10 minutes",
+          "components": [
+            "V",
+            "S"
+          ],
+          "description": "Sense the presence of magic within 30 feet. See a faint aura around any visible creature or object that bears magic.",
+          "prepared": true
+        }
+      ],
+      "features_and_traits": [
+        "Arcane Recovery",
+        "Portent (2 dice)",
+        "Divination Savant"
+      ],
+      "languages": [
+        "Common",
+        "Elvish",
+        "Draconic",
+        "Celestial"
+      ],
+      "inspiration": false,
+      "notes": "Searching for a lost elven text called 'The Lunar Codex'."
+    },
+    "thrain": {
+      "id": "chr_thr1",
+      "name": "Thrain Stoneheart",
+      "player_name": "Player 2",
+      "character_class": {
+        "name": "Cleric",
+        "level": 3,
+        "hit_dice": "1d8",
+        "subclass": "Life Domain"
+      },
+      "race": {
+        "name": "Dwarf",
+        "subrace": "Hill Dwarf",
+        "traits": [
+          "Darkvision",
+          "Dwarven Resilience",
+          "Stonecunning",
+          "Dwarven Toughness"
+        ]
+      },
+      "background": "Acolyte",
+      "alignment": "Lawful Good",
+      "description": "A stout, red-bearded dwarf with a holy symbol of Moradin hammered into his breastplate.",
+      "abilities": {
+        "strength": {
+          "score": 14
+        },
+        "dexterity": {
+          "score": 10
+        },
+        "constitution": {
+          "score": 15
+        },
+        "intelligence": {
+          "score": 10
+        },
+        "wisdom": {
+          "score": 16
+        },
+        "charisma": {
+          "score": 12
+        }
+      },
+      "armor_class": 18,
+      "hit_points_max": 30,
+      "hit_points_current": 24,
+      "temporary_hit_points": 0,
+      "hit_dice_remaining": "3d8",
+      "proficiency_bonus": 2,
+      "skill_proficiencies": [
+        "Insight",
+        "Medicine",
+        "Religion",
+        "Persuasion"
+      ],
+      "saving_throw_proficiencies": [
+        "Wisdom",
+        "Charisma"
+      ],
+      "inventory": [
+        {
+          "id": "itm_hkit",
+          "name": "Healer's Kit",
+          "description": "Leather pouch with bandages and salves",
+          "quantity": 1,
+          "weight": 3.0,
+          "value": "5 gp",
+          "item_type": "misc",
+          "properties": {
+            "uses": 10
+          }
+        },
+        {
+          "id": "itm_hsym",
+          "name": "Holy Symbol of Moradin",
+          "quantity": 1,
+          "weight": 1.0,
+          "value": "5 gp",
+          "item_type": "misc",
+          "properties": {}
+        }
+      ],
+      "equipment": {
+        "weapon_main": {
+          "id": "itm_whmr",
+          "name": "Warhammer",
+          "description": "Dwarven-forged with Moradin's anvil on the head",
+          "quantity": 1,
+          "weight": 2.0,
+          "value": "15 gp",
+          "item_type": "weapon",
+          "properties": {
+            "damage": "1d8 bludgeoning",
+            "versatile": "1d10"
+          }
+        },
+        "weapon_off": null,
+        "armor": {
+          "id": "itm_chnm",
+          "name": "Chain Mail",
+          "description": "Well-maintained dwarven chain mail",
+          "quantity": 1,
+          "weight": 55.0,
+          "value": "75 gp",
+          "item_type": "armor",
+          "properties": {
+            "base_ac": 16,
+            "stealth_disadvantage": true
+          }
+        },
+        "shield": {
+          "id": "itm_shld",
+          "name": "Shield",
+          "description": "Round shield with Moradin's hammer emblem",
+          "quantity": 1,
+          "weight": 6.0,
+          "value": "10 gp",
+          "item_type": "armor",
+          "properties": {
+            "ac_bonus": 2
+          }
+        }
+      },
+      "spellcasting_ability": "Wisdom",
+      "spell_slots": {
+        "1": 4,
+        "2": 2
+      },
+      "spell_slots_used": {
+        "1": 2,
+        "2": 1
+      },
+      "spells_known": [
+        {
+          "id": "spl_cw01",
+          "name": "Cure Wounds",
+          "level": 1,
+          "school": "Evocation",
+          "casting_time": "1 action",
+          "range": 5,
+          "duration": "Instantaneous",
+          "components": [
+            "V",
+            "S"
+          ],
+          "description": "Heal 1d8 + spellcasting modifier HP. Life Domain: +2 additional HP.",
+          "prepared": true
+        },
+        {
+          "id": "spl_gb01",
+          "name": "Guiding Bolt",
+          "level": 1,
+          "school": "Evocation",
+          "casting_time": "1 action",
+          "range": 120,
+          "duration": "1 round",
+          "components": [
+            "V",
+            "S"
+          ],
+          "description": "4d6 radiant damage on hit, next attack roll against target has advantage.",
+          "prepared": true
+        },
+        {
+          "id": "spl_aw01",
+          "name": "Aid",
+          "level": 2,
+          "school": "Abjuration",
+          "casting_time": "1 action",
+          "range": 30,
+          "duration": "8 hours",
+          "components": [
+            "V",
+            "S",
+            "M"
+          ],
+          "description": "Bolster up to 3 creatures with 5 additional HP each.",
+          "material_components": "A tiny strip of white cloth",
+          "prepared": true
+        }
+      ],
+      "features_and_traits": [
+        "Disciple of Life",
+        "Channel Divinity: Preserve Life",
+        "Channel Divinity: Turn Undead"
+      ],
+      "languages": [
+        "Common",
+        "Dwarvish"
+      ],
+      "inspiration": false,
+      "notes": "HP reduced from undead encounter in the marsh. Deeply suspicious of the Marsh Witch."
+    }
+  },
+  "npcs": {
+    "marta": {
+      "id": "npc_mrt1",
+      "name": "Marta Fenwick",
+      "description": "Elderly human woman with sharp eyes and calloused hands. Village elder and de facto leader of Fenwatch.",
+      "race": "Human",
+      "occupation": "Village Elder / Herbalist",
+      "location": "Fenwatch Village",
+      "attitude": "Friendly",
+      "notes": "Hired the party to investigate disappearances in the marsh. Knows more than she lets on about the temple's history.",
+      "relationships": {
+        "Corvus Blackthorn": "Mutual distrust — she thinks he profits from the village's misfortune",
+        "Elara Moonwhisper": "Employer — hired through the Adventurer's Guild",
+        "Thrain Stoneheart": "Respectful — appreciates his devotion to protecting the village"
+      }
+    },
+    "corvus": {
+      "id": "npc_crv1",
+      "name": "Corvus Blackthorn",
+      "description": "A lean, dark-haired half-elf with a silver tongue and an extensive collection of oddities.",
+      "race": "Half-Elf",
+      "occupation": "Traveling Merchant",
+      "location": "Fenwatch Village",
+      "attitude": "Neutral",
+      "notes": "Sells potions and unusual items at inflated prices. May have connections to smuggling operations. Carries a mysterious locked box he never opens.",
+      "relationships": {
+        "Marta Fenwick": "Business tension — she watches his dealings closely",
+        "The Marsh Witch": "Unknown connection — has been seen leaving offerings at the marsh edge"
+      }
+    },
+    "marsh_witch": {
+      "id": "npc_mwt1",
+      "name": "Lysara the Pale",
+      "description": "A gaunt woman wrapped in moss-stained robes. Her skin has a faint greenish pallor and her eyes glow in dim light.",
+      "bio": "Once a priestess of the temple before it was abandoned. She performed a dark ritual to bind herself to the marsh, becoming something not quite alive and not quite dead.",
+      "race": "Human (corrupted)",
+      "occupation": "Marsh Witch / Former Priestess",
+      "location": "Temple of Forgotten Names",
+      "attitude": "Hostile",
+      "notes": "The primary antagonist. She is raising undead from the marsh to rebuild her 'congregation'. Immune to poison and disease. Weakened by sunlight.",
+      "stats": {
+        "challenge_rating": 4,
+        "armor_class": 13,
+        "hit_points": 45,
+        "abilities": "STR 10, DEX 14, CON 12, INT 16, WIS 15, CHA 14"
+      },
+      "relationships": {
+        "Marta Fenwick": "Ancient grudge — Marta's grandmother drove Lysara from the village decades ago",
+        "Corvus Blackthorn": "Patron — Corvus unknowingly supplies her ritual components"
+      }
+    }
+  },
+  "locations": {
+    "fenwatch": {
+      "id": "loc_fnw1",
+      "name": "Fenwatch Village",
+      "location_type": "Village",
+      "description": "A small frontier village of about 200 souls perched on the edge of the Shadowfen marshlands. Wooden boardwalks connect stilted buildings over the soggy ground. The air always smells of peat and wet wood.",
+      "population": 200,
+      "government": "Village Elder (Marta Fenwick)",
+      "notable_features": [
+        "The Grey Mere — only tavern, run by a retired halfling adventurer",
+        "Corvus's Cart — traveling merchant's semi-permanent stall near the well",
+        "The Old Watchtower — crumbling stone tower at the village edge, overlooks the marsh",
+        "Peat Harvesting Fields — the village's main industry"
+      ],
+      "npcs": [
+        "Marta Fenwick",
+        "Corvus Blackthorn"
+      ],
+      "connections": [
+        "Temple of Forgotten Names"
+      ],
+      "notes": "Starting location. Two villagers have gone missing in the past month while harvesting peat near the marsh edge."
+    },
+    "temple": {
+      "id": "loc_tmp1",
+      "name": "Temple of Forgotten Names",
+      "location_type": "Dungeon",
+      "description": "A half-sunken stone temple deep in the Shadowfen marsh. Once dedicated to a now-forgotten deity of memory and names, its halls are flooded knee-deep with dark water. Strange whispers echo through the corridors — the names of the dead, endlessly repeated.",
+      "population": null,
+      "government": null,
+      "notable_features": [
+        "The Whispering Nave — main hall where names of the dead echo endlessly",
+        "The Sunken Crypt — lower level, fully submerged, contains the ritual chamber",
+        "Bone Garden — courtyard where undead rise from the marshy soil",
+        "The Naming Stone — altar where Lysara performs her binding ritual"
+      ],
+      "npcs": [
+        "Lysara the Pale"
+      ],
+      "connections": [
+        "Fenwatch Village"
+      ],
+      "notes": "The dungeon has 3 levels: flooded nave (upper), living quarters (mid), and the sunken crypt (lower). Undead patrols increase at night."
+    }
+  },
+  "quests": {
+    "shadows_marsh": {
+      "id": "qst_shm1",
+      "title": "Shadows in the Marsh",
+      "description": "Marta Fenwick has hired the party to investigate the disappearance of two peat harvesters who vanished near the marsh edge. The villagers whisper about lights in the swamp at night and strange sounds coming from the old temple.",
+      "giver": "Marta Fenwick",
+      "status": "active",
+      "objectives": [
+        "Investigate the disappearance of the two peat harvesters",
+        "Explore the marsh edge for clues",
+        "Find and enter the Temple of Forgotten Names",
+        "Discover the source of the undead rising",
+        "Confront and stop Lysara the Pale"
+      ],
+      "completed_objectives": [
+        "Investigate the disappearance of the two peat harvesters",
+        "Explore the marsh edge for clues"
+      ],
+      "reward": "200 gp and free lodging at The Grey Mere for life",
+      "notes": "Party has found evidence of undead activity and tracked it to the temple. They have not yet entered the temple interior."
+    }
+  },
+  "encounters": {},
+  "sessions": [
+    {
+      "id": "ses_001",
+      "session_number": 1,
+      "title": "Arrival at Fenwatch",
+      "summary": "The party arrived at Fenwatch Village responding to Marta's request for adventurers. After gathering information at The Grey Mere, they explored the marsh edge and fought a group of 3 zombies near the peat fields. They discovered drag marks leading deeper into the swamp and found a torn piece of temple vestment on one of the undead.",
+      "events": [
+        "Arrived at Fenwatch Village and met Marta Fenwick",
+        "Gathered information at The Grey Mere",
+        "Met Corvus Blackthorn and purchased 2 healing potions",
+        "Explored the marsh edge — found drag marks and signs of undead",
+        "Combat: defeated 3 zombies near the peat fields",
+        "Found a torn temple vestment on a zombie, hinting at the Temple of Forgotten Names"
+      ],
+      "characters_present": [
+        "Elara Moonwhisper",
+        "Thrain Stoneheart"
+      ],
+      "npcs_encountered": [
+        "Marta Fenwick",
+        "Corvus Blackthorn"
+      ],
+      "quest_updates": {
+        "Shadows in the Marsh": "Completed first two objectives. Undead confirmed. Temple identified as likely source."
+      },
+      "combat_encounters": [
+        "3 Zombies at the marsh edge"
+      ],
+      "experience_gained": 150,
+      "treasure_found": [
+        "2 Healing Potions (purchased, 50 gp each)",
+        "Torn Temple Vestment (clue)"
+      ],
+      "notes": "Thrain took 6 damage from zombie attacks (healed 4 with Cure Wounds, still down 6 HP). Elara used Detect Magic on the vestment — it radiates faint necromancy."
+    }
+  ],
+  "game_state": {
+    "campaign_name": "Shadows of Shadowfen",
+    "current_session": 2,
+    "current_date_in_game": "Day 2, early morning",
+    "current_location": "Fenwatch Village",
+    "active_quests": [
+      "Shadows in the Marsh"
+    ],
+    "party_level": 3,
+    "party_funds": "85 gp",
+    "initiative_order": [],
+    "in_combat": false,
+    "current_turn": null,
+    "notes": "Party is resting at The Grey Mere, planning to enter the temple at dawn. Thrain is still wounded (24/30 HP)."
+  },
+  "world_notes": "The Shadowfen region sits at the border between civilized lands and wild marshland. The marsh has always been dangerous, but activity has increased in recent weeks. Old-timers remember stories about a temple in the swamp, but no one has visited it in living memory. The region's economy depends on peat harvesting and trade routes that pass through Fenwatch."
+}

@@ -4,6 +4,29 @@ This guide covers detailed usage of DM20 Protocol, including system prompt setup
 
 For installation and quick start, see the main [README](../README.md).
 
+## Quick Reference
+
+**TL;DR:** DM20 Protocol gives your AI assistant 50+ tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, and a PDF rulebook library — all through natural language.
+
+1. **[System Prompt](#system-prompt-recommendation)** — Paste the recommended prompt to prime your AI as a Dungeon Master
+   - Covers Session Zero setup flow and in-play guidance
+   - Works with any MCP-compatible AI client
+
+2. **[Tools Reference](#available-tools-50)** — All 50+ tools organized by category
+   - Campaign, Character, NPC, Location, Quest management
+   - Combat system, session notes, adventure log
+   - Dice rolls, XP calculation, rules lookup
+
+3. **[Data Structure](#data-structure)** — How campaign data is organized
+   - Central `Campaign` model with interconnected entities
+   - Characters, NPCs, locations, and quests are cross-referenced
+   - Split file format for easy version control
+
+4. **[PDF Library](#pdf-rulebook-library)** — Import and query your own rulebooks
+   - Drop PDFs/Markdown into the library folder
+   - Smart indexing with on-demand content extraction
+   - Semantic search with `ask_books` (requires RAG dependencies)
+
 ---
 
 ## System Prompt Recommendation

@@ -161,11 +161,41 @@ Any MCP-compatible client can use this server. The key configuration:
 
 - **Command:** `uv run dm20-protocol`
 - **Working directory:** The cloned repository root
-- **Environment:** `DM20_STORAGE_DIR` — path where campaign data is stored (defaults to `./data`)
+- **Environment:** `DM20_STORAGE_DIR` — path where campaign data is stored
+  - **Default:** `./data` relative to the repository root (created automatically on first run)
+  - **Recommended:** use an absolute path like `~/dm20-data` to keep campaign data separate from the repo, making backups and updates easier
 
 Refer to your client's documentation for where to add MCP server entries. The transport is **stdio** (the default for most clients).
 
 </details>
+
+## Quick Start
+
+Once your MCP client is configured, try these natural language commands to get started:
+
+```
+Create a new campaign called "The Lost Kingdom"
+```
+
+```
+Create a character named Elara, a High Elf Wizard with 16 INT
+```
+
+```
+Create a location called "Silverdale", a peaceful village surrounded by ancient forests
+```
+
+```
+Create an NPC named Marta, an elderly herbalist who lives in Silverdale
+```
+
+```
+Create a quest called "The Missing Amulet" given by Marta
+```
+
+The AI will use DM20's tools automatically — no special syntax needed. Just describe what you want in plain English.
+
+For the full list of 50+ tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
 
 ## Optional: RAG Dependencies
 
