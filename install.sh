@@ -58,11 +58,11 @@ prompt_choice() {
     local prompt="$1"
     shift
     local options=("$@")
-    echo -e "\n${prompt}"
+    echo -e "\n${prompt}" >&2
     for i in "${!options[@]}"; do
-        echo -e "  ${BOLD}$((i+1)))${NC} ${options[$i]}"
+        echo -e "  ${BOLD}$((i+1)))${NC} ${options[$i]}" >&2
     done
-    echo -en "\nChoice: "
+    echo -en "\nChoice: " >&2
     read -r choice
     echo "$choice"
 }
@@ -365,7 +365,7 @@ server_entry = {}
 if add_type:
     server_entry["type"] = "stdio"
 server_entry["command"] = uv_cmd
-server_entry["args"] = ["run", "dm20-protocol"]
+server_entry["args"] = ["run", "python", "-m", "dm20_protocol"]
 server_entry["cwd"] = install_dir
 server_entry["env"] = {
     "DM20_STORAGE_DIR": data_dir
@@ -472,7 +472,7 @@ print_summary() {
     fi
 
     echo -e "  ${BOLD}Run manually:${NC}"
-    echo "    cd ${INSTALL_DIR} && uv run dm20-protocol"
+    echo "    cd ${INSTALL_DIR} && uv run python -m dm20_protocol"
     echo ""
     echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
     echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
