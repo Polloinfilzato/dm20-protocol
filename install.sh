@@ -363,10 +363,15 @@ else:
 # Build new server entry
 server_entry = {}
 if add_type:
+    # Claude Code supports "cwd" field
     server_entry["type"] = "stdio"
-server_entry["command"] = uv_cmd
-server_entry["args"] = ["run", "python", "-m", "dm20_protocol"]
-server_entry["cwd"] = install_dir
+    server_entry["command"] = uv_cmd
+    server_entry["args"] = ["run", "python", "-m", "dm20_protocol"]
+    server_entry["cwd"] = install_dir
+else:
+    # Claude Desktop does NOT support "cwd" — use --directory flag instead
+    server_entry["command"] = uv_cmd
+    server_entry["args"] = ["run", "--directory", install_dir, "python", "-m", "dm20_protocol"]
 server_entry["env"] = {
     "DM20_STORAGE_DIR": data_dir
 }
