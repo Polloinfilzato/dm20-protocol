@@ -46,6 +46,7 @@ The interactive installer is designed to get you running **with zero prior setup
 | **Python 3.12** | Auto-installs via `uv python install` — no system Python needed |
 | **git** | Auto-installs via Homebrew (macOS) or system package manager (Linux) |
 | **Repository clone** | Clones the repo or updates an existing copy |
+| **iCloud Drive protection** | Detects iCloud-synced directories and shields `.venv` from sync corruption |
 | **Virtual environment** | Creates `.venv` and installs all Python dependencies |
 | **MCP client config** | Writes the JSON config for Claude Desktop, Claude Code, or both |
 | **Data directory** | Sets up campaign storage in your preferred location |

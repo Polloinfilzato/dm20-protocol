@@ -120,6 +120,68 @@ detect_platform() {
     fi
 
     info "Platform: ${BOLD}${OS} ${ARCH}${NC} (${PLATFORM})"
+
+    # Detect iCloud Drive — will be re-evaluated after INSTALL_DIR is known
+    ON_ICLOUD=false
+}
+
+# ─── iCloud Detection ─────────────────────────────────────────────────────────
+
+detect_icloud() {
+    # Check if INSTALL_DIR is inside iCloud Drive
+    # Covers both direct iCloud paths and Desktop/Documents synced via iCloud
+    local resolved_dir
+    resolved_dir=$(cd "$INSTALL_DIR" 2>/dev/null && pwd -P || echo "$INSTALL_DIR")
+
+    if [[ "$resolved_dir" == *"com~apple~CloudDocs"* ]] || \
+       [[ "$resolved_dir" == *"Mobile Documents"* ]]; then
+        ON_ICLOUD=true
+    elif [[ "$OS" == "Darwin" ]]; then
+        # Check if Desktop or Documents are iCloud-synced
+        local real_desktop real_documents
+        real_desktop=$(cd "$HOME/Desktop" 2>/dev/null && pwd -P 2>/dev/null || echo "")
+        real_documents=$(cd "$HOME/Documents" 2>/dev/null && pwd -P 2>/dev/null || echo "")
+
+        if [[ -n "$real_desktop" && "$real_desktop" == *"com~apple~CloudDocs"* && \
+              "$resolved_dir" == "$HOME/Desktop"* ]]; then
+            ON_ICLOUD=true
+        elif [[ -n "$real_documents" && "$real_documents" == *"com~apple~CloudDocs"* && \
+                "$resolved_dir" == "$HOME/Documents"* ]]; then
+            ON_ICLOUD=true
+        fi
+    fi
+
+    if [[ "$ON_ICLOUD" == true ]]; then
+        warn "Install directory is on iCloud Drive"
+        info "Will protect .venv from iCloud sync (via .nosync + symlink)"
+    fi
+}
+
+setup_venv_nosync() {
+    # Create .venv.nosync + symlink so iCloud doesn't set UF_HIDDEN on venv files.
+    # This prevents Python from skipping .pth files (editable installs).
+    # See: https://github.com/pypa/setuptools/issues/4595
+    local venv_link="${INSTALL_DIR}/.venv"
+    local venv_real="${INSTALL_DIR}/.venv.nosync"
+
+    # Already set up correctly
+    if [[ -L "$venv_link" && -d "$venv_real" ]]; then
+        success "iCloud protection already in place (.venv → .venv.nosync)"
+        return 0
+    fi
+
+    # Existing .venv is a real directory — iCloud has been tainting it.
+    # We must delete and recreate from scratch so iCloud never indexes the new files.
+    # A simple move would preserve iCloud's hidden flags.
+    if [[ -d "$venv_link" && ! -L "$venv_link" ]]; then
+        info "Removing iCloud-tainted .venv (will be recreated by uv sync)..."
+        rm -rf "$venv_link"
+    fi
+
+    # Create the nosync directory and symlink
+    mkdir -p "$venv_real"
+    ln -sf ".venv.nosync" "$venv_link"
+    success "iCloud protection: .venv → .venv.nosync (iCloud will ignore it)"
 }
 
 # ─── Auto-install Helpers ─────────────────────────────────────────────────────
@@ -482,6 +544,11 @@ do_install_deps() {
     step "Installing dependencies"
     cd "$INSTALL_DIR"
 
+    # Protect .venv from iCloud before creating it
+    if [[ "$ON_ICLOUD" == true ]]; then
+        setup_venv_nosync
+    fi
+
     uv sync
     success "Core dependencies installed"
 
@@ -541,6 +608,7 @@ install_dir = "$INSTALL_DIR"
 data_dir = "$DATA_DIR"
 use_abs_uv = "$use_abs_uv" == "true"
 add_type = "$add_type" == "true"
+on_icloud = "$ON_ICLOUD" == "true"
 
 # Resolve uv path
 if use_abs_uv:
@@ -560,9 +628,11 @@ else:
     # Claude Desktop does NOT support "cwd" — use --directory flag instead
     server_entry["command"] = uv_cmd
     server_entry["args"] = ["run", "--directory", install_dir, "python", "-m", "dm20_protocol"]
-server_entry["env"] = {
-    "DM20_STORAGE_DIR": data_dir
-}
+env = {"DM20_STORAGE_DIR": data_dir}
+# Safety net: if on iCloud, add PYTHONPATH to bypass hidden .pth files
+if on_icloud:
+    env["PYTHONPATH"] = str(Path(install_dir) / "src")
+server_entry["env"] = env
 
 # Read existing config or create new
 config_path = Path(config_file)
@@ -650,6 +720,9 @@ print_summary() {
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
     echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
+    if [[ "$ON_ICLOUD" == true ]]; then
+        echo -e "  ${BOLD}iCloud:${NC}       Protected (.venv.nosync + PYTHONPATH)"
+    fi
     echo ""
 
     if [[ "$MCP_CLIENT" == "desktop" || "$MCP_CLIENT" == "both" ]]; then
@@ -682,6 +755,7 @@ main() {
     check_prerequisites
     gather_options
     do_clone
+    detect_icloud
     do_install_deps
     do_create_data_dirs
     do_write_env
