@@ -122,53 +122,241 @@ detect_platform() {
     info "Platform: ${BOLD}${OS} ${ARCH}${NC} (${PLATFORM})"
 }
 
+# ─── Auto-install Helpers ─────────────────────────────────────────────────────
+
+install_homebrew() {
+    info "Installing Homebrew..."
+    if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+        # Make brew available in the current session
+        if [[ -x "/opt/homebrew/bin/brew" ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -x "/usr/local/bin/brew" ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+        if command -v brew &>/dev/null; then
+            HAS_BREW=true
+            success "Homebrew installed successfully"
+            return 0
+        else
+            error "Homebrew was installed but not found in PATH"
+            return 1
+        fi
+    else
+        error "Failed to install Homebrew"
+        return 1
+    fi
+}
+
+install_uv() {
+    if [[ "$OS" == "Darwin" && "$HAS_BREW" == true ]]; then
+        info "Installing uv via Homebrew..."
+        if brew install uv; then
+            success "uv installed via Homebrew"
+            return 0
+        else
+            error "Failed to install uv via Homebrew"
+            return 1
+        fi
+    else
+        info "Installing uv via official installer..."
+        if curl -LsSf https://astral.sh/uv/install.sh | sh; then
+            # Make uv available in the current session
+            export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+            if command -v uv &>/dev/null; then
+                success "uv installed successfully"
+                return 0
+            else
+                error "uv was installed but not found in PATH"
+                return 1
+            fi
+        else
+            error "Failed to install uv"
+            return 1
+        fi
+    fi
+}
+
+install_python() {
+    info "Installing Python 3.12 via uv..."
+    if uv python install 3.12; then
+        success "Python 3.12 installed via uv"
+        return 0
+    else
+        error "Failed to install Python 3.12"
+        return 1
+    fi
+}
+
+install_git() {
+    if [[ "$OS" == "Darwin" && "$HAS_BREW" == true ]]; then
+        info "Installing git via Homebrew..."
+        if brew install git; then
+            success "git installed via Homebrew"
+            return 0
+        else
+            error "Failed to install git via Homebrew"
+            return 1
+        fi
+    elif [[ "$OS" == "Darwin" ]]; then
+        info "Installing git via Xcode Command Line Tools..."
+        xcode-select --install 2>/dev/null || true
+        echo ""
+        echo -en "  Press ${BOLD}Enter${NC} when Xcode CLI tools installation is complete... "
+        read -r
+        if command -v git &>/dev/null; then
+            return 0
+        else
+            error "git still not found after Xcode CLI tools install"
+            return 1
+        fi
+    elif command -v apt-get &>/dev/null; then
+        info "Installing git via apt..."
+        sudo apt-get update && sudo apt-get install -y git
+    elif command -v dnf &>/dev/null; then
+        info "Installing git via dnf..."
+        sudo dnf install -y git
+    elif command -v pacman &>/dev/null; then
+        info "Installing git via pacman..."
+        sudo pacman -S --noconfirm git
+    elif command -v zypper &>/dev/null; then
+        info "Installing git via zypper..."
+        sudo zypper install -y git
+    elif command -v apk &>/dev/null; then
+        info "Installing git via apk..."
+        sudo apk add git
+    else
+        error "Cannot auto-install git on this system"
+        echo "  Install git manually, then re-run this script"
+        return 1
+    fi
+}
+
 # ─── Prerequisites ─────────────────────────────────────────────────────────────
 
 check_prerequisites() {
     step "Checking prerequisites"
     local missing=0
 
-    # Python 3.12+
+    # ── Homebrew (macOS only) ──────────────────────────────────────────────
+    HAS_BREW=false
+    if [[ "$OS" == "Darwin" ]]; then
+        if command -v brew &>/dev/null; then
+            HAS_BREW=true
+            local brew_ver
+            brew_ver=$(brew --version 2>&1 | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+            success "Homebrew ${brew_ver}"
+        else
+            warn "Homebrew not found"
+            echo ""
+            echo -e "  ${BOLD}Homebrew${NC} is the standard package manager for macOS."
+            echo "  It makes installing and updating developer tools effortless."
+            echo -e "  ${DIM}https://brew.sh${NC}"
+            echo ""
+            prompt_yn "  Install Homebrew now?" "y" INSTALL_BREW
+            if [[ "$INSTALL_BREW" == true ]]; then
+                if install_homebrew; then
+                    : # success already printed by install_homebrew
+                else
+                    info "Continuing without Homebrew (using alternative installers)"
+                fi
+            else
+                info "Skipping Homebrew (will use alternative installers)"
+            fi
+        fi
+    fi
+
+    # ── uv (checked FIRST — it can install Python) ────────────────────────
+    if command -v uv &>/dev/null; then
+        UV_VERSION=$(uv --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        UV_PATH=$(command -v uv)
+        success "uv ${UV_VERSION} (${UV_PATH})"
+    else
+        warn "uv not found"
+        local uv_method="official installer"
+        [[ "$OS" == "Darwin" && "$HAS_BREW" == true ]] && uv_method="Homebrew"
+        prompt_yn "  Install uv now? (via ${uv_method})" "y" INSTALL_UV
+        if [[ "$INSTALL_UV" == true ]]; then
+            if install_uv; then
+                UV_VERSION=$(uv --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                UV_PATH=$(command -v uv)
+                success "uv ${UV_VERSION} (${UV_PATH})"
+            else
+                echo "  Manual install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+                missing=1
+            fi
+        else
+            echo "  Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+            missing=1
+        fi
+    fi
+
+    # ── Python 3.12+ ─────────────────────────────────────────────────────
+    local python_ok=false
     if command -v python3 &>/dev/null; then
         PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
         PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
         PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
         if [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 12 ]]; then
             success "Python ${PYTHON_VERSION}"
+            python_ok=true
+        fi
+    fi
+
+    if [[ "$python_ok" == false ]]; then
+        if [[ -n "${PYTHON_VERSION:-}" ]]; then
+            warn "Python ${PYTHON_VERSION} found, but 3.12+ required"
         else
-            error "Python ${PYTHON_VERSION} found, but 3.12+ required"
+            warn "Python not found"
+        fi
+
+        # Can only auto-install if uv is available
+        if command -v uv &>/dev/null; then
+            prompt_yn "  Install Python 3.12 via uv?" "y" INSTALL_PYTHON
+            if [[ "$INSTALL_PYTHON" == true ]]; then
+                if install_python; then
+                    success "Python 3.12 available (managed by uv)"
+                else
+                    echo "  Install from https://python.org or use pyenv"
+                    missing=1
+                fi
+            else
+                echo "  Install from https://python.org or use pyenv"
+                missing=1
+            fi
+        else
             echo "  Install from https://python.org or use pyenv"
+            echo "  (uv could install Python for you, but uv is not available)"
             missing=1
         fi
-    else
-        error "Python not found"
-        echo "  Install from https://python.org"
-        missing=1
     fi
 
-    # uv
-    if command -v uv &>/dev/null; then
-        UV_VERSION=$(uv --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-        UV_PATH=$(command -v uv)
-        success "uv ${UV_VERSION} (${UV_PATH})"
-    else
-        error "uv not found"
-        echo "  Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
-        missing=1
-    fi
-
-    # git
+    # ── git ───────────────────────────────────────────────────────────────
     if command -v git &>/dev/null; then
         GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         success "git ${GIT_VERSION}"
     else
-        error "git not found"
-        if [[ "$OS" == "Darwin" ]]; then
-            echo "  Install with: xcode-select --install"
+        warn "git not found"
+        prompt_yn "  Install git now?" "y" INSTALL_GIT
+        if [[ "$INSTALL_GIT" == true ]]; then
+            if install_git; then
+                GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                success "git ${GIT_VERSION}"
+            else
+                if [[ "$OS" == "Darwin" ]]; then
+                    echo "  Install with: xcode-select --install"
+                else
+                    echo "  Install with your package manager (apt, dnf, etc.)"
+                fi
+                missing=1
+            fi
         else
-            echo "  Install with your package manager (apt, dnf, etc.)"
+            if [[ "$OS" == "Darwin" ]]; then
+                echo "  Install with: xcode-select --install"
+            else
+                echo "  Install with your package manager (apt, dnf, etc.)"
+            fi
+            missing=1
         fi
-        missing=1
     fi
 
     if [[ "$missing" -gt 0 ]]; then
