@@ -251,10 +251,10 @@ class ActionProcessor:
         This method orchestrates the complete player action workflow:
         1. Validate session is active
         2. Get orchestrator and session
-        3. If character_name provided, set context for PC identification
-        4. Classify intent via orchestrator
+        3. Classify intent via orchestrator (pure Python, zero tokens)
+        4. If character_name provided, set context for PC identification
         5. Process through orchestrator pipeline
-        6. Build ActionResponse from OrchestratorResponse
+        6. Build ActionResponse from OrchestratorResponse with intent metadata
         7. Increment turn counter
         8. Return structured response
 
@@ -271,7 +271,15 @@ class ActionProcessor:
             # Step 1 & 2: Validate and get session
             orchestrator, session = self._get_active_session(session_id)
 
-            # Step 3: Build context if provided
+            # Step 3: Classify intent BEFORE processing (deterministic, zero tokens)
+            intent = orchestrator.classify_intent(action)
+            logger.info(
+                "[Hybrid Python] Intent classified: %s (confidence: %.2f)",
+                intent.intent_type.value,
+                intent.confidence
+            )
+
+            # Step 4: Build context if provided
             if character_name or context:
                 # Store in session metadata for PC identification
                 if character_name:
@@ -279,12 +287,8 @@ class ActionProcessor:
                 if context:
                     session.metadata["action_context"] = context
 
-            # Step 4 & 5: Process through orchestrator
+            # Step 5: Process through orchestrator
             orchestrator_response = await orchestrator.process_player_input(action)
-
-            # Get intent from most recent classification
-            # The orchestrator.process_player_input already classified the intent
-            intent = orchestrator.classify_intent(action)
 
             # Step 6: Build ActionResponse
             action_type = self._map_intent_to_action_type(intent)
@@ -302,7 +306,8 @@ class ActionProcessor:
             session.metadata.pop("acting_character", None)
             session.metadata.pop("action_context", None)
 
-            return ActionResponse(
+            # Create response with intent classification metadata
+            response = ActionResponse(
                 narrative=orchestrator_response.narrative,
                 action_type=action_type,
                 state_changes=state_changes,
@@ -313,6 +318,9 @@ class ActionProcessor:
                 turn_number=turn_number,
                 warnings=[]
             )
+
+            # Return response as dict with added intent metadata (internal use)
+            return response
 
         except ValueError as e:
             # Session not found or validation error
@@ -353,6 +361,10 @@ async def player_action(
     returns a structured response with narrative, state changes, dice rolls,
     and NPC interactions.
 
+    **Hybrid Python Integration:** This tool uses Python's `Orchestrator.classify_intent()`
+    to classify player input locally (zero LLM tokens consumed for classification).
+    The intent classification result is included in the response metadata.
+
     Args:
         session_id: The active session ID to process the action in
         action: The player's action as natural language text
@@ -375,6 +387,12 @@ async def player_action(
             - warnings: Any warnings or errors encountered
             - character_name: Name of the acting character (if provided)
             - turn_number: Turn number when this action was processed
+            - _intent_classification: Intent classification metadata (internal)
+                - intent_type: Classified intent (combat, roleplay, exploration, etc.)
+                - confidence: Classification confidence (0.0-1.0)
+                - matched_patterns: List of patterns that matched
+                - ambiguous: Whether classification was ambiguous
+                - python_classified: Always True (indicates local Python classification)
 
     Examples:
         Basic action:
@@ -382,6 +400,8 @@ async def player_action(
         ...     session_id="abc123",
         ...     action="I attack the orc with my longsword"
         ... )
+        >>> # result["_intent_classification"]["intent_type"] == "combat"
+        >>> # result["_intent_classification"]["python_classified"] == True
 
         Action with character name (multi-PC party):
         >>> result = await player_action(
@@ -400,6 +420,29 @@ async def player_action(
     # Create processor instance
     processor = ActionProcessor(_session_manager)
 
+    # Get orchestrator to classify intent BEFORE processing
+    try:
+        orchestrator, _ = processor._get_active_session(session_id)
+        intent = orchestrator.classify_intent(action)
+
+        # Build intent metadata for response
+        intent_metadata = {
+            "intent_type": intent.intent_type.value,
+            "confidence": intent.confidence,
+            "matched_patterns": intent.metadata.get("matched_patterns", []),
+            "ambiguous": intent.metadata.get("ambiguous", False),
+            "python_classified": True,  # Flag: intent was classified locally in Python
+        }
+
+        # Add alternative intent if ambiguous
+        if intent.metadata.get("ambiguous"):
+            intent_metadata["alternative_intent"] = intent.metadata.get("alternative_intent")
+            intent_metadata["score_gap"] = intent.metadata.get("score_gap")
+
+    except Exception as e:
+        logger.warning(f"Failed to pre-classify intent: {e}")
+        intent_metadata = {"python_classified": False, "error": str(e)}
+
     # Process the action
     response = await processor.process_action(
         session_id=session_id,
@@ -408,8 +451,11 @@ async def player_action(
         context=context
     )
 
-    # Return as dictionary
-    return response.model_dump()
+    # Return as dictionary with intent metadata
+    response_dict = response.model_dump()
+    response_dict["_intent_classification"] = intent_metadata
+
+    return response_dict
 
 
 __all__ = [

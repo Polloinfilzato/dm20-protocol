@@ -18,6 +18,8 @@ from ..session import ClaudmasterSession
 from ..config import ClaudmasterConfig
 from ..base import AgentRole
 from ..persistence import SessionSerializer, SessionMetadata
+from ..agents.archivist import ArchivistAgent
+from ..consistency.fact_database import FactDatabase
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -101,6 +103,7 @@ class SessionManager:
         """Initialize the SessionManager."""
         self._active_sessions: dict[str, tuple[Orchestrator, ClaudmasterSession]] = {}
         self._saved_sessions: dict[str, dict] = {}
+        self._fact_databases: dict[str, FactDatabase] = {}  # Campaign path -> FactDatabase
         logger.info("SessionManager initialized")
 
     async def start_session(
@@ -132,11 +135,27 @@ class SessionManager:
         # Create orchestrator
         orchestrator = Orchestrator(campaign=campaign, config=session_config)
 
-        # TODO: Register agents once agent implementations are available
-        # For now, we'll create a session without agents
+        # Register Python agents (data retrieval only, no LLM calls yet)
+        # Archivist: provides game state queries, combat state, character stats
+        archivist = ArchivistAgent(
+            campaign=campaign,
+            rules_lookup_fn=None,  # TODO: Wire RAG rules lookup once vector store ready
+            cache_ttl=30.0
+        )
+        orchestrator.register_agent("archivist", archivist)
+        logger.info("[Hybrid Python] Registered ArchivistAgent for data retrieval")
+
+        # TODO: Register NarratorAgent once LLM client is wired
+        # TODO: Register ModuleKeeperAgent once vector store is wired
 
         # Start the session
         session = orchestrator.start_session()
+
+        # Initialize FactDatabase for consistency tracking
+        campaign_path = Path(_storage.data_dir) / "campaigns" / campaign.id if _storage else Path(f"/tmp/campaigns/{campaign.id}")
+        fact_db = FactDatabase(campaign_path)
+        self._fact_databases[session.session_id] = fact_db
+        logger.info(f"[Hybrid Python] Initialized FactDatabase at {campaign_path}")
 
         # Store in active sessions
         self._active_sessions[session.session_id] = (orchestrator, session)
@@ -188,6 +207,15 @@ class SessionManager:
         # Create new orchestrator
         orchestrator = Orchestrator(campaign=campaign, config=config)
 
+        # Register Python agents (same as in start_session)
+        archivist = ArchivistAgent(
+            campaign=campaign,
+            rules_lookup_fn=None,
+            cache_ttl=30.0
+        )
+        orchestrator.register_agent("archivist", archivist)
+        logger.info("[Hybrid Python] Registered ArchivistAgent for resumed session")
+
         # Recreate session with saved state
         session = ClaudmasterSession(
             session_id=session_id,
@@ -202,6 +230,13 @@ class SessionManager:
 
         # Manually assign the session to orchestrator
         orchestrator.session = session
+
+        # Load FactDatabase from disk
+        campaign_path = Path(_storage.data_dir) / "campaigns" / campaign.id if _storage else Path(f"/tmp/campaigns/{campaign.id}")
+        fact_db = FactDatabase(campaign_path)
+        # load() is called automatically in FactDatabase.__init__
+        self._fact_databases[session_id] = fact_db
+        logger.info(f"[Hybrid Python] Loaded FactDatabase for resumed session (facts: {len(fact_db.facts)})")
 
         # Store in active sessions
         self._active_sessions[session_id] = (orchestrator, session)
@@ -246,6 +281,12 @@ class SessionManager:
             "metadata": dict(session.metadata)
         }
 
+        # Save FactDatabase if present
+        if session_id in self._fact_databases:
+            fact_db = self._fact_databases[session_id]
+            fact_db.save()
+            logger.info(f"[Hybrid Python] Saved FactDatabase for session {session_id}")
+
         logger.info(f"Saved session {session_id} (turn count: {session.turn_count})")
         return True
 
@@ -264,6 +305,13 @@ class SessionManager:
             return False
 
         orchestrator, session = self._active_sessions[session_id]
+
+        # Save FactDatabase before ending
+        if session_id in self._fact_databases:
+            fact_db = self._fact_databases[session_id]
+            fact_db.save()
+            logger.info(f"[Hybrid Python] Saved FactDatabase for session {session_id}")
+            del self._fact_databases[session_id]
 
         # End session via orchestrator
         try:

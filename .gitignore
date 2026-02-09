@@ -89,4 +89,4 @@ fastmcp_cache/
 .ruff_cache/
 
 # Claude Code project management
-.claude/
+# .claude/
