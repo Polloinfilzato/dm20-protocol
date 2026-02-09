@@ -1,11 +1,11 @@
 ---
 name: storage-refactoring
-status: backlog
+status: completed
 created: 2026-02-01T23:49:05Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/storage-refactoring.md
-github: https://github.com/Polloinfilzato/gamemaster-mcp/issues/1
-updated: 2026-02-02T00:06:07Z
+github: https://github.com/Polloinfilzato/dm20-protocol/issues/1
+updated: 2026-02-09T02:09:06Z
 ---
 
 # Epic: storage-refactoring
