@@ -6,6 +6,7 @@ import pytest
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 # Configure anyio to use only asyncio backend (trio is not installed)
 pytestmark = pytest.mark.anyio
@@ -522,35 +523,101 @@ async def test_start_claudmaster_session_resume_without_session_id():
 
 
 @pytest.mark.anyio
-async def test_start_claudmaster_session_not_yet_integrated():
-    """Test that start_claudmaster_session returns integration error (temporary)."""
-    # This test documents the current state where campaign loading is not integrated
-    result = await start_claudmaster_session(campaign_name="Test Campaign")
-    assert result["status"] == "error"
-    assert "not yet integrated" in result["error_message"].lower()
+async def test_start_claudmaster_session_no_storage():
+    """Test that start_claudmaster_session returns error when storage is not set."""
+    import dm20_protocol.claudmaster.tools.session_tools as st
+    original_storage = st._storage
+    try:
+        st._storage = None
+        result = await start_claudmaster_session(campaign_name="Test Campaign")
+        assert result["status"] == "error"
+        assert "not initialized" in result["error_message"].lower()
+    finally:
+        st._storage = original_storage
 
 
 @pytest.mark.anyio
-async def test_start_claudmaster_session_with_module():
+async def test_start_claudmaster_session_campaign_not_found(monkeypatch):
+    """Test start_claudmaster_session when campaign does not exist."""
+    import dm20_protocol.claudmaster.tools.session_tools as st
+    mock_storage = MagicMock()
+    mock_storage.load_campaign.side_effect = FileNotFoundError("Campaign 'Nonexistent' not found")
+    monkeypatch.setattr(st, "_storage", mock_storage)
+
+    result = await start_claudmaster_session(campaign_name="Nonexistent")
+    assert result["status"] == "error"
+    assert "Cannot load campaign" in result["error_message"]
+
+
+@pytest.mark.anyio
+async def test_start_claudmaster_session_loads_campaign(mock_campaign, monkeypatch):
+    """Test that start_claudmaster_session loads a real campaign via storage."""
+    import dm20_protocol.claudmaster.tools.session_tools as st
+
+    mock_storage = MagicMock()
+    mock_storage.load_campaign.return_value = mock_campaign
+    mock_storage.get_claudmaster_config.return_value = ClaudmasterConfig()
+    monkeypatch.setattr(st, "_storage", mock_storage)
+
+    # Use a fresh session manager so no cross-test pollution
+    fresh_manager = SessionManager()
+    monkeypatch.setattr(st, "_session_manager", fresh_manager)
+
+    result = await start_claudmaster_session(campaign_name="Test Campaign")
+    assert result["status"] == "active"
+    assert result["session_id"]
+    assert result["campaign_info"]["campaign_name"] == "Test Campaign"
+    mock_storage.load_campaign.assert_called_once_with("Test Campaign")
+
+
+@pytest.mark.anyio
+async def test_start_claudmaster_session_with_module(mock_campaign, monkeypatch):
     """Test start_claudmaster_session with module_id parameter."""
+    import dm20_protocol.claudmaster.tools.session_tools as st
+
+    mock_storage = MagicMock()
+    mock_storage.load_campaign.return_value = mock_campaign
+    mock_storage.get_claudmaster_config.return_value = ClaudmasterConfig()
+    monkeypatch.setattr(st, "_storage", mock_storage)
+
+    fresh_manager = SessionManager()
+    monkeypatch.setattr(st, "_session_manager", fresh_manager)
+
     result = await start_claudmaster_session(
         campaign_name="Test Campaign",
         module_id="lost-mine-of-phandelver"
     )
-    # Currently returns integration error
-    assert result["status"] == "error"
+    assert result["status"] == "active"
+    assert result["module_info"]["is_loaded"] is True
+    assert result["module_info"]["module_id"] == "lost-mine-of-phandelver"
 
 
 @pytest.mark.anyio
-async def test_start_claudmaster_session_resume_mode():
+async def test_start_claudmaster_session_resume_mode(mock_campaign, mock_config, monkeypatch):
     """Test start_claudmaster_session in resume mode."""
+    import dm20_protocol.claudmaster.tools.session_tools as st
+
+    mock_storage = MagicMock()
+    mock_storage.load_campaign.return_value = mock_campaign
+    mock_storage.get_claudmaster_config.return_value = mock_config
+    monkeypatch.setattr(st, "_storage", mock_storage)
+
+    # Start a session first, save it, then resume
+    fresh_manager = SessionManager()
+    monkeypatch.setattr(st, "_session_manager", fresh_manager)
+
+    state = await fresh_manager.start_session(campaign=mock_campaign, config=mock_config)
+    session_id = state.session_id
+    fresh_manager.save_session(session_id)
+    fresh_manager.end_session(session_id)
+
     result = await start_claudmaster_session(
         campaign_name="Test Campaign",
-        session_id="test-session-123",
+        session_id=session_id,
         resume=True
     )
-    # Currently returns integration error
-    assert result["status"] == "error"
+    assert result["status"] == "active"
+    assert result["session_id"] == session_id
 
 
 # ============================================================================

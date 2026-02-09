@@ -21,6 +21,22 @@ from ..persistence import SessionSerializer, SessionMetadata
 
 logger = logging.getLogger("dm20-protocol")
 
+# Module-level storage reference, set by main.py during initialization
+_storage = None
+
+
+def set_storage(storage_instance):
+    """Set the storage instance for session tools.
+
+    Called by main.py during initialization to inject the DnDStorage instance
+    so that session tools can load campaigns and access quest data.
+
+    Args:
+        storage_instance: The DnDStorage instance from main.py
+    """
+    global _storage
+    _storage = storage_instance
+
 
 # ============================================================================
 # Session State Models
@@ -439,27 +455,39 @@ async def start_claudmaster_session(
                 "error_message": "session_id is required when resume=True"
             }
 
-        # TODO: Load campaign from storage
-        # For now, we'll need to create a mock campaign or load from a campaign manager
-        # This will be implemented once the campaign loading system is in place
+        # Load campaign from storage
+        if _storage is None:
+            return {
+                "session_id": session_id or "",
+                "status": "error",
+                "error_message": (
+                    "Session tools not initialized. "
+                    "Storage instance has not been set."
+                )
+            }
 
-        # Placeholder error for missing campaign loading integration
-        return {
-            "session_id": session_id or "",
-            "status": "error",
-            "error_message": (
-                f"Campaign loading not yet integrated. "
-                f"Cannot load campaign '{campaign_name}'. "
-                f"This tool requires integration with campaign storage."
-            )
-        }
+        try:
+            campaign = _storage.load_campaign(campaign_name)
+        except (FileNotFoundError, ValueError) as e:
+            return {
+                "session_id": session_id or "",
+                "status": "error",
+                "error_message": f"Cannot load campaign '{campaign_name}': {e}"
+            }
 
-        # The actual implementation would be:
-        # if resume:
-        #     state = await _session_manager.resume_session(session_id, campaign)
-        # else:
-        #     state = await _session_manager.start_session(campaign, module_id=module_id)
-        # return state.model_dump()
+        # Get Claudmaster config for the campaign
+        try:
+            config = _storage.get_claudmaster_config()
+        except ValueError:
+            config = None  # Will use default config
+
+        # Start or resume the session
+        if resume:
+            state = await _session_manager.resume_session(session_id, campaign)
+        else:
+            state = await _session_manager.start_session(campaign, config, module_id)
+
+        return state.model_dump()
 
     except ValueError as e:
         logger.error(f"Validation error in start_claudmaster_session: {e}")
@@ -716,12 +744,23 @@ async def get_session_state(
             context_usage["conversation_length"] = len(session.conversation_history)
             context_usage["active_agents"] = dict(session.active_agents)
 
+        # Build active quests from campaign data
+        active_quests = []
+        if _storage:
+            campaign = _storage.get_current_campaign()
+            if campaign:
+                active_quests = [
+                    {"title": quest.title, "status": quest.status, "giver": quest.giver}
+                    for quest in campaign.quests.values()
+                    if quest.status == "active"
+                ]
+
         return {
             "session_info": session_info,
             "game_state": game_state,
             "party_status": party_status,
             "recent_history": recent_history,
-            "active_quests": [],  # Placeholder for quest system integration
+            "active_quests": active_quests,
             "context_usage": context_usage,
         }
 
@@ -740,6 +779,7 @@ __all__ = [
     "SessionState",
     "SessionManager",
     "SessionMetadata",
+    "set_storage",
     "start_claudmaster_session",
     "end_session",
     "get_session_state",

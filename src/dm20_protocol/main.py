@@ -188,11 +188,64 @@ def get_character(
     if not character:
         return f"❌ Character '{name_or_id}' not found."
 
+    # Build inventory details
+    inventory_lines = []
+    for item in character.inventory:
+        item_detail = f"  - {item.name} (x{item.quantity}, {item.item_type})"
+        if item.value:
+            item_detail += f" [{item.value}]"
+        if item.weight is not None:
+            item_detail += f" {item.weight} lb"
+        if item.description:
+            item_detail += f" - {item.description}"
+        inventory_lines.append(item_detail)
+    inventory_text = "\n".join(inventory_lines) if inventory_lines else "  (empty)"
+
+    # Build equipment details
+    equipment_lines = []
+    for slot, item in character.equipment.items():
+        slot_label = slot.replace("_", " ").title()
+        if item:
+            equipment_lines.append(f"  - {slot_label}: {item.name} ({item.item_type})")
+        else:
+            equipment_lines.append(f"  - {slot_label}: (empty)")
+    equipment_text = "\n".join(equipment_lines)
+
+    # Build spell slots details
+    spell_slots_lines = []
+    if character.spell_slots:
+        for level in sorted(character.spell_slots.keys()):
+            max_slots = character.spell_slots[level]
+            used = character.spell_slots_used.get(level, 0)
+            remaining = max_slots - used
+            spell_slots_lines.append(f"  - Level {level}: {remaining}/{max_slots} remaining")
+    spell_slots_text = "\n".join(spell_slots_lines) if spell_slots_lines else "  (none)"
+
+    # Build spells known details
+    spells_lines = []
+    for spell in character.spells_known:
+        prepared_mark = " [PREPARED]" if spell.prepared else ""
+        spells_lines.append(f"  - {spell.name} (Lvl {spell.level}, {spell.school}){prepared_mark}")
+    spells_text = "\n".join(spells_lines) if spells_lines else "  (none)"
+
+    # Build features and traits
+    features_text = "\n".join(f"  - {f}" for f in character.features_and_traits) if character.features_and_traits else "  (none)"
+
+    # Build languages
+    languages_text = ", ".join(character.languages) if character.languages else "(none)"
+
+    # Build skill proficiencies
+    skill_profs_text = ", ".join(character.skill_proficiencies) if character.skill_proficiencies else "(none)"
+
+    # Build saving throw proficiencies
+    save_profs_text = ", ".join(character.saving_throw_proficiencies) if character.saving_throw_proficiencies else "(none)"
+
     char_info = f"""**{character.name}** (`{character.id}`)
 Level {character.character_class.level} {character.race.name} {character.character_class.name}
 **Player:** {character.player_name or 'N/A'}
 **Background:** {character.background or 'N/A'}
 **Alignment:** {character.alignment or 'N/A'}
+**Inspiration:** {'Yes' if character.inspiration else 'No'}
 
 **Description:** {character.description or 'No description provided.'}
 **Bio:** {character.bio or 'No bio provided.'}
@@ -209,8 +262,30 @@ Level {character.character_class.level} {character.race.name} {character.charact
 • AC: {character.armor_class}
 • HP: {character.hit_points_current}/{character.hit_points_max}
 • Temp HP: {character.temporary_hit_points}
+• Proficiency Bonus: +{character.proficiency_bonus}
+• Hit Dice Remaining: {character.hit_dice_remaining}
+• Death Saves: {character.death_saves_success} successes / {character.death_saves_failure} failures
+
+**Skill Proficiencies:** {skill_profs_text}
+**Saving Throw Proficiencies:** {save_profs_text}
+**Languages:** {languages_text}
+
+**Equipment:**
+{equipment_text}
 
 **Inventory:** {len(character.inventory)} items
+{inventory_text}
+
+**Spell Slots:**
+{spell_slots_text}
+
+**Spells Known:**
+{spells_text}
+
+**Features & Traits:**
+{features_text}
+
+**Notes:** {character.notes or 'No additional notes.'}
 """
 
     return char_info
@@ -434,6 +509,18 @@ def get_npc(
     if not npc:
         return f"NPC '{name}' not found."
 
+    # Build stats section
+    stats_text = ""
+    if npc.stats:
+        stats_lines = [f"  - {k}: {v}" for k, v in npc.stats.items()]
+        stats_text = "\n**Stats:**\n" + "\n".join(stats_lines)
+
+    # Build relationships section
+    relationships_text = ""
+    if npc.relationships:
+        rel_lines = [f"  - {char_name}: {rel}" for char_name, rel in npc.relationships.items()]
+        relationships_text = "\n**Relationships:**\n" + "\n".join(rel_lines)
+
     npc_info = f"""**{npc.name}** (`{npc.id}`)
 **Race:** {npc.race or 'Unknown'}
 **Occupation:** {npc.occupation or 'Unknown'}
@@ -442,7 +529,8 @@ def get_npc(
 
 **Description:** {npc.description or 'No description available.'}
 **Bio:** {npc.bio or 'No bio available.'}
-
+{stats_text}
+{relationships_text}
 **Notes:** {npc.notes or 'No additional notes.'}
 """
 
@@ -636,6 +724,26 @@ def get_game_state() -> str:
     if not game_state:
         return "No game state available."
 
+    # Build active quests list
+    quests_text = ""
+    if game_state.active_quests:
+        quests_lines = [f"  - {q}" for q in game_state.active_quests]
+        quests_text = "\n".join(quests_lines)
+    else:
+        quests_text = "  (none)"
+
+    # Build combat details if in combat
+    combat_details = ""
+    if game_state.in_combat and game_state.initiative_order:
+        init_lines = [
+            f"  {i+1}. {p.get('name', 'Unknown')} (Initiative: {p.get('initiative', 0)})"
+            for i, p in enumerate(game_state.initiative_order)
+        ]
+        combat_details = f"""
+**Initiative Order:**
+{chr(10).join(init_lines)}
+**Current Turn:** {game_state.current_turn or 'None'}"""
+
     state_info = f"""**Game State**
 **Campaign:** {game_state.campaign_name}
 **Session:** {game_state.current_session}
@@ -644,8 +752,9 @@ def get_game_state() -> str:
 **Party Level:** {game_state.party_level}
 **Party Funds:** {game_state.party_funds}
 **In Combat:** {'Yes' if game_state.in_combat else 'No'}
-
-**Active Quests:** {len(game_state.active_quests)}
+{combat_details}
+**Active Quests ({len(game_state.active_quests)}):**
+{quests_text}
 
 **Notes:** {game_state.notes or 'No current notes.'}
 """
@@ -661,6 +770,16 @@ def start_combat(
     # Sort by initiative (highest first)
     initiative_order = sorted(participants, key=lambda x: x.get("initiative", 0), reverse=True)
 
+    # Validate participants exist as characters or NPCs
+    warnings = []
+    for p in initiative_order:
+        p_name = p.get("name", "")
+        if p_name:
+            char = storage.get_character(p_name)
+            npc = storage.get_npc(p_name)
+            if not char and not npc:
+                warnings.append(f"  - '{p_name}' is not a known character or NPC")
+
     storage.update_game_state(
         in_combat=True,
         initiative_order=initiative_order,
@@ -672,17 +791,43 @@ def start_combat(
         for i, p in enumerate(initiative_order)
     ])
 
-    return f"**Combat Started!**\n\n**Initiative Order:**\n{order_text}\n\n**Current Turn:** {initiative_order[0]['name'] if initiative_order else 'None'}"
+    result = f"**Combat Started!**\n\n**Initiative Order:**\n{order_text}\n\n**Current Turn:** {initiative_order[0]['name'] if initiative_order else 'None'}"
+
+    if warnings:
+        result += "\n\n**Warnings:**\n" + "\n".join(warnings)
+
+    return result
 
 @mcp.tool
 def end_combat() -> str:
     """End the current combat encounter."""
+    # Capture combat summary before clearing state
+    game_state = storage.get_game_state()
+    summary_parts = ["**Combat Ended.**"]
+
+    if game_state and game_state.initiative_order:
+        participants_list = [p.get("name", "Unknown") for p in game_state.initiative_order]
+        num_participants = len(participants_list)
+        summary_parts.append(f"\n**Participants ({num_participants}):** {', '.join(participants_list)}")
+
+        # Check for casualties (characters with HP <= 0)
+        casualties = []
+        for p_name in participants_list:
+            char = storage.get_character(p_name)
+            if char and char.hit_points_current <= 0:
+                casualties.append(p_name)
+
+        if casualties:
+            summary_parts.append(f"**Casualties:** {', '.join(casualties)}")
+        else:
+            summary_parts.append("**Casualties:** None")
+
     storage.update_game_state(
         in_combat=False,
         initiative_order=[],
         current_turn=None
     )
-    return "Combat ended."
+    return "\n".join(summary_parts)
 
 @mcp.tool
 def next_turn() -> str:
@@ -694,6 +839,8 @@ def next_turn() -> str:
     if not game_state.initiative_order:
         return "No initiative order set."
 
+    num_participants = len(game_state.initiative_order)
+
     # Find current turn index and advance
     current_index = 0
     if game_state.current_turn:
@@ -702,12 +849,33 @@ def next_turn() -> str:
                 current_index = i
                 break
 
-    next_index = (current_index + 1) % len(game_state.initiative_order)
-    next_participant = game_state.initiative_order[next_index]
+    # Try to find next alive participant, skipping dead/incapacitated ones
+    skipped = []
+    for offset in range(1, num_participants + 1):
+        candidate_index = (current_index + offset) % num_participants
+        candidate = game_state.initiative_order[candidate_index]
+        candidate_name = candidate["name"]
 
-    storage.update_game_state(current_turn=next_participant["name"])
+        # Check if this participant is a character with HP <= 0
+        char = storage.get_character(candidate_name)
+        if char and char.hit_points_current <= 0:
+            skipped.append(candidate_name)
+            continue
 
-    return f"**Next Turn:** {next_participant['name']}"
+        # Found a valid (alive) participant
+        storage.update_game_state(current_turn=candidate_name)
+        result = f"**Next Turn:** {candidate_name}"
+        if skipped:
+            result += f"\n(Skipped dead/incapacitated: {', '.join(skipped)})"
+        return result
+
+    # All participants are dead or incapacitated - end combat
+    storage.update_game_state(
+        in_combat=False,
+        initiative_order=[],
+        current_turn=None
+    )
+    return "All remaining participants are dead or incapacitated. **Combat ended automatically.**"
 
 # Session Management Tools
 @mcp.tool
@@ -2203,7 +2371,9 @@ from .claudmaster.tools.session_tools import (
     start_claudmaster_session as _start_claudmaster_session,
     end_session as _end_session,
     get_session_state as _get_session_state,
+    set_storage as _set_session_storage,
 )
+_set_session_storage(storage)
 
 
 @mcp.tool
@@ -2251,6 +2421,26 @@ async def get_claudmaster_session_state(
         detail_level=detail_level,
         include_history=include_history,
         history_limit=history_limit,
+    )
+
+
+# Claudmaster player action tool
+from .claudmaster.tools.action_tools import player_action as _player_action
+
+
+@mcp.tool
+async def player_action(
+    session_id: Annotated[str, Field(description="The active session ID to process the action in")],
+    action: Annotated[str, Field(description="The player's action as natural language text")],
+    character_name: Annotated[str | None, Field(description="Optional name of the character performing the action")] = None,
+    context: Annotated[str | None, Field(description="Optional additional context about the action")] = None,
+) -> dict:
+    """Process a player action in the current Claudmaster session."""
+    return await _player_action(
+        session_id=session_id,
+        action=action,
+        character_name=character_name,
+        context=context,
     )
 
 
