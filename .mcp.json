@@ -5,11 +5,14 @@
       "command": "uv",
       "args": [
         "run",
-        "dm20-protocol"
+        "python",
+        "-m",
+        "dm20_protocol"
       ],
       "cwd": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/dm20-protocol",
       "env": {
-        "DM20_STORAGE_DIR": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/dm20-protocol/data"
+        "DM20_STORAGE_DIR": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/dm20-protocol/data",
+        "PYTHONPATH": "/Users/ema/Library/Mobile Documents/com~apple~CloudDocs/GitHub la Clonazione/dm20-protocol/src"
       }
     }
   }

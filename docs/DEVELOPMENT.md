@@ -548,8 +548,8 @@ uv pip install -e .[dev]
 
 # 3. Run the development server
 # `uv run` executes the command within the virtual environment.
-# `dm20-protocol` is the script defined in pyproject.toml.
-uv run dm20-protocol
+# Using `python -m` is more robust than the entry point script on paths with spaces.
+uv run python -m dm20_protocol
 
 # 4. Run tests
 uv run pytest
@@ -657,7 +657,7 @@ uv venv
 uv pip install -e .[dev]
 
 # 3. Run the server
-uv run dm20-protocol
+uv run python -m dm20_protocol
 ```
 
 ### **Running as a Standalone Tool (with `uvx`)**

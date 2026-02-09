@@ -1,126 +1,101 @@
-# DM20 Protocol 🐉 - Project Roadmap
+# Roadmap
 
-## 🏰 Vision Statement
+> Last updated: 2026-02-08
 
-The DM20 Protocol server aims to be the ultimate AI-assisted Dungeon Master for DnD 5e, providing:
+## Current Status
 
-- **For Groups**: A comprehensive toolkit to help human DMs run campaigns more effectively
-- **For Solo Players**: A complete virtual DM experience that facilitates immersive solo play
-- **For Worldbuilders**: Powerful tools to assist in creating rich, interconnected game worlds
+DM20 Protocol is a fully functional MCP server with **50+ tools** for D&D campaign management. The Claudmaster architecture (agents, consistency engine, improvisation, companions, multiplayer, session management) is complete and tested.
 
-Built on FastMCP, the server provides structured data models and intelligent tools to manage all aspects of a D&D campaign while enabling natural language interaction through MCP clients.
+**Architecture insight:** The MCP server provides structured game data (state, rules, dice, modules). The host LLM — Claude, via Claude Code or Claude Desktop — provides the intelligence: narration, decisions, NPC dialogue. No separate LLM integration or API key is needed. Claude Code *is* the DM brain; the MCP tools are its hands.
 
-## 1. 🎯 Project Vision & Technical Architecture
+**What works today:** Campaign management, character sheets, NPCs, locations, quests, combat tracking, session notes, dice rolls, PDF rulebook library with keyword and semantic search, Claudmaster session lifecycle tools, configuration system.
 
-### Data Model Relationships
-
-The system is built around a hierarchical data structure with the `Campaign` model at its core. All other models relate to the active campaign through these key relationships:
-
-```mermaid
-graph TD
-    A[Campaign] --> B[GameState]
-    A --> C[Character]
-    A --> D[NPC]
-    A --> E[Location]
-    A --> F[Quest]
-    A --> G[CombatEncounter]
-    A --> H[SessionNote]
-    B --> I[AdventureEvent]
-    
-    C --> J[Item]
-    C --> K[Spell]
-    C --> L[AbilityScore]
-    C --> M[CharacterClass]
-    C --> N[Race]
-    
-    style A fill:#f9f,stroke:#333,stroke-width:4px
-```
-
-**Key Technical Concepts:**
-
-### Core Concepts: Interplay of Data Models
-
-The DM20 Protocol server organizes all campaign data around a central `Campaign` model, which acts as the primary container for the entire game world. This design ensures a cohesive and interconnected data structure, allowing the LLM client to easily manage and interact with various game elements.
-
-Here's how the core data models in `src/dm20_protocol/models.py` interact and relate:
-
-* **`Campaign`**: The foundational model. It encapsulates all campaign-specific data, including:
-    * **`characters`**: A dictionary of `Character` models, representing player characters. Each `Character` is a complex model composed of `CharacterClass`, `Race`, `AbilityScore` (for core stats), `Item` (for inventory and equipment), and `Spell` (for known spells).
-    * **`npcs`**: A dictionary of `NPC` models, representing non-player characters. NPCs can be linked to `Location` models.
-    * **`locations`**: A dictionary of `Location` models, defining places within the campaign world. Locations can list associated NPCs and connections to other locations.
-    * **`quests`**: A dictionary of `Quest` models, tracking ongoing and completed missions. Quests can reference NPCs as givers.
-    * **`encounters`**: A dictionary of `CombatEncounter` models, detailing planned or active combat scenarios. Encounters can be tied to specific locations.
-    * **`sessions`**: A list of `SessionNote` models, providing summaries and details for each game session played within the campaign.
-    * **`game_state`**: A single `GameState` model, which captures the dynamic, real-time conditions of the campaign, such as the current location, active quests, and party funds. This model is crucial for the LLM to understand the immediate context of the game.
-
-* **`GameState`**: While part of the `Campaign`, `GameState` plays a pivotal role in reflecting the current state of the world. It influences and is influenced by other models:
-    * `current_location` can point to a `Location` model.
-    * `active_quests` references `Quest` titles.
-    * Changes in `Character` status (e.g., `hit_points_current`) or `Quest` status (`active`, `completed`) directly impact the `GameState` and how the LLM perceives the campaign.
-
-* **`AdventureEvent`**: This model, along with `EventType`, is used to log significant occurrences throughout the campaign. While not directly nested within `Campaign` (it's stored globally), `AdventureEvent` instances often reference elements from the `Campaign`'s data, such as `characters_involved` and `location`. This provides a historical log that the LLM can use to understand past events and narrative progression.
-
-This interconnected structure allows the LLM client to query, update, and generate content for the campaign by interacting with a unified and logically organized data set. The Pydantic validation ensures data integrity across all operations.
+**What's next:** Making the system playable end-to-end — DM persona instructions, real PDF testing, and gameplay validation.
 
 ---
 
-## 2. 🌟 Current Version (v1.0)
+## Phase 1 — DM Persona & Game Loop (High Priority)
 
-The current version of the server provides a robust foundation for comprehensive campaign management, built on a solid storage layer and a rich set of data models.
+Claude Code is already the LLM. The MCP tools already return game state data. What's missing is the **bridge**: instructions that tell Claude how to act as a DM using these tools, and the game loop that ties it all together.
 
-### Key Features
+The core DM loop is: **CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE** — always update game state via tools *before* describing outcomes to the player.
 
-* **Architecture**: Modern, type-safe architecture using FastMCP 2.9.0+, with clear separation of concerns between the server logic ([`main.py`](src/dm20_protocol/main.py)), data models ([`models.py`](src/dm20_protocol/models.py)), and persistence ([`storage.py`](src/dm20_protocol/storage.py)).
-* **Campaign Management**: Full CRUD operations for creating, loading, and managing multiple, distinct campaigns.
-* **Data Persistence**: A reliable storage layer that saves campaign data to JSON files (`dnd_data/campaigns/`) and maintains a global event log (`dnd_data/events/adventure_log.json`).
-* **Comprehensive Data Models**: A rich set of Pydantic models covering all core D&D concepts:
-    * `Campaign`, `GameState`, `SessionNote`
-    * `Character`, `NPC`, `Race`, `CharacterClass`
-    * `Location`, `Quest`, `Item`, `Spell`
-    * `CombatEncounter`, `AdventureEvent`
-* **Core Toolset**: A suite of 25+ tools providing essential functionality for:
-    * Campaign, Character, NPC, Location, and Quest management.
-    * Game State and Session tracking.
-    * Basic Combat and Event logging.
-    * Utility functions like dice rolling.
+| Task | Description | Status |
+|------|-------------|--------|
+| DM system prompt | Write CLAUDE.md section (or dedicated file) defining DM persona, game loop, tool usage patterns, output formatting, and authority rules | Not started |
+| Specialist sub-agents | Create `.claude/agents/` for specialized roles: narrator (descriptions, atmosphere), combat-handler (initiative, rounds, resolution), rules-lookup (spell/monster/class queries), module-keeper (adventure content retrieval) | Not started |
+| Game skills | Create slash commands (`/dm:start`, `/dm:action`, `/dm:combat`, `/dm:save`) for streamlined gameplay workflow | Not started |
+| Tool output review | Audit all MCP tool return values — ensure they provide sufficient structured data for Claude to DM effectively without needing internal LLM calls | Not started |
+| Session tool fixes | Fix `start_claudmaster_session` campaign integration; verify `player_action` tool registration and return format | Not started |
+| Basic game loop test | Test minimal loop: start session → player says something → Claude uses tools → narrates result → state persists | Not started |
+
+## Phase 2 — Module Testing with Real PDFs
+
+The PDF library system (parser, indexer, vector store, search) is built but untested with actual published adventures. This phase validates that Claude can DM a published module using the existing tools.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| PDF loading validation | Load a real adventure module (e.g., Curse of Strahd, Lost Mine of Phandelver) and verify indexing quality | Not started |
+| Retrieval quality benchmarks | Query module content and measure accuracy: NPC info, location descriptions, encounter triggers, plot points | Not started |
+| DM-only content separation | Ensure player-facing queries never leak spoilers or DM-only information (read-aloud vs DM notes) | Not started |
+| Search output optimization | Tune search result format and context size for optimal Claude consumption within the conversation window | Not started |
+
+## Phase 3 — End-to-End Gameplay
+
+Play real sessions and identify gaps. This is where theory meets practice.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Full session playtest | Play a complete session covering exploration, social interaction, and combat — document every friction point | Not started |
+| Session persistence | Test save/resume across multiple sessions — verify game state, NPC knowledge, and quest progress survive | Not started |
+| Combat flow validation | Test complete combat: initiative roll → round tracking → attacks with damage → conditions → resolution → XP | Not started |
+| Context window management | Validate behavior when conversations grow long — test context compression, session recaps, state recovery | Not started |
+
+## Phase 4 — Narrative Quality
+
+Evaluate and improve the actual DM experience. Tune the system for enjoyable gameplay.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Narrative style tuning | Test and refine DM persona instructions for different styles (descriptive, concise, dramatic, cinematic) | Not started |
+| NPC voice consistency | Validate NPC personalities persist across turns and sessions — test with recurring NPCs | Not started |
+| Improvisation calibration | Test that improvisation level settings (0-4) produce the expected balance of module fidelity vs creative freedom | Not started |
+| Companion personality | Verify AI-controlled companion NPCs maintain consistent personality over multi-session arcs | Not started |
+
+## Phase 5 — Quality of Life
+
+Improvements that make the overall experience smoother for daily use.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Session transcript export | Export gameplay sessions as formatted markdown with clear speaker attribution | Not started |
+| Campaign migration tool | Import campaigns from other VTT formats (Foundry, Roll20) | Not started |
+| Batch NPC/location creation | Generate multiple NPCs or locations from a single prompt | Not started |
+| Spell slot and resource tracking | Track spell slots, ki points, rage uses, and other class resources across rests | Not started |
 
 ---
 
-## 3. 🛣️ Future Development Roadmap
+## Architecture Notes
 
-### Phase 1: Enhanced Interactivity & DM Assistance (v1.1)
+### Why No Separate LLM Integration?
 
-**Goal**: Move beyond data management to proactive, intelligent assistance that enhances the DM's creative workflow.
+The original Claudmaster architecture planned for internal Claude API calls (Anthropic SDK inside the MCP server). This was redesigned based on a key realization:
 
-| Feature                       | Description                                                                                                                                                           | Related Tools / Models                                                                                             |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Data Storage Improvement**  | Migrate from simple JSON data storage to a more robust, efficient system with semantic search features (SQL and/or vector DB such as PostgreSQL, ChromaDB, or Qdrant) | `generate_random_encounter`, `generate_plot_hook`                                                                  |
-| **Dynamic Event Generation**  | Tools to generate random encounters, plot hooks, or NPC interactions based on the current `GameState` (e.g., party location, level, active quests).                   | `generate_random_encounter`, `generate_plot_hook`                                                                  |
-| **Generative Content Tools**  | Leverage the LLM's `sample` capability to generate descriptions for locations, NPCs, or items on the fly, saving them to the appropriate model.                       | `generate_npc_description`, `generate_location_details`                                                            |
-| **Advanced Combat Tools**     | More granular combat management tools for applying damage/healing, adding/removing conditions, and tracking resources (e.g., spell slots, legendary actions).         | `apply_damage`, `add_condition_to_character`, `use_spell_slot`                                                     |
-| **Improved Search & Query**   | Enhance the `search_events` tool and add new search capabilities to find specific items, characters, or lore across the entire campaign based on complex queries.     | `find_item_by_property`, `search_lore`                                                                             |
-| **Knowledge Base Integration**| Add tools to look up rules, monster stats, or spell details from an integrated (and *user-expandable*) D&D 5e SRD knowledge base.                                          | `lookup_rule`, `get_monster_stats`, `get_spell_details`                                                            |
-| **Expanded Character Sheet**  | Add support for tracking feats, skills, and other detailed character attributes beyond the core stats.                                                                | `Feat`, `Skill` models, `add_feat_to_character`                                                                    |
-| **Worldbuilding Utilities**   | Tools for procedural generation of names, locations, plot hooks, and other creative elements to assist in worldbuilding.                                              | `generate_random_name`, `generate_location_idea`                                                                   |
+- **MCP servers run inside LLM sessions.** When loaded in Claude Code or Claude Desktop, the host LLM already processes all tool results.
+- **The host LLM is the narrator.** Claude receives game state from tools and generates narrative responses naturally — no second API call needed.
+- **Sub-agents provide parallelism.** Claude Code can spawn specialist agents (`.claude/agents/`) that work in parallel, each with access to the MCP tools.
+- **Zero additional cost.** Users with Claude Pro/Max plans pay nothing extra. No API key management, no token budget accounting, no billing surprises.
 
-### Phase 2: Deeper Simulation & Automation (v1.2)
+The existing Python agent classes (Narrator, Archivist, Module Keeper) remain as tested infrastructure. Their data-retrieval methods are useful as tool backends. The `LLMClient` protocol and prompt templates may be repurposed or simplified in a future cleanup pass.
 
-**Goal**: Automate complex game mechanics and create a more dynamic, simulated world that reacts to player actions.
+### Reference Project
 
-| Feature                          | Description                                                                                                                                                           | Related Tools / Models                                                                                             |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Faction & Reputation System**  | Introduce `Faction` models and tools to track player reputation with various in-game factions. Reputation changes could be triggered by completing quests or events. | `Faction` model, `update_reputation`, `get_faction_standing`                                                       |
-| **Automated Character Progression** | A `level_up_character` tool that automatically handles HP increases, new features, and spell slot changes based on class.                                           | `level_up_character`, `CharacterClass` model updates                                                               |
-| **Dynamic World State**          | The `GameState` will evolve more dynamically. NPCs change locations, shop inventories update, and quests become time-sensitive based on in-game date progression.      | `advance_in_game_time`, `update_npc_location`, `restock_shop_inventory`                                            |
-| **Loot Generation**              | Tools to generate treasure hoards, magic items, or shop inventories based on challenge rating, location type, or campaign setting.                                     | `generate_treasure_hoard`, `generate_magic_item`                                                                   |
-| **Calendar & Time-Based Events** | A more robust in-game calendar system. Schedule world events that trigger automatically when a certain date is reached via the `advance_in_game_time` tool.         | `Calendar` model, `schedule_world_event`                                                                           |
+[Claude Code Game Master](https://github.com/Sstobo/Claude-Code-Game-Master) by Sstobo validates this approach: CLAUDE.md persona + specialist agents + bash tools (we use MCP tools instead, which are more portable across clients).
 
-### Phase 3: Scalability & Integration (v1.3)
+---
 
-**Goal**: Evolve the server from a standalone tool into a scalable, interconnected hub for a broader D&D ecosystem.
+## Completed Milestones
 
-| Feature                       | Description                                                                                                                                                           | Related Tools / Models                               |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| **Performance Optimization**  | Refactor the storage layer to handle extremely large campaigns with thousands of events and entries without performance degradation.                                    | `DnDStorage` optimization, potential async operations |
-| **API for Third-Party Apps**  | Expose a secure, public API that allows other applications (e.g., character sheet managers, virtual tabletops) to read and write data to the campaign.                  | `OAuth2` integration, `RESTful API` models           |
-| **Webhooks & Event Streaming**| Implement a system for pushing real-time updates to other services when key events occur in the campaign (e.g., a character levels up, a quest is completed).          | `Webhook` model, `emit_event` tool                   |
+- **v0.1.0** — Core MCP server: campaigns, characters, NPCs, locations, quests, combat, dice
+- **v0.2.0** — PDF Rulebook Library: import PDFs, keyword search, semantic search (RAG), content extraction
+- **Claudmaster Architecture** — Multi-agent AI DM system: Narrator, Archivist, Module Keeper agents; consistency engine (facts, contradictions, timeline, NPC knowledge); improvisation control (5 levels, element locks, fidelity enforcement); multi-player support (companions, split party, private info, turn management); session management with recovery and auto-save; performance optimization (caching, parallel execution, context compression)
