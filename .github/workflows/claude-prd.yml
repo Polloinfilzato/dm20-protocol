@@ -15,6 +15,11 @@ on:
     paths:
       - '.claude/prds/**'
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   generate-claude-md:
     uses: Polloinfilzato/claude-workflows/.github/workflows/prd-to-claude-md.yml@main
