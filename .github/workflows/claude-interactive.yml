@@ -1,0 +1,25 @@
+# Template: Interactive @claude
+# Copia questo file in: .github/workflows/claude-interactive.yml del tuo repo
+#
+# Prerequisiti:
+# - Secret ANTHROPIC_API_KEY configurato nel repo (Settings > Secrets > Actions)
+# - Claude GitHub App installata sul repo
+
+name: Claude Interactive
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude')
+    uses: Polloinfilzato/claude-workflows/.github/workflows/interactive-claude.yml@main
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    # Personalizza (opzionale):
+    # with:
+    #   trigger_phrase: "@claude"
+    #   max_turns: "10"

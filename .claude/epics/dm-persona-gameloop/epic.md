@@ -2,7 +2,7 @@
 name: dm-persona-gameloop
 status: in_progress
 created: 2026-02-09T01:27:42Z
-progress: 57%
+progress: 86%
 prd: .claude/prds/dm-persona-gameloop.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/66
 ---

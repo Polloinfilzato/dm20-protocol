@@ -1,0 +1,22 @@
+# Template: PRD to CLAUDE.md
+# Copia questo file in: .github/workflows/claude-prd.yml del tuo repo
+#
+# Prerequisiti:
+# - Secret ANTHROPIC_API_KEY configurato nel repo (Settings > Secrets > Actions)
+# - Cartella .claude/prds/ con almeno un file .md
+#
+# Questo workflow si attiva automaticamente quando vengono pushati
+# file nella cartella .claude/prds/ e genera/aggiorna il CLAUDE.md di progetto.
+
+name: Claude PRD Analysis
+
+on:
+  push:
+    paths:
+      - '.claude/prds/**'
+
+jobs:
+  generate-claude-md:
+    uses: Polloinfilzato/claude-workflows/.github/workflows/prd-to-claude-md.yml@main
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
