@@ -1619,6 +1619,7 @@ def roll_dice(
     dice_notation: Annotated[str, Field(description="Dice notation (e.g., '1d20', '3d6+2')")],
     advantage: Annotated[bool, Field(description="Roll with advantage")] = False,
     disadvantage: Annotated[bool, Field(description="Roll with disadvantage")] = False,
+    label: Annotated[str, Field(description="Context label for the roll (e.g., 'Goblin Archer 2 attack vs Aldric')")] = "",
 ) -> str:
     """Roll dice with D&D notation."""
     dice_notation = dice_notation.lower().strip()
@@ -1633,6 +1634,8 @@ def roll_dice(
     num_dice = int(match.group(1))
     die_size = int(match.group(2))
     modifier = int(match.group(3)) if match.group(3) else 0
+
+    label_prefix = f"{label} — " if label else ""
 
     # Roll dice
     if advantage or disadvantage:
@@ -1652,7 +1655,7 @@ def roll_dice(
         total = result + modifier
         modifier_text = f" {modifier:+d}" if modifier != 0 else ""
 
-        return f"🎲 **{dice_notation}** {roll_text}{modifier_text} = **{total}**"
+        return f"🎲 {label_prefix}**{dice_notation}** {roll_text}{modifier_text} = **{total}**"
     else:
         rolls = [random.randint(1, die_size) for _ in range(num_dice)]
         roll_sum = sum(rolls)
@@ -1661,7 +1664,7 @@ def roll_dice(
         rolls_text = ", ".join(map(str, rolls)) if num_dice > 1 else str(rolls[0])
         modifier_text = f" {modifier:+d}" if modifier != 0 else ""
 
-        return f"🎲 **{dice_notation}** [{rolls_text}]{modifier_text} = **{total}**"
+        return f"🎲 {label_prefix}**{dice_notation}** [{rolls_text}]{modifier_text} = **{total}**"
 
 @mcp.tool
 def calculate_experience(

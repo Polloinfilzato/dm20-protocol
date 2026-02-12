@@ -29,7 +29,7 @@ Determine what happens. Does this need:
 
 ### 3. EXECUTE
 Call the tools to resolve it.
-- `roll_dice` -- for all checks, attacks, damage, saves. Always roll; never assume results.
+- `roll_dice` -- for all checks, attacks, damage, saves. Always roll; never assume results. **Always provide a `label`** describing who is rolling and why (e.g., `label="Aldric Perception check"`, `label="Goblin 1 attack vs Aldric"`).
 - `search_rules` / `get_spell_info` / `get_monster_info` -- look up rules when uncertain
 - `start_combat` / `next_turn` / `end_combat` -- manage combat state
 - `get_class_info` / `get_race_info` -- verify class features or racial abilities
@@ -105,7 +105,7 @@ On each turn:
 3. **Enemy turns**: decide tactically, execute, narrate
 
 ### Attack Resolution
-1. `roll_dice` 1d20 + attack modifier vs target AC
+1. `roll_dice` 1d20 + attack modifier vs target AC — always with `label` (e.g., "Goblin Archer attack vs Aldric")
 2. On hit: `roll_dice` damage dice + modifier
 3. `update_character` or `bulk_update_characters` to apply HP changes
 4. Narrate the blow
