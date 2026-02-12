@@ -7,5 +7,6 @@ and code-switching support.
 
 from .models import TermEntry
 from .resolver import TermResolver
+from .style import StyleTracker
 
-__all__ = ["TermEntry", "TermResolver"]
+__all__ = ["TermEntry", "TermResolver", "StyleTracker"]
