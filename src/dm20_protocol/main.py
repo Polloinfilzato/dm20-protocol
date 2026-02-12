@@ -21,6 +21,7 @@ from .models import (
     AbilityScore, CharacterClass, Race, Item
 )
 from .character_builder import CharacterBuilder, CharacterBuilderError
+from .level_up_engine import LevelUpEngine, LevelUpError
 from .rulebooks import RulebookManager
 from .rulebooks.sources.srd import SRDSource
 from .rulebooks.sources.custom import CustomSource
@@ -240,6 +241,66 @@ def create_character(
         f"{character.character_class.name})\n\n"
         f"Auto-populated from rulebook:\n{summary}"
     )
+
+@mcp.tool
+def level_up_character(
+    name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    hp_method: Annotated[str, Field(description="HP increase method: 'average' (default, PHB standard) or 'roll'")] = "average",
+    asi_choices: Annotated[str | None, Field(description="JSON dict for ASI: {\"strength\": 2} or {\"strength\": 1, \"dexterity\": 1}")] = None,
+    subclass: Annotated[str | None, Field(description="Subclass to select (at subclass level, typically 3)")] = None,
+    new_spells: Annotated[str | None, Field(description="JSON list of new spells learned: [\"fireball\", \"counterspell\"]")] = None,
+) -> str:
+    """Level up a character by one level.
+
+    Increments level, calculates HP increase, adds class features, updates
+    spell slots for casters, handles ASI at appropriate levels, and manages
+    subclass selection. Requires a rulebook to be loaded.
+    """
+    if not storage.rulebook_manager or not storage.rulebook_manager.sources:
+        return (
+            "⚠️ No rulebook loaded. Level-up requires class data for features "
+            "and progression.\n\n"
+            "Please load a rulebook first:\n"
+            "  load_rulebook source=\"srd\"\n\n"
+            "Then retry level_up_character."
+        )
+
+    character = storage.get_character(name_or_id)
+    if not character:
+        return f"❌ Character '{name_or_id}' not found."
+
+    # Parse JSON parameters
+    parsed_asi = None
+    if asi_choices:
+        try:
+            parsed_asi = json.loads(asi_choices)
+        except json.JSONDecodeError:
+            return f"❌ Invalid asi_choices JSON: {asi_choices}"
+
+    parsed_spells = None
+    if new_spells:
+        try:
+            parsed_spells = json.loads(new_spells)
+        except json.JSONDecodeError:
+            return f"❌ Invalid new_spells JSON: {new_spells}"
+
+    engine = LevelUpEngine(storage.rulebook_manager)
+    try:
+        result = engine.level_up(
+            character,
+            hp_method=hp_method,
+            asi_choices=parsed_asi,
+            subclass=subclass,
+            new_spells=parsed_spells,
+        )
+    except LevelUpError as e:
+        return f"❌ Level-up failed: {e}"
+
+    # Persist the updated character
+    storage.save()
+
+    return f"✅ {result.summary}"
+
 
 @mcp.tool
 def get_character(
