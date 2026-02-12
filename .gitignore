@@ -58,6 +58,9 @@ Thumbs.db
 
 # D&D MCP Server data (user-generated, not tracked)
 data/
+# Exception: terminology data is curated and tracked
+!src/dm20_protocol/terminology/data/
+!src/dm20_protocol/terminology/data/**
 dnd_data/
 demo_data/
 campaigns/
