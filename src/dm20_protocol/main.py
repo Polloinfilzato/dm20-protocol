@@ -1300,8 +1300,8 @@ def get_events(
 @mcp.tool
 async def load_rulebook(
     source: Annotated[
-        Literal["srd", "custom"],
-        Field(description="Source type: 'srd' for official D&D 5e SRD, 'custom' for local files")
+        Literal["srd", "custom", "open5e", "5etools"],
+        Field(description="Source type: 'srd' for official D&D 5e SRD, 'custom' for local files, 'open5e' for Open5e API, '5etools' for 5etools JSON data")
     ],
     version: Annotated[
         str | None,
@@ -1328,6 +1328,20 @@ async def load_rulebook(
         counts = srd_source.content_counts()
         return f"✅ Loaded SRD {version} rulebook\n📚 {counts.classes} classes, {counts.races} races, {counts.spells} spells, {counts.monsters} monsters"
 
+    elif source == "open5e":
+        from .rulebooks.sources.open5e import Open5eSource
+        open5e_source = Open5eSource(cache_dir=storage.rulebook_cache_dir)
+        await storage.rulebook_manager.load_source(open5e_source)
+        counts = open5e_source.content_counts()
+        return f"✅ Loaded Open5e rulebook\n📚 {counts.classes} classes, {counts.races} races, {counts.spells} spells, {counts.monsters} monsters"
+
+    elif source == "5etools":
+        from .rulebooks.sources.fivetools import FiveToolsSource
+        fivetools_source = FiveToolsSource(cache_dir=storage.rulebook_cache_dir)
+        await storage.rulebook_manager.load_source(fivetools_source)
+        counts = fivetools_source.content_counts()
+        return f"✅ Loaded 5etools rulebook\n📚 {counts.classes} classes, {counts.races} races, {counts.spells} spells, {counts.monsters} monsters"
+
     elif source == "custom":
         if not path:
             return "❌ Custom source requires 'path' parameter"
@@ -1337,7 +1351,7 @@ async def load_rulebook(
         counts = custom_source.content_counts()
         return f"✅ Loaded custom rulebook: {path}\n📚 {counts.classes} classes, {counts.races} races, {counts.spells} spells"
 
-    return "❌ Invalid source type. Use 'srd' or 'custom'."
+    return "❌ Invalid source type. Use 'srd', 'custom', 'open5e', or '5etools'."
 
 @mcp.tool
 def list_rulebooks() -> str:

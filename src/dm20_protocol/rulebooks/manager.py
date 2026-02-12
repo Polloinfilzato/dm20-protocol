@@ -46,7 +46,7 @@ class RulebookManagerError(Exception):
 class SourceConfig:
     """Configuration for a loaded source."""
     id: str
-    type: str  # "srd" or "custom"
+    type: str  # "srd", "custom", "open5e", or "5etools"
     loaded_at: str  # ISO timestamp
     version: str | None = None  # For SRD sources
     path: str | None = None  # For custom sources
@@ -457,13 +457,24 @@ class RulebookManager:
         )
 
         if source.source_type == RulebookSourceEnum.SRD:
-            # SRD source
             version = getattr(source, "version", "2014")
             return SourceConfig(
                 id=source.source_id,
                 type="srd",
                 loaded_at=loaded_at,
                 version=version,
+            )
+        elif source.source_type == RulebookSourceEnum.OPEN5E:
+            return SourceConfig(
+                id=source.source_id,
+                type="open5e",
+                loaded_at=loaded_at,
+            )
+        elif source.source_type == RulebookSourceEnum.FIVETOOLS:
+            return SourceConfig(
+                id=source.source_id,
+                type="5etools",
+                loaded_at=loaded_at,
             )
         else:
             # Custom source
@@ -543,6 +554,18 @@ class RulebookManager:
 
             cache_dir = self._manifest_dir / "cache" if self._manifest_dir else None
             return SRDSource(version=config.version or "2014", cache_dir=cache_dir)
+
+        elif config.type == "open5e":
+            from .sources.open5e import Open5eSource
+
+            cache_dir = self._manifest_dir / "cache" if self._manifest_dir else None
+            return Open5eSource(cache_dir=cache_dir)
+
+        elif config.type == "5etools":
+            from .sources.fivetools import FiveToolsSource
+
+            cache_dir = self._manifest_dir / "cache" if self._manifest_dir else None
+            return FiveToolsSource(cache_dir=cache_dir)
 
         elif config.type == "custom":
             from .sources.custom import CustomSource

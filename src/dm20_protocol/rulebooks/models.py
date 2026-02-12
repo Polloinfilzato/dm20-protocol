@@ -21,6 +21,7 @@ class RulebookSource(str, Enum):
     SRD = "srd"
     OPEN5E = "open5e"
     CUSTOM = "custom"
+    FIVETOOLS = "5etools"
 
 
 class Size(str, Enum):
