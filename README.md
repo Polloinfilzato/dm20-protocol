@@ -248,16 +248,34 @@ Run the server locally:
 uv run python -m dm20_protocol
 ```
 
-## Claudmaster — AI Dungeon Master
+## Solo Play — AI Dungeon Master
 
-The **Claudmaster** multi-agent AI DM system is architecturally complete — Narrator, Archivist, and Module Keeper agents, consistency engine, improvisation control, and multi-player support are all implemented. Next step is wiring agents to real LLM calls and validating with actual gameplay.
+DM20 Protocol includes a complete **AI Dungeon Master** system for solo D&D play. Claude becomes your DM — narrating the world, roleplaying NPCs, running combat, and tracking all game state automatically.
 
-Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches.
+### Game Commands
 
-See the full **[Roadmap](ROADMAP.md)** for what's next.
+| Command | What it does |
+|---------|-------------|
+| `/dm:start [campaign]` | Begin or resume a game session |
+| `/dm:action I search the room` | Process any player action |
+| `/dm:combat goblins ambush us!` | Start or manage combat |
+| `/dm:save` | Save session and pause |
+
+### How It Works
+
+The system uses a **DM Persona** (`.claude/dm-persona.md`) that instructs Claude to follow a structured game loop: gather context → decide what happens → execute via tools → update state → narrate the outcome. Three specialist sub-agents handle complex scenarios in parallel:
+
+- **Narrator** — Rich scene descriptions, NPC dialogue, atmospheric text
+- **Combat Handler** — Initiative, turn management, advanced enemy tactics
+- **Rules Lookup** — Fast spell details, monster stat blocks, class features
+
+Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches. Built on the Claudmaster architecture with session persistence, difficulty scaling, and configurable narrative style.
+
+See the **[Player Guide](PLAYER_GUIDE.md)** for how to play, or the **[Roadmap](ROADMAP.md)** for what's next.
 
 ## Documentation
 
+- [Player Guide](PLAYER_GUIDE.md) — How to play solo D&D with the AI DM
 - [User Guide](docs/GUIDE.md) — System prompt, tools reference, data structure, PDF library
 - [Storage Structure](docs/STORAGE_STRUCTURE.md) — How campaign data is organized on disk
 - [Development Guide](docs/DEVELOPMENT.md) — Architecture, contributing, API details

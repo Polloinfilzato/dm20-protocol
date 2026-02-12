@@ -8,7 +8,7 @@ This document summarizes the integration of `SplitStorageBackend` into the main 
 
 ### 1. DnDStorage Initialization
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 68-69)
+**File**: `src/dm20_protocol/storage.py` (lines 68-69)
 
 Added initialization of the split storage backend without auto-loading campaigns to prevent double-loading:
 
@@ -19,7 +19,7 @@ self._split_backend = SplitStorageBackend(data_dir=data_dir, auto_load=False)
 
 ### 2. SplitStorageBackend Constructor
 
-**File**: `src/gamemaster_mcp/storage.py` (line 733)
+**File**: `src/dm20_protocol/storage.py` (line 733)
 
 Modified `SplitStorageBackend.__init__` to accept an `auto_load` parameter:
 
@@ -31,7 +31,7 @@ This prevents the backend from automatically loading campaigns when used as a ba
 
 ### 3. Campaign Creation (create_campaign)
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 293-316)
+**File**: `src/dm20_protocol/storage.py` (lines 293-316)
 
 Modified to use split storage backend for all new campaigns:
 
@@ -61,7 +61,7 @@ def create_campaign(self, name: str, description: str, dm_name: str | None = Non
 
 ### 4. Split Campaign Saving (_save_split_campaign)
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 202-215)
+**File**: `src/dm20_protocol/storage.py` (lines 202-215)
 
 Implemented to delegate saving to the split backend:
 
@@ -80,7 +80,7 @@ def _save_split_campaign(self) -> None:
 
 ### 5. Split Campaign Loading (_load_split_campaign)
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 381-389)
+**File**: `src/dm20_protocol/storage.py` (lines 381-389)
 
 Implemented to delegate loading to the split backend:
 
@@ -94,7 +94,7 @@ def _load_split_campaign(self, name: str) -> Campaign:
 
 ### 6. Campaign Loading (load_campaign)
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 345-367)
+**File**: `src/dm20_protocol/storage.py` (lines 345-367)
 
 Modified to sync the split backend when loading split campaigns:
 
@@ -107,7 +107,7 @@ elif storage_format == StorageFormat.SPLIT:
 
 ### 7. Batch Updates (batch_update)
 
-**File**: `src/gamemaster_mcp/storage.py` (lines 143-151)
+**File**: `src/dm20_protocol/storage.py` (lines 143-151)
 
 Modified to sync with split backend during batch operations:
 
@@ -128,7 +128,7 @@ def batch_update(self):
 
 ### 8. Format Detection Fixes
 
-**File**: `src/gamemaster_mcp/storage.py`
+**File**: `src/dm20_protocol/storage.py`
 
 Fixed all references from `metadata.json` to `campaign.json` to match the actual split storage file structure:
 
@@ -254,7 +254,7 @@ Potential improvements that could be added:
 
 ## Files Modified
 
-- `src/gamemaster_mcp/storage.py` - Main integration changes
+- `src/dm20_protocol/storage.py` - Main integration changes
 - `test_storage_integration.py` - Integration test suite (new)
 - `test_manual_integration.py` - Manual test script (new)
 

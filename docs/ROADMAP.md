@@ -1,6 +1,6 @@
 # Roadmap
 
-> Last updated: 2026-02-08
+> Last updated: 2026-02-09
 
 ## Current Status
 
@@ -10,7 +10,7 @@ DM20 Protocol is a fully functional MCP server with **50+ tools** for D&D campai
 
 **What works today:** Campaign management, character sheets, NPCs, locations, quests, combat tracking, session notes, dice rolls, PDF rulebook library with keyword and semantic search, Claudmaster session lifecycle tools, configuration system.
 
-**What's next:** Making the system playable end-to-end — DM persona instructions, real PDF testing, and gameplay validation.
+**What's next:** Phase 1 (DM Persona & Game Loop) is nearly complete — DM persona, sub-agents, game commands, tool fixes, and hybrid integration are done. Final step is end-to-end gameplay validation. Then: real PDF module testing and narrative quality tuning.
 
 ---
 
@@ -22,12 +22,13 @@ The core DM loop is: **CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE** 
 
 | Task | Description | Status |
 |------|-------------|--------|
-| DM system prompt | Write CLAUDE.md section (or dedicated file) defining DM persona, game loop, tool usage patterns, output formatting, and authority rules | Not started |
-| Specialist sub-agents | Create `.claude/agents/` for specialized roles: narrator (descriptions, atmosphere), combat-handler (initiative, rounds, resolution), rules-lookup (spell/monster/class queries), module-keeper (adventure content retrieval) | Not started |
-| Game skills | Create slash commands (`/dm:start`, `/dm:action`, `/dm:combat`, `/dm:save`) for streamlined gameplay workflow | Not started |
-| Tool output review | Audit all MCP tool return values — ensure they provide sufficient structured data for Claude to DM effectively without needing internal LLM calls | Not started |
-| Session tool fixes | Fix `start_claudmaster_session` campaign integration; verify `player_action` tool registration and return format | Not started |
-| Basic game loop test | Test minimal loop: start session → player says something → Claude uses tools → narrates result → state persists | Not started |
+| DM system prompt | `.claude/dm-persona.md` — DM identity, CONTEXT→DECIDE→EXECUTE→PERSIST→NARRATE game loop, tool usage patterns, output formatting, combat protocol, session management, authority rules | **Done** |
+| Specialist sub-agents | `.claude/agents/` — narrator (scene descriptions, NPC dialogue), combat-handler (initiative, tactics, resolution), rules-lookup (spells, monsters, classes) | **Done** |
+| Game skills | `/dm:start`, `/dm:action`, `/dm:combat`, `/dm:save` — player-facing slash commands with dynamic persona injection and auto-approved MCP tools | **Done** |
+| Tool output review | Audited and enriched `get_character`, `get_npc`, `get_game_state` and other key tools for AI DM consumption | **Done** |
+| Session tool fixes | Fixed `start_claudmaster_session` campaign loading; registered `player_action` as MCP tool | **Done** |
+| Hybrid Python integration | Wired intent classification and data retrieval from existing Orchestrator/Archivist into tool flow | **Done** |
+| Basic game loop test | End-to-end playtest covering exploration, social, and combat scenarios | **In progress** |
 
 ## Phase 2 — Module Testing with Real PDFs
 
@@ -99,3 +100,4 @@ The existing Python agent classes (Narrator, Archivist, Module Keeper) remain as
 - **v0.1.0** — Core MCP server: campaigns, characters, NPCs, locations, quests, combat, dice
 - **v0.2.0** — PDF Rulebook Library: import PDFs, keyword search, semantic search (RAG), content extraction
 - **Claudmaster Architecture** — Multi-agent AI DM system: Narrator, Archivist, Module Keeper agents; consistency engine (facts, contradictions, timeline, NPC knowledge); improvisation control (5 levels, element locks, fidelity enforcement); multi-player support (companions, split party, private info, turn management); session management with recovery and auto-save; performance optimization (caching, parallel execution, context compression)
+- **DM Persona & Game Loop** (Epic, 86% complete) — DM persona file with structured game loop; 3 specialist Claude Code sub-agents (narrator, combat-handler, rules-lookup); 4 game slash commands (`/dm:start`, `/dm:action`, `/dm:combat`, `/dm:save`); tool output enrichment; session tool fixes; hybrid Python integration. Remaining: end-to-end gameplay validation.

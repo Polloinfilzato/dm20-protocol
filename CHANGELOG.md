@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **DM Persona system** — `.claude/dm-persona.md` defines Claude's behavior as a full D&D 5e Dungeon Master with structured game loop (CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE), combat protocol, session management, output formatting rules, and authority guidelines
+- **Specialist sub-agents** — Three Claude Code agent files in `.claude/agents/`:
+  - `narrator.md` — Scene descriptions, atmospheric text, NPC dialogue (sonnet model)
+  - `combat-handler.md` — Combat management with advanced enemy tactics (sonnet model)
+  - `rules-lookup.md` — Fast rules reference and stat blocks (haiku model)
+- **Game slash commands** — Four player-facing commands in `.claude/commands/dm/`:
+  - `/dm:start [campaign]` — Begin or resume a game session
+  - `/dm:action <description>` — Process a player action through the game loop
+  - `/dm:combat [situation]` — Initiate or manage combat encounters
+  - `/dm:save` — Save session state with narrative cliffhanger
+- **Hybrid Python integration** — Intent classification and data retrieval wired into tool flow, leveraging existing Orchestrator/Archivist for deterministic operations
+- **Player guide** — `GUIDA_DM.md` rewritten with practical gameplay instructions, context management guide, and troubleshooting
+
+### Fixed
+- `start_claudmaster_session` — Now properly integrates with `DnDStorage` to load campaigns by name instead of returning hardcoded error
+- `player_action` tool — Registered as `@mcp.tool` in `main.py` (existed but was not exposed via MCP)
+- Tool output enrichment — Key tools (`get_character`, `get_npc`, `get_game_state`) now return comprehensive data for AI DM consumption including inventory details, NPC relationships, and combat state
+
 ## [0.2.0] - 2026-02-08
 
 ### Changed

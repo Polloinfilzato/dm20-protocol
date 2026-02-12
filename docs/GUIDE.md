@@ -91,6 +91,45 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 
 ---
 
+## Solo Play with AI DM (Claude Code)
+
+If you're using **Claude Code**, DM20 Protocol includes a complete AI Dungeon Master system for solo D&D play. Claude becomes your DM using a dedicated persona file and specialist sub-agents.
+
+### Game Commands
+
+These slash commands are the player-facing interface:
+
+| Command | Description |
+|---------|-------------|
+| `/dm:start [campaign_name]` | Begin or resume a game session |
+| `/dm:action <description>` | Process a player action (exploration, social, combat) |
+| `/dm:combat [situation]` | Initiate or manage a combat encounter |
+| `/dm:save` | Save session state and pause with narrative cliffhanger |
+
+### How It Works
+
+1. `/dm:start` loads the campaign and activates the DM persona (`.claude/dm-persona.md`)
+2. Claude follows the game loop: **CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE**
+3. Three specialist agents (`.claude/agents/`) handle complex scenarios:
+   - **narrator** — Scene descriptions, NPC dialogue, atmosphere
+   - **combat-handler** — Initiative, turns, enemy tactics, damage resolution
+   - **rules-lookup** — Spell details, monster stats, class features
+4. `/dm:save` persists all state to the backend for later resumption
+
+### Context Management
+
+Game sessions consume context window quickly. When context reaches ~50-60%, save and reload:
+
+```
+/dm:save              → save session state
+/clear                → clear Claude's context
+/dm:start Campaign    → reload everything with recap
+```
+
+For detailed instructions, see the [Player Guide](../PLAYER_GUIDE.md).
+
+---
+
 ## Available Tools (50+)
 
 ### Campaign Management
@@ -181,6 +220,16 @@ Once the campaign is underway, your focus shifts to dynamic management and narra
 | `get_spell_info` | Get spell details from loaded rulebooks |
 | `get_monster_info` | Get monster stat block from loaded rulebooks |
 | `validate_character_rules` | Validate a character against loaded rulebooks |
+
+### AI Dungeon Master (Claudmaster)
+
+| Tool | Description |
+|------|-------------|
+| `start_claudmaster_session` | Start or resume an AI DM session for a campaign |
+| `end_claudmaster_session` | End or pause a session, saving all state |
+| `get_claudmaster_session_state` | Get current session state and action history |
+| `player_action` | Process a player action in the current session |
+| `configure_claudmaster` | View or update AI DM settings (narrative style, difficulty, etc.) |
 
 ### Utility Tools
 
