@@ -251,12 +251,13 @@ class ActionProcessor:
         This method orchestrates the complete player action workflow:
         1. Validate session is active
         2. Get orchestrator and session
-        3. Classify intent via orchestrator (pure Python, zero tokens)
-        4. If character_name provided, set context for PC identification
-        5. Process through orchestrator pipeline
-        6. Build ActionResponse from OrchestratorResponse with intent metadata
-        7. Increment turn counter
-        8. Return structured response
+        3. Scan player input for known terms and observe language preferences (terminology system)
+        4. Classify intent via orchestrator (pure Python, zero tokens)
+        5. If character_name provided, set context for PC identification
+        6. Process through orchestrator pipeline
+        7. Build ActionResponse from OrchestratorResponse with intent metadata
+        8. Increment turn counter
+        9. Return structured response
 
         Args:
             session_id: The active session ID
@@ -271,15 +272,38 @@ class ActionProcessor:
             # Step 1 & 2: Validate and get session
             orchestrator, session = self._get_active_session(session_id)
 
-            # Step 3: Classify intent BEFORE processing (deterministic, zero tokens)
+            # Step 3: Scan player input for known terms and track language preferences
+            if session_id in self.session_manager._term_resolvers:
+                try:
+                    term_resolver = self.session_manager._term_resolvers[session_id]
+                    style_tracker = self.session_manager._style_trackers[session_id]
+
+                    # Resolve terms in player input
+                    matches = term_resolver.resolve_in_text(action)
+
+                    # Observe language preferences
+                    for original_text, term_entry in matches:
+                        style_tracker.observe(term_entry, original_text)
+
+                    if matches:
+                        logger.debug(
+                            f"[Terminology] Detected {len(matches)} terms in player input: "
+                            f"{[term.canonical for _, term in matches]}"
+                        )
+                except Exception as e:
+                    # Graceful degradation: terminology system failure doesn't break player_action
+                    logger.warning(f"[Terminology] Error during term resolution: {e}")
+
+            # Step 4: Classify intent BEFORE processing (deterministic, zero tokens)
             intent = orchestrator.classify_intent(action)
+
             logger.info(
                 "[Hybrid Python] Intent classified: %s (confidence: %.2f)",
                 intent.intent_type.value,
                 intent.confidence
             )
 
-            # Step 4: Build context if provided
+            # Step 5: Build context if provided
             if character_name or context:
                 # Store in session metadata for PC identification
                 if character_name:
@@ -287,10 +311,18 @@ class ActionProcessor:
                 if context:
                     session.metadata["action_context"] = context
 
-            # Step 5: Process through orchestrator
+            # Step 6: Inject style preferences into session metadata for narrator context
+            if session_id in self.session_manager._style_trackers:
+                style_tracker = self.session_manager._style_trackers[session_id]
+                style_prefs = style_tracker.preferences_summary()
+                if style_prefs:
+                    session.metadata["style_preferences"] = style_prefs
+                    logger.debug(f"[Terminology] Injected style preferences into session metadata: {style_prefs}")
+
+            # Step 7: Process through orchestrator
             orchestrator_response = await orchestrator.process_player_input(action)
 
-            # Step 6: Build ActionResponse
+            # Step 8: Build ActionResponse
             action_type = self._map_intent_to_action_type(intent)
             state_changes = self._extract_state_changes(orchestrator_response)
             dice_rolls = self._extract_dice_rolls(orchestrator_response)
@@ -299,12 +331,13 @@ class ActionProcessor:
             # Extract follow-up options from metadata if available
             follow_up_options = orchestrator_response.metadata.get("follow_up_options")
 
-            # Step 7: Turn counter already incremented by process_player_input
+            # Step 9: Turn counter already incremented by process_player_input
             turn_number = session.turn_count
 
             # Clean up temporary metadata
             session.metadata.pop("acting_character", None)
             session.metadata.pop("action_context", None)
+            session.metadata.pop("style_preferences", None)
 
             # Create response with intent classification metadata
             response = ActionResponse(
