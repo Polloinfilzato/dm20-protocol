@@ -1,8 +1,10 @@
 ---
 name: bilingual-terminology-resolver
-status: backlog
+status: completed
 created: 2026-02-12T16:41:22Z
-progress: 0%
+progress: 100%
+updated: 2026-02-12T17:56:55Z
+completed: 2026-02-12T17:56:55Z
 prd: .claude/prds/bilingual-terminology-resolver.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/91
 ---

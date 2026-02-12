@@ -1,7 +1,7 @@
 ---
 name: bilingual-terminology-resolver
 description: Bilingual D&D terminology resolver with code-switching support and style mirroring for Italian/English gameplay
-status: backlog
+status: complete
 created: 2026-02-12T16:08:15Z
 ---
 
