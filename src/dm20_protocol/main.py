@@ -566,6 +566,147 @@ def add_item_to_character(
 
     return f"Added {item.quantity}x {item.name} to {character.name}'s inventory"
 
+
+VALID_EQUIPMENT_SLOTS = {"weapon_main", "weapon_off", "armor", "shield"}
+
+
+def _find_inventory_item(character: Character, name_or_id: str) -> Item | None:
+    """Find an item in inventory by name (case-insensitive) or ID."""
+    name_lower = name_or_id.lower()
+    # Try name match first
+    for item in character.inventory:
+        if item.name.lower() == name_lower:
+            return item
+    # Try ID match
+    for item in character.inventory:
+        if item.id == name_or_id:
+            return item
+    return None
+
+
+def _equip_item_logic(character: Character, item_name_or_id: str, slot: str) -> str:
+    """Core logic for equipping an item. Testable without MCP wrapper."""
+    if slot not in VALID_EQUIPMENT_SLOTS:
+        return (
+            f"❌ Invalid slot '{slot}'. "
+            f"Valid slots: {', '.join(sorted(VALID_EQUIPMENT_SLOTS))}"
+        )
+
+    item = _find_inventory_item(character, item_name_or_id)
+    if not item:
+        return f"❌ Item '{item_name_or_id}' not found in {character.name}'s inventory."
+
+    messages = []
+
+    # Auto-unequip if slot is occupied
+    current = character.equipment.get(slot)
+    if current is not None:
+        character.inventory.append(current)
+        messages.append(f"Unequipped {current.name} from {slot}")
+
+    # Move item from inventory to equipment slot
+    character.inventory.remove(item)
+    character.equipment[slot] = item
+
+    messages.append(f"Equipped {item.name} to {slot}")
+    return f"✅ {character.name}: " + " → ".join(messages)
+
+
+def _unequip_item_logic(character: Character, slot: str) -> str:
+    """Core logic for unequipping an item. Testable without MCP wrapper."""
+    if slot not in VALID_EQUIPMENT_SLOTS:
+        return (
+            f"❌ Invalid slot '{slot}'. "
+            f"Valid slots: {', '.join(sorted(VALID_EQUIPMENT_SLOTS))}"
+        )
+
+    current = character.equipment.get(slot)
+    if current is None:
+        return f"❌ {character.name}'s {slot} slot is empty."
+
+    character.inventory.append(current)
+    character.equipment[slot] = None
+
+    return f"✅ {character.name}: Unequipped {current.name} from {slot} → inventory"
+
+
+def _remove_item_logic(character: Character, item_name_or_id: str, quantity: int = 1) -> str:
+    """Core logic for removing an item. Testable without MCP wrapper."""
+    item = _find_inventory_item(character, item_name_or_id)
+    if not item:
+        return f"❌ Item '{item_name_or_id}' not found in {character.name}'s inventory."
+
+    if quantity >= item.quantity:
+        removed_qty = item.quantity
+        character.inventory.remove(item)
+        return f"✅ Removed {removed_qty}x {item.name} from {character.name}'s inventory"
+    else:
+        item.quantity -= quantity
+        return (
+            f"✅ Removed {quantity}x {item.name} from {character.name}'s inventory "
+            f"({item.quantity} remaining)"
+        )
+
+
+@mcp.tool
+def equip_item(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    item_name_or_id: Annotated[str, Field(description="Item name or ID from inventory")],
+    slot: Annotated[str, Field(description="Equipment slot: weapon_main, weapon_off, armor, or shield")],
+) -> str:
+    """Equip an item from inventory to an equipment slot.
+
+    Moves the item from the character's inventory to the specified equipment slot.
+    If the slot is already occupied, the current item is automatically unequipped
+    back to inventory first.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _equip_item_logic(character, item_name_or_id, slot)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
+@mcp.tool
+def unequip_item(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    slot: Annotated[str, Field(description="Equipment slot: weapon_main, weapon_off, armor, or shield")],
+) -> str:
+    """Unequip an item from an equipment slot back to inventory.
+
+    Moves the equipped item back to the character's inventory and clears the slot.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _unequip_item_logic(character, slot)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
+@mcp.tool
+def remove_item(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    item_name_or_id: Annotated[str, Field(description="Item name or ID to remove")],
+    quantity: Annotated[int, Field(description="Quantity to remove (default: all)", ge=1)] = 1,
+) -> str:
+    """Remove an item from a character's inventory.
+
+    Removes the specified quantity of an item. If quantity is greater than or equal
+    to the item's current quantity, the item is removed entirely.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _remove_item_logic(character, item_name_or_id, quantity)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
 @mcp.tool
 def list_characters() -> str:
     """List all characters in the current campaign.
