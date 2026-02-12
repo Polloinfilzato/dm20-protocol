@@ -1,8 +1,8 @@
 ---
 name: character-model-v2
-status: backlog
+status: in_progress
 created: 2026-02-12T18:10:15Z
-progress: 0%
+progress: 17%
 prd: .claude/prds/character-model-v2.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/98
 ---
@@ -91,7 +91,7 @@ The level-up logic lives in a `level_up_engine.py` module, reusable by both the 
 
 ## Tasks Created
 
-- [ ] 98.md - Character Model Extension (parallel: false — foundation)
+- [x] 98.md - Character Model Extension (parallel: false — foundation) ✅
 - [ ] 99.md - Character Builder & Enhanced create_character (parallel: true)
 - [ ] 100.md - Level-Up Engine & MCP Tool (parallel: true)
 - [ ] 101.md - Inventory Management Tools (parallel: true)
