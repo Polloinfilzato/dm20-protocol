@@ -1,6 +1,5 @@
 ---
 description: Save the current D&D game session and pause. Creates session notes and a narrative stopping point.
-disable-model-invocation: true
 allowed-tools: mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_character, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_events, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__add_session_note, mcp__dm20-protocol__end_claudmaster_session, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__add_event
 ---
 

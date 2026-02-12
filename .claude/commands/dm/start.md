@@ -1,7 +1,6 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-disable-model-invocation: true
 allowed-tools: Task, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster
 ---
 
