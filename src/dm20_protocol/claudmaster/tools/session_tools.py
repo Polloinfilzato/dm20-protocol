@@ -13,6 +13,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from dm20_protocol.models import Campaign
+from dm20_protocol.terminology import TermResolver, StyleTracker
 from ..orchestrator import Orchestrator
 from ..session import ClaudmasterSession
 from ..config import ClaudmasterConfig
@@ -104,6 +105,8 @@ class SessionManager:
         self._active_sessions: dict[str, tuple[Orchestrator, ClaudmasterSession]] = {}
         self._saved_sessions: dict[str, dict] = {}
         self._fact_databases: dict[str, FactDatabase] = {}  # Campaign path -> FactDatabase
+        self._term_resolvers: dict[str, TermResolver] = {}  # session_id -> TermResolver
+        self._style_trackers: dict[str, StyleTracker] = {}  # session_id -> StyleTracker
         logger.info("SessionManager initialized")
 
     async def start_session(
@@ -156,6 +159,26 @@ class SessionManager:
         fact_db = FactDatabase(campaign_path)
         self._fact_databases[session.session_id] = fact_db
         logger.info(f"[Hybrid Python] Initialized FactDatabase at {campaign_path}")
+
+        # Initialize terminology system (TermResolver + StyleTracker)
+        term_resolver = TermResolver()
+        try:
+            # Load static core terms dictionary
+            core_terms_path = Path(__file__).parent.parent.parent / "terminology" / "data" / "core_terms.yaml"
+            term_resolver.load_yaml(core_terms_path)
+            logger.info(f"[Terminology] Loaded core terms dictionary from {core_terms_path}")
+        except Exception as e:
+            logger.warning(f"[Terminology] Failed to load core terms dictionary: {e}")
+
+        # TODO: Auto-index from loaded rulebooks when RulebookManager is wired
+        # if rulebook_manager:
+        #     term_resolver.index_from_rulebook(rulebook_manager)
+
+        # Initialize fresh StyleTracker for new session
+        style_tracker = StyleTracker()
+        self._term_resolvers[session.session_id] = term_resolver
+        self._style_trackers[session.session_id] = style_tracker
+        logger.info(f"[Terminology] Initialized TermResolver and StyleTracker for session {session.session_id}")
 
         # Store in active sessions
         self._active_sessions[session.session_id] = (orchestrator, session)
@@ -238,6 +261,27 @@ class SessionManager:
         self._fact_databases[session_id] = fact_db
         logger.info(f"[Hybrid Python] Loaded FactDatabase for resumed session (facts: {len(fact_db.facts)})")
 
+        # Initialize terminology system (same as start_session)
+        term_resolver = TermResolver()
+        try:
+            core_terms_path = Path(__file__).parent.parent.parent / "terminology" / "data" / "core_terms.yaml"
+            term_resolver.load_yaml(core_terms_path)
+            logger.info(f"[Terminology] Loaded core terms dictionary")
+        except Exception as e:
+            logger.warning(f"[Terminology] Failed to load core terms dictionary: {e}")
+
+        # Restore StyleTracker from saved state
+        style_tracker = StyleTracker()
+        if "style_tracker_observations" in saved_data:
+            # Restore observations from saved state
+            style_tracker._observations = saved_data["style_tracker_observations"]
+            logger.info(f"[Terminology] Restored StyleTracker with {len(style_tracker._observations)} categories")
+        else:
+            logger.info(f"[Terminology] Initialized fresh StyleTracker (no saved state found)")
+
+        self._term_resolvers[session_id] = term_resolver
+        self._style_trackers[session_id] = style_tracker
+
         # Store in active sessions
         self._active_sessions[session_id] = (orchestrator, session)
 
@@ -270,7 +314,7 @@ class SessionManager:
         orchestrator, session = self._active_sessions[session_id]
 
         # Save session data
-        self._saved_sessions[session_id] = {
+        saved_data = {
             "session_id": session.session_id,
             "campaign_id": session.campaign_id,
             "config": session.config.model_dump(),
@@ -280,6 +324,15 @@ class SessionManager:
             "active_agents": dict(session.active_agents),
             "metadata": dict(session.metadata)
         }
+
+        # Save StyleTracker observations if present
+        if session_id in self._style_trackers:
+            style_tracker = self._style_trackers[session_id]
+            # StyleTracker._observations is dict[str, dict[str, int]] - fully JSON-serializable
+            saved_data["style_tracker_observations"] = dict(style_tracker._observations)
+            logger.info(f"[Terminology] Saved StyleTracker observations for session {session_id}")
+
+        self._saved_sessions[session_id] = saved_data
 
         # Save FactDatabase if present
         if session_id in self._fact_databases:
@@ -312,6 +365,13 @@ class SessionManager:
             fact_db.save()
             logger.info(f"[Hybrid Python] Saved FactDatabase for session {session_id}")
             del self._fact_databases[session_id]
+
+        # Clean up terminology system
+        if session_id in self._term_resolvers:
+            del self._term_resolvers[session_id]
+        if session_id in self._style_trackers:
+            del self._style_trackers[session_id]
+            logger.info(f"[Terminology] Cleaned up terminology system for session {session_id}")
 
         # End session via orchestrator
         try:
