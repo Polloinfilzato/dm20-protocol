@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Annotated
 from shortuuid import random
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from logging import Handler
 
 from .logutils import logger
@@ -196,6 +196,14 @@ class Spell(BaseModel):
     prepared: bool = False
 
 
+class Feature(BaseModel):
+    """Structured class/race/background feature."""
+    name: str
+    source: str  # e.g., "Ranger 1", "Wood Elf", "Outlander"
+    description: str = ""
+    level_gained: int = 1
+
+
 class Character(BaseModel):
     """Complete character sheet."""
     # Basic Info
@@ -221,19 +229,26 @@ class Character(BaseModel):
         }
     )
 
+    # Progression
+    experience_points: int = 0
+    speed: int = 30
+
     # Combat Stats
     armor_class: int = 10
     hit_points_max: int = 1
     hit_points_current: int = 1
     temporary_hit_points: int = 0
+    hit_dice_type: str = "d8"  # e.g., "d10" for Fighter, "d6" for Wizard
     hit_dice_remaining: str = "1d8"
     death_saves_success: int = Field(ge=0, le=3, default=0)
     death_saves_failure: int = Field(ge=0, le=3, default=0)
+    conditions: list[str] = Field(default_factory=list)
 
     # Skills & Proficiencies
     proficiency_bonus: int = 2
     skill_proficiencies: list[str] = Field(default_factory=list)
     saving_throw_proficiencies: list[str] = Field(default_factory=list)
+    tool_proficiencies: list[str] = Field(default_factory=list)
 
     # Equipment
     inventory: list[Item] = Field(default_factory=list)
@@ -253,7 +268,8 @@ class Character(BaseModel):
     spells_known: list[Spell] = Field(default_factory=list)
 
     # Character Features
-    features_and_traits: list[str] = Field(default_factory=list)
+    features_and_traits: list[str] = Field(default_factory=list)  # Legacy: plain text list
+    features: list[Feature] = Field(default_factory=list)  # Structured features with source/level
     languages: list[str] = Field(default_factory=list)
 
     # Misc
@@ -261,6 +277,12 @@ class Character(BaseModel):
     notes: str = ""
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+    @model_validator(mode="after")
+    def _compute_proficiency_bonus(self) -> "Character":
+        """Auto-calculate proficiency bonus from class level."""
+        self.proficiency_bonus = 2 + (self.character_class.level - 1) // 4
+        return self
 
 
 class NPC(BaseModel):
@@ -416,6 +438,7 @@ __all__ = [
     "Race",
     "Item",
     "Spell",
+    "Feature",
     "Character",
     "NPC",
     "Location",
