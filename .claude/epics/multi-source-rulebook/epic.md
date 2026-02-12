@@ -1,8 +1,8 @@
 ---
 name: multi-source-rulebook
-status: in_progress
+status: completed
 created: 2026-02-12T02:41:42Z
-progress: 80%
+progress: 100%
 prd: .claude/prds/multi-source-rulebook.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/80
 ---
@@ -97,11 +97,11 @@ Open5e is simpler (standard REST API, closer to SRD schema) and provides immedia
 
 ## Task Breakdown Preview
 
-- [ ] Task 1: Open5eSource adapter with caching, model mapping, and full test suite
-- [ ] Task 2: Extend load_rulebook MCP tool and manager factory for open5e + 5etools types
-- [ ] Task 3: FiveToolsSource data downloader with caching and schema discovery
-- [ ] Task 4: FiveToolsSource model mapping with 5etools markup conversion and tests
-- [ ] Task 5: End-to-end integration tests (multi-source priority, conflict resolution, offline cache)
+- [x] Task 1: Open5eSource adapter with caching, model mapping, and full test suite
+- [x] Task 2: Extend load_rulebook MCP tool and manager factory for open5e + 5etools types
+- [x] Task 3: FiveToolsSource data downloader with caching and schema discovery
+- [x] Task 4: FiveToolsSource model mapping with 5etools markup conversion and tests
+- [x] Task 5: End-to-end integration tests (multi-source priority, conflict resolution, offline cache)
 
 ## Dependencies
 
