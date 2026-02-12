@@ -1,0 +1,3336 @@
+# Bilingual IT<>EN D&D 5e Terminology Dictionary
+# Categories: ability, skill, condition, combat, spell_school, spell, monster, class, race, item, general
+#
+# Each entry has:
+#   canonical   - lowercase English key used internally
+#   category    - one of the categories listed above
+#   en          - English display name
+#   it_primary  - Primary official Italian translation
+#   it_variants - List of alternative Italian forms (colloquial, abbreviations, etc.)
+#
+# Sources:
+#   - Official D&D 5e Italian translations (Asmodee Italia edition)
+#   - Common Italian D&D community jargon
+#   - SRD 5.1 for canonical English terms
+
+terms:
+
+  # ============================================================
+  # === ABILITIES (6) ===
+  # ============================================================
+
+  - canonical: charisma
+    category: ability
+    en: Charisma
+    it_primary: Carisma
+    it_variants: [carisma, CAR, cha]
+
+  - canonical: constitution
+    category: ability
+    en: Constitution
+    it_primary: Costituzione
+    it_variants: [costituzione, COS, con]
+
+  - canonical: dexterity
+    category: ability
+    en: Dexterity
+    it_primary: Destrezza
+    it_variants: [destrezza, DES, dex]
+
+  - canonical: intelligence
+    category: ability
+    en: Intelligence
+    it_primary: Intelligenza
+    it_variants: [intelligenza, INT]
+
+  - canonical: strength
+    category: ability
+    en: Strength
+    it_primary: Forza
+    it_variants: [forza, FOR, str]
+
+  - canonical: wisdom
+    category: ability
+    en: Wisdom
+    it_primary: Saggezza
+    it_variants: [saggezza, SAG, wis]
+
+  # ============================================================
+  # === SKILLS (18) ===
+  # ============================================================
+
+  - canonical: acrobatics
+    category: skill
+    en: Acrobatics
+    it_primary: Acrobazia
+    it_variants: [acrobazia, prova di acrobazia]
+
+  - canonical: animal_handling
+    category: skill
+    en: Animal Handling
+    it_primary: Addestrare Animali
+    it_variants: [addestrare animali, gestione animali]
+
+  - canonical: arcana
+    category: skill
+    en: Arcana
+    it_primary: Arcano
+    it_variants: [arcano, conoscenza arcana]
+
+  - canonical: athletics
+    category: skill
+    en: Athletics
+    it_primary: Atletica
+    it_variants: [atletica, prova di atletica]
+
+  - canonical: deception
+    category: skill
+    en: Deception
+    it_primary: Inganno
+    it_variants: [inganno, ingannare]
+
+  - canonical: history
+    category: skill
+    en: History
+    it_primary: Storia
+    it_variants: [storia, conoscenza storica]
+
+  - canonical: insight
+    category: skill
+    en: Insight
+    it_primary: Intuizione
+    it_variants: [intuizione, intuito]
+
+  - canonical: intimidation
+    category: skill
+    en: Intimidation
+    it_primary: Intimidire
+    it_variants: [intimidire, intimidazione]
+
+  - canonical: investigation
+    category: skill
+    en: Investigation
+    it_primary: Indagare
+    it_variants: [indagare, investigazione]
+
+  - canonical: medicine
+    category: skill
+    en: Medicine
+    it_primary: Medicina
+    it_variants: [medicina, prova di medicina]
+
+  - canonical: nature
+    category: skill
+    en: Nature
+    it_primary: Natura
+    it_variants: [natura, conoscenza della natura]
+
+  - canonical: perception
+    category: skill
+    en: Perception
+    it_primary: Percezione
+    it_variants: [percezione, check di percezione]
+
+  - canonical: performance
+    category: skill
+    en: Performance
+    it_primary: Intrattenere
+    it_variants: [intrattenere, esibizione, performance]
+
+  - canonical: persuasion
+    category: skill
+    en: Persuasion
+    it_primary: Persuasione
+    it_variants: [persuasione, persuadere]
+
+  - canonical: religion
+    category: skill
+    en: Religion
+    it_primary: Religione
+    it_variants: [religione, conoscenza religiosa]
+
+  - canonical: sleight_of_hand
+    category: skill
+    en: Sleight of Hand
+    it_primary: Rapidità di Mano
+    it_variants: [rapidita di mano, rapidità di mano, gioco di mano]
+
+  - canonical: stealth
+    category: skill
+    en: Stealth
+    it_primary: Furtività
+    it_variants: [furtivita, furtività, di soppiatto]
+
+  - canonical: survival
+    category: skill
+    en: Survival
+    it_primary: Sopravvivenza
+    it_variants: [sopravvivenza, prova di sopravvivenza]
+
+  # ============================================================
+  # === CONDITIONS (15) ===
+  # ============================================================
+
+  - canonical: blinded
+    category: condition
+    en: Blinded
+    it_primary: Accecato
+    it_variants: [accecato, cieco]
+
+  - canonical: charmed
+    category: condition
+    en: Charmed
+    it_primary: Affascinato
+    it_variants: [affascinato, charmato]
+
+  - canonical: deafened
+    category: condition
+    en: Deafened
+    it_primary: Assordato
+    it_variants: [assordato, sordo]
+
+  - canonical: exhaustion
+    category: condition
+    en: Exhaustion
+    it_primary: Indebolimento
+    it_variants: [indebolimento, sfinimento, esaurimento, livello di indebolimento]
+
+  - canonical: frightened
+    category: condition
+    en: Frightened
+    it_primary: Spaventato
+    it_variants: [spaventato, impaurito]
+
+  - canonical: grappled
+    category: condition
+    en: Grappled
+    it_primary: Afferrato
+    it_variants: [afferrato, in lotta]
+
+  - canonical: incapacitated
+    category: condition
+    en: Incapacitated
+    it_primary: Incapacitato
+    it_variants: [incapacitato, inabile]
+
+  - canonical: invisible
+    category: condition
+    en: Invisible
+    it_primary: Invisibile
+    it_variants: [invisibile]
+
+  - canonical: paralyzed
+    category: condition
+    en: Paralyzed
+    it_primary: Paralizzato
+    it_variants: [paralizzato]
+
+  - canonical: petrified
+    category: condition
+    en: Petrified
+    it_primary: Pietrificato
+    it_variants: [pietrificato]
+
+  - canonical: poisoned
+    category: condition
+    en: Poisoned
+    it_primary: Avvelenato
+    it_variants: [avvelenato]
+
+  - canonical: prone
+    category: condition
+    en: Prone
+    it_primary: Prono
+    it_variants: [prono, a terra]
+
+  - canonical: restrained
+    category: condition
+    en: Restrained
+    it_primary: Trattenuto
+    it_variants: [trattenuto, immobilizzato]
+
+  - canonical: stunned
+    category: condition
+    en: Stunned
+    it_primary: Stordito
+    it_variants: [stordito]
+
+  - canonical: unconscious
+    category: condition
+    en: Unconscious
+    it_primary: Privo di Sensi
+    it_variants: [privo di sensi, svenuto, incosciente]
+
+  # ============================================================
+  # === COMBAT (30) ===
+  # ============================================================
+
+  - canonical: ability_check
+    category: combat
+    en: Ability Check
+    it_primary: Prova di Caratteristica
+    it_variants: [prova di caratteristica, check, prova]
+
+  - canonical: action
+    category: combat
+    en: Action
+    it_primary: Azione
+    it_variants: [azione]
+
+  - canonical: advantage
+    category: combat
+    en: Advantage
+    it_primary: Vantaggio
+    it_variants: [vantaggio, con vantaggio]
+
+  - canonical: armor_class
+    category: combat
+    en: Armor Class
+    it_primary: Classe Armatura
+    it_variants: [classe armatura, CA, AC]
+
+  - canonical: attack_action
+    category: combat
+    en: Attack
+    it_primary: Attacco
+    it_variants: [attacco, azione di attacco]
+
+  - canonical: attack_roll
+    category: combat
+    en: Attack Roll
+    it_primary: Tiro per Colpire
+    it_variants: [tiro per colpire, tiro di attacco]
+
+  - canonical: bonus_action
+    category: combat
+    en: Bonus Action
+    it_primary: Azione Bonus
+    it_variants: [azione bonus, bonus action]
+
+  - canonical: concentration
+    category: combat
+    en: Concentration
+    it_primary: Concentrazione
+    it_variants: [concentrazione]
+
+  - canonical: critical_hit
+    category: combat
+    en: Critical Hit
+    it_primary: Colpo Critico
+    it_variants: [colpo critico, critico, crit]
+
+  - canonical: damage_roll
+    category: combat
+    en: Damage Roll
+    it_primary: Tiro di Danno
+    it_variants: [tiro di danno, danni]
+
+  - canonical: dash
+    category: combat
+    en: Dash
+    it_primary: Scatto
+    it_variants: [scatto, dash]
+
+  - canonical: death_saving_throw
+    category: combat
+    en: Death Saving Throw
+    it_primary: Tiro Salvezza contro Morte
+    it_variants: [tiro salvezza contro morte, TS morte, death save]
+
+  - canonical: difficulty_class
+    category: combat
+    en: Difficulty Class
+    it_primary: Classe Difficoltà
+    it_variants: [classe difficolta, classe difficoltà, CD, DC]
+
+  - canonical: disadvantage
+    category: combat
+    en: Disadvantage
+    it_primary: Svantaggio
+    it_variants: [svantaggio, con svantaggio]
+
+  - canonical: disengage
+    category: combat
+    en: Disengage
+    it_primary: Disimpegno
+    it_variants: [disimpegno, disengage]
+
+  - canonical: dodge
+    category: combat
+    en: Dodge
+    it_primary: Schivata
+    it_variants: [schivata, dodge]
+
+  - canonical: help
+    category: combat
+    en: Help
+    it_primary: Aiuto
+    it_variants: [aiuto, help]
+
+  - canonical: hide
+    category: combat
+    en: Hide
+    it_primary: Nascondersi
+    it_variants: [nascondersi, nascosto]
+
+  - canonical: hit_points
+    category: combat
+    en: Hit Points
+    it_primary: Punti Ferita
+    it_variants: [punti ferita, PF, HP, punti vita]
+
+  - canonical: initiative
+    category: combat
+    en: Initiative
+    it_primary: Iniziativa
+    it_variants: [iniziativa, tiro di iniziativa]
+
+  - canonical: melee_attack
+    category: combat
+    en: Melee Attack
+    it_primary: Attacco in Mischia
+    it_variants: [attacco in mischia, attacco melee]
+
+  - canonical: opportunity_attack
+    category: combat
+    en: Opportunity Attack
+    it_primary: Attacco di Opportunità
+    it_variants: [attacco di opportunita, attacco di opportunità, AoO]
+
+  - canonical: proficiency_bonus
+    category: combat
+    en: Proficiency Bonus
+    it_primary: Bonus di Competenza
+    it_variants: [bonus di competenza, bonus competenza]
+
+  - canonical: ranged_attack
+    category: combat
+    en: Ranged Attack
+    it_primary: Attacco a Distanza
+    it_variants: [attacco a distanza, attacco ranged]
+
+  - canonical: reaction
+    category: combat
+    en: Reaction
+    it_primary: Reazione
+    it_variants: [reazione]
+
+  - canonical: ready
+    category: combat
+    en: Ready
+    it_primary: Preparare
+    it_variants: [preparare, azione preparata]
+
+  - canonical: saving_throw
+    category: combat
+    en: Saving Throw
+    it_primary: Tiro Salvezza
+    it_variants: [tiro salvezza, TS, save]
+
+  - canonical: search
+    category: combat
+    en: Search
+    it_primary: Cercare
+    it_variants: [cercare, cerca]
+
+  - canonical: temporary_hit_points
+    category: combat
+    en: Temporary Hit Points
+    it_primary: Punti Ferita Temporanei
+    it_variants: [punti ferita temporanei, PF temporanei, temp HP]
+
+  - canonical: use_object
+    category: combat
+    en: Use an Object
+    it_primary: Usare un Oggetto
+    it_variants: [usare un oggetto, usa oggetto]
+
+  # ============================================================
+  # === SPELL SCHOOLS (8) ===
+  # ============================================================
+
+  - canonical: abjuration
+    category: spell_school
+    en: Abjuration
+    it_primary: Abiurazione
+    it_variants: [abiurazione]
+
+  - canonical: conjuration
+    category: spell_school
+    en: Conjuration
+    it_primary: Evocazione
+    it_variants: [evocazione]
+
+  - canonical: divination
+    category: spell_school
+    en: Divination
+    it_primary: Divinazione
+    it_variants: [divinazione]
+
+  - canonical: enchantment
+    category: spell_school
+    en: Enchantment
+    it_primary: Ammaliamento
+    it_variants: [ammaliamento, incantamento]
+
+  - canonical: evocation
+    category: spell_school
+    en: Evocation
+    it_primary: Invocazione
+    it_variants: [invocazione]
+
+  - canonical: illusion
+    category: spell_school
+    en: Illusion
+    it_primary: Illusione
+    it_variants: [illusione]
+
+  - canonical: necromancy
+    category: spell_school
+    en: Necromancy
+    it_primary: Necromanzia
+    it_variants: [necromanzia]
+
+  - canonical: transmutation
+    category: spell_school
+    en: Transmutation
+    it_primary: Trasmutazione
+    it_variants: [trasmutazione]
+
+  # ============================================================
+  # === SPELLS (100) ===
+  # ============================================================
+
+  - canonical: aid
+    category: spell
+    en: Aid
+    it_primary: Aiuto
+    it_variants: [aiuto, incantesimo aiuto, aid]
+
+  - canonical: animate_dead
+    category: spell
+    en: Animate Dead
+    it_primary: Animare i Morti
+    it_variants: [animare i morti, animate dead]
+
+  - canonical: banishment
+    category: spell
+    en: Banishment
+    it_primary: Bandire
+    it_variants: [bandire, banishment]
+
+  - canonical: bestow_curse
+    category: spell
+    en: Bestow Curse
+    it_primary: Conferire Maledizione
+    it_variants: [conferire maledizione, bestow curse]
+
+  - canonical: bless
+    category: spell
+    en: Bless
+    it_primary: Benedizione
+    it_variants: [benedizione, bless]
+
+  - canonical: blight
+    category: spell
+    en: Blight
+    it_primary: Avvizzire
+    it_variants: [avvizzire, blight]
+
+  - canonical: burning_hands
+    category: spell
+    en: Burning Hands
+    it_primary: Mani Brucianti
+    it_variants: [mani brucianti, burning hands]
+
+  - canonical: call_lightning
+    category: spell
+    en: Call Lightning
+    it_primary: Invocare il Fulmine
+    it_variants: [invocare il fulmine, call lightning]
+
+  - canonical: charm_person
+    category: spell
+    en: Charm Person
+    it_primary: Ammaliamento
+    it_variants: [ammaliamento, charm person, charma persona]
+
+  - canonical: chill_touch
+    category: spell
+    en: Chill Touch
+    it_primary: Tocco Gelido
+    it_variants: [tocco gelido, chill touch]
+
+  - canonical: cloudkill
+    category: spell
+    en: Cloudkill
+    it_primary: Nube Mortale
+    it_variants: [nube mortale, cloudkill]
+
+  - canonical: command
+    category: spell
+    en: Command
+    it_primary: Comando
+    it_variants: [comando, command]
+
+  - canonical: cone_of_cold
+    category: spell
+    en: Cone of Cold
+    it_primary: Cono di Freddo
+    it_variants: [cono di freddo, cone of cold]
+
+  - canonical: counterspell
+    category: spell
+    en: Counterspell
+    it_primary: Controincantesimo
+    it_variants: [controincantesimo, counterspell, counter]
+
+  - canonical: cure_wounds
+    category: spell
+    en: Cure Wounds
+    it_primary: Cura Ferite
+    it_variants: [cura ferite, cure wounds]
+
+  - canonical: darkness
+    category: spell
+    en: Darkness
+    it_primary: Oscurità
+    it_variants: [oscurita, oscurità, darkness]
+
+  - canonical: destructive_wave
+    category: spell
+    en: Destructive Wave
+    it_primary: Onda Distruttrice
+    it_variants: [onda distruttrice, destructive wave]
+
+  - canonical: detect_magic
+    category: spell
+    en: Detect Magic
+    it_primary: Individuazione del Magico
+    it_variants: [individuazione del magico, detect magic, individua magia]
+
+  - canonical: dimension_door
+    category: spell
+    en: Dimension Door
+    it_primary: Porta Dimensionale
+    it_variants: [porta dimensionale, dimension door]
+
+  - canonical: disguise_self
+    category: spell
+    en: Disguise Self
+    it_primary: Travestimento
+    it_variants: [travestimento, disguise self]
+
+  - canonical: dispel_magic
+    category: spell
+    en: Dispel Magic
+    it_primary: Dissolvi Magie
+    it_variants: [dissolvi magie, dispel magic, dissolvi]
+
+  - canonical: dominate_person
+    category: spell
+    en: Dominate Person
+    it_primary: Dominare Persona
+    it_variants: [dominare persona, dominate person]
+
+  - canonical: druidcraft
+    category: spell
+    en: Druidcraft
+    it_primary: Trucchetto Druidico
+    it_variants: [trucchetto druidico, druidcraft]
+
+  - canonical: eldritch_blast
+    category: spell
+    en: Eldritch Blast
+    it_primary: Deflagrazione Occulta
+    it_variants: [deflagrazione occulta, eldritch blast]
+
+  - canonical: enlarge_reduce
+    category: spell
+    en: "Enlarge/Reduce"
+    it_primary: "Ingrandire/Ridurre"
+    it_variants: [ingrandire ridurre, enlarge reduce]
+
+  - canonical: entangle
+    category: spell
+    en: Entangle
+    it_primary: Intralciare
+    it_variants: [intralciare, entangle]
+
+  - canonical: faerie_fire
+    category: spell
+    en: Faerie Fire
+    it_primary: Fuoco Fatuo
+    it_variants: [fuoco fatuo, faerie fire]
+
+  - canonical: fear
+    category: spell
+    en: Fear
+    it_primary: Paura
+    it_variants: [paura, fear]
+
+  - canonical: feather_fall
+    category: spell
+    en: Feather Fall
+    it_primary: Caduta Morbida
+    it_variants: [caduta morbida, feather fall]
+
+  - canonical: find_familiar
+    category: spell
+    en: Find Familiar
+    it_primary: Trova Famiglio
+    it_variants: [trova famiglio, find familiar]
+
+  - canonical: fire_bolt
+    category: spell
+    en: Fire Bolt
+    it_primary: Dardo di Fuoco
+    it_variants: [dardo di fuoco, fire bolt]
+
+  - canonical: fireball
+    category: spell
+    en: Fireball
+    it_primary: Palla di Fuoco
+    it_variants: [palla di fuoco, PdF, fireball]
+
+  - canonical: flame_strike
+    category: spell
+    en: Flame Strike
+    it_primary: Colonna di Fuoco
+    it_variants: [colonna di fuoco, flame strike]
+
+  - canonical: fly
+    category: spell
+    en: Fly
+    it_primary: Volare
+    it_variants: [volare, fly]
+
+  - canonical: fog_cloud
+    category: spell
+    en: Fog Cloud
+    it_primary: Nube di Nebbia
+    it_variants: [nube di nebbia, fog cloud]
+
+  - canonical: freedom_of_movement
+    category: spell
+    en: Freedom of Movement
+    it_primary: Libertà di Movimento
+    it_variants: [liberta di movimento, libertà di movimento, freedom of movement]
+
+  - canonical: goodberry
+    category: spell
+    en: Goodberry
+    it_primary: Bacche Benefiche
+    it_variants: [bacche benefiche, goodberry]
+
+  - canonical: grease
+    category: spell
+    en: Grease
+    it_primary: Unto
+    it_variants: [unto, grease]
+
+  - canonical: greater_invisibility
+    category: spell
+    en: Greater Invisibility
+    it_primary: Invisibilità Superiore
+    it_variants: [invisibilita superiore, invisibilità superiore, greater invisibility]
+
+  - canonical: greater_restoration
+    category: spell
+    en: Greater Restoration
+    it_primary: Ristorare Superiore
+    it_variants: [ristorare superiore, greater restoration]
+
+  - canonical: guardian_of_faith
+    category: spell
+    en: Guardian of Faith
+    it_primary: Guardiano della Fede
+    it_variants: [guardiano della fede, guardian of faith]
+
+  - canonical: guidance
+    category: spell
+    en: Guidance
+    it_primary: Guida
+    it_variants: [guida, guidance]
+
+  - canonical: guiding_bolt
+    category: spell
+    en: Guiding Bolt
+    it_primary: Dardo Traente
+    it_variants: [dardo traente, guiding bolt]
+
+  - canonical: haste
+    category: spell
+    en: Haste
+    it_primary: Velocità
+    it_variants: [velocita, velocità, haste]
+
+  - canonical: healing_word
+    category: spell
+    en: Healing Word
+    it_primary: Parola Guaritrice
+    it_variants: [parola guaritrice, healing word]
+
+  - canonical: heat_metal
+    category: spell
+    en: Heat Metal
+    it_primary: Metallo Rovente
+    it_variants: [metallo rovente, heat metal]
+
+  - canonical: hex
+    category: spell
+    en: Hex
+    it_primary: Anatema
+    it_variants: [anatema, hex, maledizione]
+
+  - canonical: hold_monster
+    category: spell
+    en: Hold Monster
+    it_primary: Blocca Mostro
+    it_variants: [blocca mostro, hold monster]
+
+  - canonical: hold_person
+    category: spell
+    en: Hold Person
+    it_primary: Blocca Persona
+    it_variants: [blocca persona, hold person]
+
+  - canonical: hunters_mark
+    category: spell
+    en: "Hunter's Mark"
+    it_primary: Marchio del Cacciatore
+    it_variants: [marchio del cacciatore, hunters mark]
+
+  - canonical: hypnotic_pattern
+    category: spell
+    en: Hypnotic Pattern
+    it_primary: Trama Ipnotica
+    it_variants: [trama ipnotica, hypnotic pattern]
+
+  - canonical: ice_storm
+    category: spell
+    en: Ice Storm
+    it_primary: Tempesta di Ghiaccio
+    it_variants: [tempesta di ghiaccio, ice storm]
+
+  - canonical: identify
+    category: spell
+    en: Identify
+    it_primary: Identificare
+    it_variants: [identificare, identify]
+
+  - canonical: inflict_wounds
+    category: spell
+    en: Inflict Wounds
+    it_primary: Infliggere Ferite
+    it_variants: [infliggere ferite, inflict wounds]
+
+  - canonical: invisibility
+    category: spell
+    en: Invisibility
+    it_primary: Invisibilità
+    it_variants: [invisibilita, invisibilità, invisibility]
+
+  - canonical: lesser_restoration
+    category: spell
+    en: Lesser Restoration
+    it_primary: Ristorare Inferiore
+    it_variants: [ristorare inferiore, lesser restoration]
+
+  - canonical: light
+    category: spell
+    en: Light
+    it_primary: Luce
+    it_variants: [luce]
+
+  - canonical: lightning_bolt
+    category: spell
+    en: Lightning Bolt
+    it_primary: Fulmine
+    it_variants: [fulmine, saetta, lightning bolt]
+
+  - canonical: mage_armor
+    category: spell
+    en: Mage Armor
+    it_primary: Armatura Magica
+    it_variants: [armatura magica, mage armor]
+
+  - canonical: mage_hand
+    category: spell
+    en: Mage Hand
+    it_primary: Mano Magica
+    it_variants: [mano magica, mage hand]
+
+  - canonical: magic_missile
+    category: spell
+    en: Magic Missile
+    it_primary: Dardo Incantato
+    it_variants: [dardo incantato, magic missile, dardi incantati]
+
+  - canonical: major_image
+    category: spell
+    en: Major Image
+    it_primary: Immagine Maggiore
+    it_variants: [immagine maggiore, major image]
+
+  - canonical: mass_cure_wounds
+    category: spell
+    en: Mass Cure Wounds
+    it_primary: Cura Ferite di Massa
+    it_variants: [cura ferite di massa, mass cure wounds]
+
+  - canonical: minor_illusion
+    category: spell
+    en: Minor Illusion
+    it_primary: Illusione Minore
+    it_variants: [illusione minore, minor illusion]
+
+  - canonical: mirror_image
+    category: spell
+    en: Mirror Image
+    it_primary: Immagine Speculare
+    it_variants: [immagine speculare, mirror image]
+
+  - canonical: misty_step
+    category: spell
+    en: Misty Step
+    it_primary: Passo Brumoso
+    it_variants: [passo brumoso, misty step]
+
+  - canonical: moonbeam
+    category: spell
+    en: Moonbeam
+    it_primary: Raggio Lunare
+    it_variants: [raggio lunare, moonbeam]
+
+  - canonical: pass_without_trace
+    category: spell
+    en: Pass without Trace
+    it_primary: Passaggio senza Tracce
+    it_variants: [passaggio senza tracce, pass without trace]
+
+  - canonical: plant_growth
+    category: spell
+    en: Plant Growth
+    it_primary: Crescita Vegetale
+    it_variants: [crescita vegetale, plant growth]
+
+  - canonical: polymorph
+    category: spell
+    en: Polymorph
+    it_primary: Metamorfosi
+    it_variants: [metamorfosi, polymorph]
+
+  - canonical: prayer_of_healing
+    category: spell
+    en: Prayer of Healing
+    it_primary: Preghiera di Guarigione
+    it_variants: [preghiera di guarigione, prayer of healing]
+
+  - canonical: prestidigitation
+    category: spell
+    en: Prestidigitation
+    it_primary: Prestidigitazione
+    it_variants: [prestidigitazione]
+
+  - canonical: raise_dead
+    category: spell
+    en: Raise Dead
+    it_primary: Rianimare i Morti
+    it_variants: [rianimare i morti, raise dead]
+
+  - canonical: ray_of_frost
+    category: spell
+    en: Ray of Frost
+    it_primary: Raggio di Gelo
+    it_variants: [raggio di gelo, ray of frost]
+
+  - canonical: remove_curse
+    category: spell
+    en: Remove Curse
+    it_primary: Rimuovere Maledizione
+    it_variants: [rimuovere maledizione, remove curse]
+
+  - canonical: revivify
+    category: spell
+    en: Revivify
+    it_primary: Revivificare
+    it_variants: [revivificare, revivify]
+
+  - canonical: sacred_flame
+    category: spell
+    en: Sacred Flame
+    it_primary: Fiamma Sacra
+    it_variants: [fiamma sacra, sacred flame]
+
+  - canonical: sanctuary
+    category: spell
+    en: Sanctuary
+    it_primary: Santuario
+    it_variants: [santuario, sanctuary]
+
+  - canonical: scorching_ray
+    category: spell
+    en: Scorching Ray
+    it_primary: Raggio Rovente
+    it_variants: [raggio rovente, scorching ray]
+
+  - canonical: shatter
+    category: spell
+    en: Shatter
+    it_primary: Frantumare
+    it_variants: [frantumare, shatter]
+
+  - canonical: shield
+    category: spell
+    en: Shield
+    it_primary: Scudo
+    it_variants: [scudo, incantesimo scudo]
+
+  - canonical: shield_of_faith
+    category: spell
+    en: Shield of Faith
+    it_primary: Scudo della Fede
+    it_variants: [scudo della fede, shield of faith]
+
+  - canonical: shocking_grasp
+    category: spell
+    en: Shocking Grasp
+    it_primary: Stretta Folgorante
+    it_variants: [stretta folgorante, shocking grasp]
+
+  - canonical: silence
+    category: spell
+    en: Silence
+    it_primary: Silenzio
+    it_variants: [silenzio, silence]
+
+  - canonical: sleep
+    category: spell
+    en: Sleep
+    it_primary: Sonno
+    it_variants: [sonno, sleep]
+
+  - canonical: slow
+    category: spell
+    en: Slow
+    it_primary: Lentezza
+    it_variants: [lentezza, slow]
+
+  - canonical: spirit_guardians
+    category: spell
+    en: Spirit Guardians
+    it_primary: Guardiani Spirituali
+    it_variants: [guardiani spirituali, spirit guardians]
+
+  - canonical: spiritual_weapon
+    category: spell
+    en: Spiritual Weapon
+    it_primary: Arma Spirituale
+    it_variants: [arma spirituale, spiritual weapon]
+
+  - canonical: suggestion
+    category: spell
+    en: Suggestion
+    it_primary: Suggestione
+    it_variants: [suggestione, suggestion]
+
+  - canonical: teleportation_circle
+    category: spell
+    en: Teleportation Circle
+    it_primary: Circolo di Teletrasporto
+    it_variants: [circolo di teletrasporto, teleportation circle]
+
+  - canonical: thaumaturgy
+    category: spell
+    en: Thaumaturgy
+    it_primary: Taumaturgia
+    it_variants: [taumaturgia]
+
+  - canonical: thunderwave
+    category: spell
+    en: Thunderwave
+    it_primary: Onda Tonante
+    it_variants: [onda tonante, thunderwave]
+
+  - canonical: toll_the_dead
+    category: spell
+    en: Toll the Dead
+    it_primary: Rintocco per i Morti
+    it_variants: [rintocco per i morti, toll the dead]
+
+  - canonical: tongues
+    category: spell
+    en: Tongues
+    it_primary: Linguaggi
+    it_variants: [linguaggi, tongues]
+
+  - canonical: vampiric_touch
+    category: spell
+    en: Vampiric Touch
+    it_primary: Tocco del Vampiro
+    it_variants: [tocco del vampiro, vampiric touch]
+
+  - canonical: vicious_mockery
+    category: spell
+    en: Vicious Mockery
+    it_primary: Beffa Crudele
+    it_variants: [beffa crudele, vicious mockery]
+
+  - canonical: wall_of_fire
+    category: spell
+    en: Wall of Fire
+    it_primary: Muro di Fuoco
+    it_variants: [muro di fuoco, wall of fire]
+
+  - canonical: wall_of_force
+    category: spell
+    en: Wall of Force
+    it_primary: Muro di Forza
+    it_variants: [muro di forza, wall of force]
+
+  - canonical: web
+    category: spell
+    en: Web
+    it_primary: Ragnatela
+    it_variants: [ragnatela, web]
+
+  - canonical: witch_bolt
+    category: spell
+    en: Witch Bolt
+    it_primary: Dardo Stregato
+    it_variants: [dardo stregato, witch bolt]
+
+  # ============================================================
+  # === MONSTERS (100) ===
+  # ============================================================
+
+  - canonical: aboleth
+    category: monster
+    en: Aboleth
+    it_primary: Aboleth
+    it_variants: [aboleth]
+
+  - canonical: adult_black_dragon
+    category: monster
+    en: Adult Black Dragon
+    it_primary: Drago Nero Adulto
+    it_variants: [drago nero adulto]
+
+  - canonical: adult_blue_dragon
+    category: monster
+    en: Adult Blue Dragon
+    it_primary: Drago Blu Adulto
+    it_variants: [drago blu adulto]
+
+  - canonical: adult_green_dragon
+    category: monster
+    en: Adult Green Dragon
+    it_primary: Drago Verde Adulto
+    it_variants: [drago verde adulto]
+
+  - canonical: adult_red_dragon
+    category: monster
+    en: Adult Red Dragon
+    it_primary: Drago Rosso Adulto
+    it_variants: [drago rosso adulto]
+
+  - canonical: adult_white_dragon
+    category: monster
+    en: Adult White Dragon
+    it_primary: Drago Bianco Adulto
+    it_variants: [drago bianco adulto]
+
+  - canonical: air_elemental
+    category: monster
+    en: Air Elemental
+    it_primary: "Elementale dell'Aria"
+    it_variants: ["elementale dell'aria", elementale dell aria, air elemental]
+
+  - canonical: animated_armor
+    category: monster
+    en: Animated Armor
+    it_primary: Armatura Animata
+    it_variants: [armatura animata]
+
+  - canonical: ankheg
+    category: monster
+    en: Ankheg
+    it_primary: Ankheg
+    it_variants: [ankheg]
+
+  - canonical: balor
+    category: monster
+    en: Balor
+    it_primary: Balor
+    it_variants: [balor]
+
+  - canonical: bandit
+    category: monster
+    en: Bandit
+    it_primary: Bandito
+    it_variants: [bandito]
+
+  - canonical: barbed_devil
+    category: monster
+    en: Barbed Devil
+    it_primary: Diavolo Barbuto
+    it_variants: [diavolo barbuto, barbed devil]
+
+  - canonical: basilisk
+    category: monster
+    en: Basilisk
+    it_primary: Basilisco
+    it_variants: [basilisco]
+
+  - canonical: bear
+    category: monster
+    en: Bear
+    it_primary: Orso
+    it_variants: [orso]
+
+  - canonical: beholder
+    category: monster
+    en: Beholder
+    it_primary: Beholder
+    it_variants: [beholder, osservatore]
+
+  - canonical: black_dragon_wyrmling
+    category: monster
+    en: Black Dragon Wyrmling
+    it_primary: Cucciolo di Drago Nero
+    it_variants: [cucciolo di drago nero, wyrmling nero]
+
+  - canonical: blue_dragon_wyrmling
+    category: monster
+    en: Blue Dragon Wyrmling
+    it_primary: Cucciolo di Drago Blu
+    it_variants: [cucciolo di drago blu, wyrmling blu]
+
+  - canonical: boar
+    category: monster
+    en: Boar
+    it_primary: Cinghiale
+    it_variants: [cinghiale]
+
+  - canonical: bone_devil
+    category: monster
+    en: Bone Devil
+    it_primary: Diavolo delle Ossa
+    it_variants: [diavolo delle ossa, bone devil]
+
+  - canonical: bugbear
+    category: monster
+    en: Bugbear
+    it_primary: Bugbear
+    it_variants: [bugbear, orchetto]
+
+  - canonical: bulette
+    category: monster
+    en: Bulette
+    it_primary: Bulette
+    it_variants: [bulette, squalo di terra]
+
+  - canonical: centaur
+    category: monster
+    en: Centaur
+    it_primary: Centauro
+    it_variants: [centauro]
+
+  - canonical: chimera
+    category: monster
+    en: Chimera
+    it_primary: Chimera
+    it_variants: [chimera]
+
+  - canonical: cloud_giant
+    category: monster
+    en: Cloud Giant
+    it_primary: Gigante delle Nuvole
+    it_variants: [gigante delle nuvole, cloud giant]
+
+  - canonical: cockatrice
+    category: monster
+    en: Cockatrice
+    it_primary: Coccatrice
+    it_variants: [coccatrice]
+
+  - canonical: couatl
+    category: monster
+    en: Couatl
+    it_primary: Couatl
+    it_variants: [couatl]
+
+  - canonical: dire_wolf
+    category: monster
+    en: Dire Wolf
+    it_primary: Lupo Crudele
+    it_variants: [lupo crudele, lupo terribile, dire wolf]
+
+  - canonical: displacer_beast
+    category: monster
+    en: Displacer Beast
+    it_primary: Bestia Distorcente
+    it_variants: [bestia distorcente, displacer beast]
+
+  - canonical: dretch
+    category: monster
+    en: Dretch
+    it_primary: Dretch
+    it_variants: [dretch]
+
+  - canonical: earth_elemental
+    category: monster
+    en: Earth Elemental
+    it_primary: Elementale della Terra
+    it_variants: [elementale della terra, earth elemental]
+
+  - canonical: ettin
+    category: monster
+    en: Ettin
+    it_primary: Ettin
+    it_variants: [ettin]
+
+  - canonical: fire_elemental
+    category: monster
+    en: Fire Elemental
+    it_primary: Elementale del Fuoco
+    it_variants: [elementale del fuoco, fire elemental]
+
+  - canonical: fire_giant
+    category: monster
+    en: Fire Giant
+    it_primary: Gigante del Fuoco
+    it_variants: [gigante del fuoco, fire giant]
+
+  - canonical: frost_giant
+    category: monster
+    en: Frost Giant
+    it_primary: Gigante del Gelo
+    it_variants: [gigante del gelo, frost giant]
+
+  - canonical: gargoyle
+    category: monster
+    en: Gargoyle
+    it_primary: Gargoyle
+    it_variants: [gargoyle, gargolla]
+
+  - canonical: gelatinous_cube
+    category: monster
+    en: Gelatinous Cube
+    it_primary: Cubo Gelatinoso
+    it_variants: [cubo gelatinoso, gelatinous cube]
+
+  - canonical: ghost
+    category: monster
+    en: Ghost
+    it_primary: Fantasma
+    it_variants: [fantasma, spettro]
+
+  - canonical: ghoul
+    category: monster
+    en: Ghoul
+    it_primary: Ghoul
+    it_variants: [ghoul]
+
+  - canonical: giant_eagle
+    category: monster
+    en: Giant Eagle
+    it_primary: Aquila Gigante
+    it_variants: [aquila gigante]
+
+  - canonical: giant_rat
+    category: monster
+    en: Giant Rat
+    it_primary: Topo Gigante
+    it_variants: [topo gigante, ratto gigante]
+
+  - canonical: giant_scorpion
+    category: monster
+    en: Giant Scorpion
+    it_primary: Scorpione Gigante
+    it_variants: [scorpione gigante]
+
+  - canonical: giant_spider
+    category: monster
+    en: Giant Spider
+    it_primary: Ragno Gigante
+    it_variants: [ragno gigante]
+
+  - canonical: gibbering_mouther
+    category: monster
+    en: Gibbering Mouther
+    it_primary: Borbottatore Farneticante
+    it_variants: [borbottatore farneticante, gibbering mouther]
+
+  - canonical: gnoll
+    category: monster
+    en: Gnoll
+    it_primary: Gnoll
+    it_variants: [gnoll]
+
+  - canonical: goblin
+    category: monster
+    en: Goblin
+    it_primary: Goblin
+    it_variants: [goblin]
+
+  - canonical: green_dragon_wyrmling
+    category: monster
+    en: Green Dragon Wyrmling
+    it_primary: Cucciolo di Drago Verde
+    it_variants: [cucciolo di drago verde, wyrmling verde]
+
+  - canonical: griffon
+    category: monster
+    en: Griffon
+    it_primary: Grifone
+    it_variants: [grifone]
+
+  - canonical: guard
+    category: monster
+    en: Guard
+    it_primary: Guardia
+    it_variants: [guardia]
+
+  - canonical: harpy
+    category: monster
+    en: Harpy
+    it_primary: Arpia
+    it_variants: [arpia]
+
+  - canonical: hawk
+    category: monster
+    en: Hawk
+    it_primary: Falco
+    it_variants: [falco]
+
+  - canonical: hell_hound
+    category: monster
+    en: Hell Hound
+    it_primary: Segugio Infernale
+    it_variants: [segugio infernale, hell hound]
+
+  - canonical: hezrou
+    category: monster
+    en: Hezrou
+    it_primary: Hezrou
+    it_variants: [hezrou]
+
+  - canonical: hill_giant
+    category: monster
+    en: Hill Giant
+    it_primary: Gigante delle Colline
+    it_variants: [gigante delle colline, hill giant]
+
+  - canonical: hobgoblin
+    category: monster
+    en: Hobgoblin
+    it_primary: Hobgoblin
+    it_variants: [hobgoblin]
+
+  - canonical: horse
+    category: monster
+    en: Horse
+    it_primary: Cavallo
+    it_variants: [cavallo]
+
+  - canonical: hydra
+    category: monster
+    en: Hydra
+    it_primary: Idra
+    it_variants: [idra, hydra]
+
+  - canonical: imp
+    category: monster
+    en: Imp
+    it_primary: Imp
+    it_variants: [imp, diavoletto]
+
+  - canonical: knight
+    category: monster
+    en: Knight
+    it_primary: Cavaliere
+    it_variants: [cavaliere]
+
+  - canonical: kobold
+    category: monster
+    en: Kobold
+    it_primary: Coboldo
+    it_variants: [coboldo, kobold]
+
+  - canonical: lemure
+    category: monster
+    en: Lemure
+    it_primary: Lemure
+    it_variants: [lemure]
+
+  - canonical: lich
+    category: monster
+    en: Lich
+    it_primary: Lich
+    it_variants: [lich]
+
+  - canonical: lion
+    category: monster
+    en: Lion
+    it_primary: Leone
+    it_variants: [leone]
+
+  - canonical: mage_npc
+    category: monster
+    en: Mage
+    it_primary: Mago
+    it_variants: [mago]
+
+  - canonical: manticore
+    category: monster
+    en: Manticore
+    it_primary: Manticora
+    it_variants: [manticora]
+
+  - canonical: medusa
+    category: monster
+    en: Medusa
+    it_primary: Medusa
+    it_variants: [medusa]
+
+  - canonical: mimic
+    category: monster
+    en: Mimic
+    it_primary: Mimic
+    it_variants: [mimic, mimo]
+
+  - canonical: mind_flayer
+    category: monster
+    en: Mind Flayer
+    it_primary: Mind Flayer
+    it_variants: [mind flayer, illithid, flagellamente]
+
+  - canonical: mummy
+    category: monster
+    en: Mummy
+    it_primary: Mummia
+    it_variants: [mummia]
+
+  - canonical: naga_guardian
+    category: monster
+    en: Guardian Naga
+    it_primary: Naga Guardiano
+    it_variants: [naga guardiano, guardian naga]
+
+  - canonical: ogre
+    category: monster
+    en: Ogre
+    it_primary: Ogre
+    it_variants: [ogre, orco grosso]
+
+  - canonical: orc
+    category: monster
+    en: Orc
+    it_primary: Orco
+    it_variants: [orco]
+
+  - canonical: owlbear
+    category: monster
+    en: Owlbear
+    it_primary: Orsogufo
+    it_variants: [orsogufo, owlbear]
+
+  - canonical: panther
+    category: monster
+    en: Panther
+    it_primary: Pantera
+    it_variants: [pantera]
+
+  - canonical: phase_spider
+    category: monster
+    en: Phase Spider
+    it_primary: Ragno Fasico
+    it_variants: [ragno fasico, phase spider]
+
+  - canonical: pit_fiend
+    category: monster
+    en: Pit Fiend
+    it_primary: Diavolo della Fossa
+    it_variants: [diavolo della fossa, pit fiend]
+
+  - canonical: priest
+    category: monster
+    en: Priest
+    it_primary: Sacerdote
+    it_variants: [sacerdote, prete]
+
+  - canonical: purple_worm
+    category: monster
+    en: Purple Worm
+    it_primary: Verme Purpureo
+    it_variants: [verme purpureo, purple worm]
+
+  - canonical: quasit
+    category: monster
+    en: Quasit
+    it_primary: Quasit
+    it_variants: [quasit]
+
+  - canonical: rat
+    category: monster
+    en: Rat
+    it_primary: Topo
+    it_variants: [topo, ratto]
+
+  - canonical: red_dragon_wyrmling
+    category: monster
+    en: Red Dragon Wyrmling
+    it_primary: Cucciolo di Drago Rosso
+    it_variants: [cucciolo di drago rosso, wyrmling rosso]
+
+  - canonical: roper
+    category: monster
+    en: Roper
+    it_primary: Roper
+    it_variants: [roper]
+
+  - canonical: rust_monster
+    category: monster
+    en: Rust Monster
+    it_primary: Mostro Ruggine
+    it_variants: [mostro ruggine, rust monster]
+
+  - canonical: skeleton
+    category: monster
+    en: Skeleton
+    it_primary: Scheletro
+    it_variants: [scheletro]
+
+  - canonical: specter
+    category: monster
+    en: Specter
+    it_primary: Spettro Minore
+    it_variants: [spettro minore, specter]
+
+  - canonical: stone_giant
+    category: monster
+    en: Stone Giant
+    it_primary: Gigante di Pietra
+    it_variants: [gigante di pietra, stone giant]
+
+  - canonical: storm_giant
+    category: monster
+    en: Storm Giant
+    it_primary: Gigante delle Tempeste
+    it_variants: [gigante delle tempeste, storm giant]
+
+  - canonical: succubus
+    category: monster
+    en: Succubus
+    it_primary: Succube
+    it_variants: [succube, succubus]
+
+  - canonical: troll
+    category: monster
+    en: Troll
+    it_primary: Troll
+    it_variants: [troll]
+
+  - canonical: vampire
+    category: monster
+    en: Vampire
+    it_primary: Vampiro
+    it_variants: [vampiro]
+
+  - canonical: veteran
+    category: monster
+    en: Veteran
+    it_primary: Veterano
+    it_variants: [veterano]
+
+  - canonical: vrock
+    category: monster
+    en: Vrock
+    it_primary: Vrock
+    it_variants: [vrock]
+
+  - canonical: water_elemental
+    category: monster
+    en: Water Elemental
+    it_primary: "Elementale dell'Acqua"
+    it_variants: ["elementale dell'acqua", elementale dell acqua, water elemental]
+
+  - canonical: werewolf
+    category: monster
+    en: Werewolf
+    it_primary: Lupo Mannaro
+    it_variants: [lupo mannaro]
+
+  - canonical: white_dragon_wyrmling
+    category: monster
+    en: White Dragon Wyrmling
+    it_primary: Cucciolo di Drago Bianco
+    it_variants: [cucciolo di drago bianco, wyrmling bianco]
+
+  - canonical: wight
+    category: monster
+    en: Wight
+    it_primary: Wight
+    it_variants: [wight, non morto]
+
+  - canonical: wolf
+    category: monster
+    en: Wolf
+    it_primary: Lupo
+    it_variants: [lupo]
+
+  - canonical: wraith
+    category: monster
+    en: Wraith
+    it_primary: Spettro
+    it_variants: [spettro, wraith]
+
+  - canonical: wyvern
+    category: monster
+    en: Wyvern
+    it_primary: Viverna
+    it_variants: [viverna, wyvern]
+
+  - canonical: young_red_dragon
+    category: monster
+    en: Young Red Dragon
+    it_primary: Drago Rosso Giovane
+    it_variants: [drago rosso giovane]
+
+  - canonical: zombie
+    category: monster
+    en: Zombie
+    it_primary: Zombi
+    it_variants: [zombi, zombie]
+
+  # ============================================================
+  # === CLASSES (12) ===
+  # ============================================================
+
+  - canonical: barbarian
+    category: class
+    en: Barbarian
+    it_primary: Barbaro
+    it_variants: [barbaro]
+
+  - canonical: bard
+    category: class
+    en: Bard
+    it_primary: Bardo
+    it_variants: [bardo]
+
+  - canonical: cleric
+    category: class
+    en: Cleric
+    it_primary: Chierico
+    it_variants: [chierico]
+
+  - canonical: druid
+    category: class
+    en: Druid
+    it_primary: Druido
+    it_variants: [druido]
+
+  - canonical: fighter
+    category: class
+    en: Fighter
+    it_primary: Guerriero
+    it_variants: [guerriero]
+
+  - canonical: monk
+    category: class
+    en: Monk
+    it_primary: Monaco
+    it_variants: [monaco]
+
+  - canonical: paladin
+    category: class
+    en: Paladin
+    it_primary: Paladino
+    it_variants: [paladino]
+
+  - canonical: ranger
+    category: class
+    en: Ranger
+    it_primary: Ranger
+    it_variants: [ranger, esploratore]
+
+  - canonical: rogue
+    category: class
+    en: Rogue
+    it_primary: Ladro
+    it_variants: [ladro, furfante]
+
+  - canonical: sorcerer
+    category: class
+    en: Sorcerer
+    it_primary: Stregone
+    it_variants: [stregone]
+
+  - canonical: warlock
+    category: class
+    en: Warlock
+    it_primary: Warlock
+    it_variants: [warlock, stregone del patto]
+
+  - canonical: wizard
+    category: class
+    en: Wizard
+    it_primary: Mago
+    it_variants: [mago]
+
+  # ============================================================
+  # === RACES (9) ===
+  # ============================================================
+
+  - canonical: dragonborn
+    category: race
+    en: Dragonborn
+    it_primary: Dragonide
+    it_variants: [dragonide, dragonborn]
+
+  - canonical: dwarf
+    category: race
+    en: Dwarf
+    it_primary: Nano
+    it_variants: [nano]
+
+  - canonical: elf
+    category: race
+    en: Elf
+    it_primary: Elfo
+    it_variants: [elfo]
+
+  - canonical: gnome
+    category: race
+    en: Gnome
+    it_primary: Gnomo
+    it_variants: [gnomo]
+
+  - canonical: half_elf
+    category: race
+    en: Half-Elf
+    it_primary: Mezzelfo
+    it_variants: [mezzelfo, mezzo elfo]
+
+  - canonical: half_orc
+    category: race
+    en: Half-Orc
+    it_primary: Mezzorco
+    it_variants: [mezzorco, mezzo orco]
+
+  - canonical: halfling
+    category: race
+    en: Halfling
+    it_primary: Halfling
+    it_variants: [halfling, mezzuomo]
+
+  - canonical: human
+    category: race
+    en: Human
+    it_primary: Umano
+    it_variants: [umano]
+
+  - canonical: tiefling
+    category: race
+    en: Tiefling
+    it_primary: Tiefling
+    it_variants: [tiefling]
+
+  # ============================================================
+  # === ITEMS (20) ===
+  # ============================================================
+
+  - canonical: battleaxe
+    category: item
+    en: Battleaxe
+    it_primary: Ascia da Battaglia
+    it_variants: [ascia da battaglia]
+
+  - canonical: chain_mail
+    category: item
+    en: Chain Mail
+    it_primary: Cotta di Maglia
+    it_variants: [cotta di maglia]
+
+  - canonical: crossbow_heavy
+    category: item
+    en: Heavy Crossbow
+    it_primary: Balestra Pesante
+    it_variants: [balestra pesante]
+
+  - canonical: crossbow_light
+    category: item
+    en: Light Crossbow
+    it_primary: Balestra Leggera
+    it_variants: [balestra leggera]
+
+  - canonical: dagger
+    category: item
+    en: Dagger
+    it_primary: Pugnale
+    it_variants: [pugnale, daga]
+
+  - canonical: greatsword
+    category: item
+    en: Greatsword
+    it_primary: Spadone
+    it_variants: [spadone, spada a due mani]
+
+  - canonical: handaxe
+    category: item
+    en: Handaxe
+    it_primary: Accetta
+    it_variants: [accetta, ascia a una mano]
+
+  - canonical: leather_armor
+    category: item
+    en: Leather Armor
+    it_primary: Armatura di Cuoio
+    it_variants: [armatura di cuoio, cuoio]
+
+  - canonical: longbow
+    category: item
+    en: Longbow
+    it_primary: Arco Lungo
+    it_variants: [arco lungo]
+
+  - canonical: longsword
+    category: item
+    en: Longsword
+    it_primary: Spada Lunga
+    it_variants: [spada lunga]
+
+  - canonical: mace
+    category: item
+    en: Mace
+    it_primary: Mazza
+    it_variants: [mazza]
+
+  - canonical: plate_armor
+    category: item
+    en: Plate Armor
+    it_primary: Armatura Completa
+    it_variants: [armatura completa, armatura a piastre]
+
+  - canonical: potion_of_healing
+    category: item
+    en: Potion of Healing
+    it_primary: Pozione di Guarigione
+    it_variants: [pozione di guarigione, pozione curativa]
+
+  - canonical: quarterstaff
+    category: item
+    en: Quarterstaff
+    it_primary: Bastone Ferrato
+    it_variants: [bastone ferrato, bastone]
+
+  - canonical: scale_mail
+    category: item
+    en: Scale Mail
+    it_primary: Armatura di Scaglie
+    it_variants: [armatura di scaglie]
+
+  - canonical: shield_item
+    category: item
+    en: Shield
+    it_primary: Scudo
+    it_variants: [scudo]
+
+  - canonical: shortbow
+    category: item
+    en: Shortbow
+    it_primary: Arco Corto
+    it_variants: [arco corto]
+
+  - canonical: shortsword
+    category: item
+    en: Shortsword
+    it_primary: Spada Corta
+    it_variants: [spada corta]
+
+  - canonical: studded_leather
+    category: item
+    en: Studded Leather
+    it_primary: Cuoio Borchiato
+    it_variants: [cuoio borchiato]
+
+  - canonical: warhammer
+    category: item
+    en: Warhammer
+    it_primary: Martello da Guerra
+    it_variants: [martello da guerra]
+
+  # ============================================================
+  # === GENERAL (228) ===
+  # ============================================================
+
+  - canonical: aberration
+    category: general
+    en: Aberration
+    it_primary: Aberrazione
+    it_variants: [aberrazione]
+
+  - canonical: ability_modifier
+    category: general
+    en: Ability Modifier
+    it_primary: Modificatore di Caratteristica
+    it_variants: [modificatore di caratteristica, modificatore, mod]
+
+  - canonical: ability_score
+    category: general
+    en: Ability Score
+    it_primary: Punteggio di Caratteristica
+    it_variants: [punteggio di caratteristica, punteggio caratteristica]
+
+  - canonical: acid_damage
+    category: general
+    en: Acid
+    it_primary: Acido
+    it_variants: [acido, danni da acido]
+
+  - canonical: action_surge
+    category: general
+    en: Action Surge
+    it_primary: Azione Impetuosa
+    it_variants: [azione impetuosa, action surge]
+
+  - canonical: adventure
+    category: general
+    en: Adventure
+    it_primary: Avventura
+    it_variants: [avventura]
+
+  - canonical: alignment
+    category: general
+    en: Alignment
+    it_primary: Allineamento
+    it_variants: [allineamento, alignment]
+
+  - canonical: amulet
+    category: general
+    en: Amulet
+    it_primary: Amuleto
+    it_variants: [amuleto, amulet]
+
+  - canonical: arcane_tradition
+    category: general
+    en: Arcane Tradition
+    it_primary: Tradizione Arcana
+    it_variants: [tradizione arcana, arcane tradition]
+
+  - canonical: area_of_effect
+    category: general
+    en: Area of Effect
+    it_primary: Area di Effetto
+    it_variants: [area di effetto, area, AoE]
+
+  - canonical: armor
+    category: general
+    en: Armor
+    it_primary: Armatura
+    it_variants: [armatura, armor]
+
+  - canonical: astral_plane
+    category: general
+    en: Astral Plane
+    it_primary: Piano Astrale
+    it_variants: [piano astrale]
+
+  - canonical: attunement
+    category: general
+    en: Attunement
+    it_primary: Sintonia
+    it_variants: [sintonia, attunement]
+
+  - canonical: background
+    category: general
+    en: Background
+    it_primary: Background
+    it_variants: [background, storia personale]
+
+  - canonical: backpack
+    category: general
+    en: Backpack
+    it_primary: Zaino
+    it_variants: [zaino]
+
+  - canonical: backstory
+    category: general
+    en: Backstory
+    it_primary: Storia Personale
+    it_variants: [storia personale, backstory, retroscena]
+
+  - canonical: bardic_inspiration
+    category: general
+    en: Bardic Inspiration
+    it_primary: Ispirazione Bardica
+    it_variants: [ispirazione bardica, bardic inspiration]
+
+  - canonical: beast
+    category: general
+    en: Beast
+    it_primary: Bestia
+    it_variants: [bestia]
+
+  - canonical: belt
+    category: general
+    en: Belt
+    it_primary: Cintura
+    it_variants: [cintura, belt]
+
+  - canonical: bludgeoning_damage
+    category: general
+    en: Bludgeoning
+    it_primary: Contundente
+    it_variants: [contundente, danni contundenti]
+
+  - canonical: bond
+    category: general
+    en: Bond
+    it_primary: Legame
+    it_variants: [legame, bond]
+
+  - canonical: bonus
+    category: general
+    en: Bonus
+    it_primary: Bonus
+    it_variants: [bonus]
+
+  - canonical: boots
+    category: general
+    en: Boots
+    it_primary: Stivali
+    it_variants: [stivali, boots]
+
+  - canonical: campaign
+    category: general
+    en: Campaign
+    it_primary: Campagna
+    it_variants: [campagna]
+
+  - canonical: cantrip
+    category: general
+    en: Cantrip
+    it_primary: Trucchetto
+    it_variants: [trucchetto, cantrip]
+
+  - canonical: casting_time
+    category: general
+    en: Casting Time
+    it_primary: Tempo di Lancio
+    it_variants: [tempo di lancio, casting time]
+
+  - canonical: castle
+    category: general
+    en: Castle
+    it_primary: Castello
+    it_variants: [castello]
+
+  - canonical: cave
+    category: general
+    en: Cave
+    it_primary: Caverna
+    it_variants: [caverna, grotta]
+
+  - canonical: celestial
+    category: general
+    en: Celestial
+    it_primary: Celestiale
+    it_variants: [celestiale]
+
+  - canonical: challenge_rating
+    category: general
+    en: Challenge Rating
+    it_primary: Grado di Sfida
+    it_variants: [grado di sfida, GS, CR]
+
+  - canonical: channel_divinity
+    category: general
+    en: Channel Divinity
+    it_primary: Incanalare Divinità
+    it_variants: [incanalare divinita, incanalare divinità, channel divinity]
+
+  - canonical: chaotic_evil
+    category: general
+    en: Chaotic Evil
+    it_primary: Caotico Malvagio
+    it_variants: [caotico malvagio, CM]
+
+  - canonical: chaotic_good
+    category: general
+    en: Chaotic Good
+    it_primary: Caotico Buono
+    it_variants: [caotico buono, CB]
+
+  - canonical: chaotic_neutral
+    category: general
+    en: Chaotic Neutral
+    it_primary: Caotico Neutrale
+    it_variants: [caotico neutrale, CN]
+
+  - canonical: character_level
+    category: general
+    en: Character Level
+    it_primary: Livello del Personaggio
+    it_variants: [livello del personaggio, livello personaggio]
+
+  - canonical: character_sheet
+    category: general
+    en: Character Sheet
+    it_primary: Scheda del Personaggio
+    it_variants: [scheda del personaggio, scheda personaggio, scheda]
+
+  - canonical: check
+    category: general
+    en: Check
+    it_primary: Prova
+    it_variants: [prova, check, tiro]
+
+  - canonical: city
+    category: general
+    en: City
+    it_primary: Città
+    it_variants: [citta, città]
+
+  - canonical: class_feature
+    category: general
+    en: Class Feature
+    it_primary: Privilegio di Classe
+    it_variants: [privilegio di classe, capacita di classe, class feature]
+
+  - canonical: class_general
+    category: general
+    en: Class
+    it_primary: Classe
+    it_variants: [classe, class]
+
+  - canonical: climbing
+    category: general
+    en: Climbing
+    it_primary: Scalare
+    it_variants: [scalare, arrampicata]
+
+  - canonical: cloak
+    category: general
+    en: Cloak
+    it_primary: Mantello
+    it_variants: [mantello, cloak]
+
+  - canonical: cold_damage
+    category: general
+    en: Cold
+    it_primary: Freddo
+    it_variants: [freddo, danni da freddo]
+
+  - canonical: common_language
+    category: general
+    en: Common
+    it_primary: Comune
+    it_variants: [comune]
+
+  - canonical: component_pouch
+    category: general
+    en: Component Pouch
+    it_primary: Borsa dei Componenti
+    it_variants: [borsa dei componenti, component pouch]
+
+  - canonical: components
+    category: general
+    en: Components
+    it_primary: Componenti
+    it_variants: [componenti, components]
+
+  - canonical: concentration_general
+    category: general
+    en: Concentration
+    it_primary: Concentrazione
+    it_variants: [concentrazione, C]
+
+  - canonical: construct
+    category: general
+    en: Construct
+    it_primary: Costrutto
+    it_variants: [costrutto]
+
+  - canonical: copper_piece
+    category: general
+    en: Copper Piece
+    it_primary: Moneta di Rame
+    it_variants: [moneta di rame, MR, cp]
+
+  - canonical: critical_failure
+    category: general
+    en: Critical Failure
+    it_primary: Fallimento Critico
+    it_variants: [fallimento critico, fumble]
+
+  - canonical: damage
+    category: general
+    en: Damage
+    it_primary: Danno
+    it_variants: [danno, danni, damage]
+
+  - canonical: darkvision
+    category: general
+    en: Darkvision
+    it_primary: Scurovisione
+    it_variants: [scurovisione, darkvision, visione al buio]
+
+  - canonical: death
+    category: general
+    en: Death
+    it_primary: Morte
+    it_variants: [morte, morire]
+
+  - canonical: dice
+    category: general
+    en: Dice
+    it_primary: Dado
+    it_variants: [dado, dadi]
+
+  - canonical: difficult_terrain
+    category: general
+    en: Difficult Terrain
+    it_primary: Terreno Difficile
+    it_variants: [terreno difficile]
+
+  - canonical: divine_smite
+    category: general
+    en: Divine Smite
+    it_primary: Punizione Divina
+    it_variants: [punizione divina, divine smite, smite]
+
+  - canonical: downtime
+    category: general
+    en: Downtime
+    it_primary: Tempo Libero
+    it_variants: [tempo libero, downtime]
+
+  - canonical: dragon_type
+    category: general
+    en: Dragon
+    it_primary: Drago
+    it_variants: [drago]
+
+  - canonical: dungeon
+    category: general
+    en: Dungeon
+    it_primary: Dungeon
+    it_variants: [dungeon, sotterraneo]
+
+  - canonical: dungeon_master
+    category: general
+    en: Dungeon Master
+    it_primary: Dungeon Master
+    it_variants: [dungeon master, DM, master, narratore]
+
+  - canonical: duration
+    category: general
+    en: Duration
+    it_primary: Durata
+    it_variants: [durata, duration]
+
+  - canonical: eldritch_invocation
+    category: general
+    en: Eldritch Invocation
+    it_primary: Invocazione Occulta
+    it_variants: [invocazione occulta, eldritch invocation]
+
+  - canonical: electrum_piece
+    category: general
+    en: Electrum Piece
+    it_primary: Moneta di Electrum
+    it_variants: [moneta di electrum, ME, ep]
+
+  - canonical: elemental_type
+    category: general
+    en: Elemental
+    it_primary: Elementale
+    it_variants: [elementale]
+
+  - canonical: encounter
+    category: general
+    en: Encounter
+    it_primary: Incontro
+    it_variants: [incontro, encounter, scontro]
+
+  - canonical: encumbrance
+    category: general
+    en: Encumbrance
+    it_primary: Ingombro
+    it_variants: [ingombro, carico]
+
+  - canonical: ethereal_plane
+    category: general
+    en: Ethereal Plane
+    it_primary: Piano Etereo
+    it_variants: [piano etereo]
+
+  - canonical: experience_points
+    category: general
+    en: Experience Points
+    it_primary: Punti Esperienza
+    it_variants: [punti esperienza, PE, XP, exp]
+
+  - canonical: exploration
+    category: general
+    en: Exploration
+    it_primary: Esplorazione
+    it_variants: [esplorazione]
+
+  - canonical: extra_attack
+    category: general
+    en: Extra Attack
+    it_primary: Attacco Extra
+    it_variants: [attacco extra, extra attack]
+
+  - canonical: falling
+    category: general
+    en: Falling
+    it_primary: Caduta
+    it_variants: [caduta, cadere]
+
+  - canonical: favored_enemy
+    category: general
+    en: Favored Enemy
+    it_primary: Nemico Prescelto
+    it_variants: [nemico prescelto, favored enemy]
+
+  - canonical: feat
+    category: general
+    en: Feat
+    it_primary: Talento
+    it_variants: [talento, feat]
+
+  - canonical: fey
+    category: general
+    en: Fey
+    it_primary: Fatato
+    it_variants: [fatato, fey]
+
+  - canonical: feywild
+    category: general
+    en: Feywild
+    it_primary: Selva Fatata
+    it_variants: [selva fatata, feywild]
+
+  - canonical: fiend
+    category: general
+    en: Fiend
+    it_primary: Immondo
+    it_variants: [immondo, demone, diavolo]
+
+  - canonical: fire_damage
+    category: general
+    en: Fire
+    it_primary: Fuoco
+    it_variants: [fuoco, danni da fuoco]
+
+  - canonical: flanking
+    category: general
+    en: Flanking
+    it_primary: Fiancheggiamento
+    it_variants: [fiancheggiamento, flanking]
+
+  - canonical: flaw
+    category: general
+    en: Flaw
+    it_primary: Difetto
+    it_variants: [difetto, flaw]
+
+  - canonical: flying
+    category: general
+    en: Flying
+    it_primary: Volo
+    it_variants: [volo, in volo]
+
+  - canonical: focus
+    category: general
+    en: Arcane Focus
+    it_primary: Focus Arcano
+    it_variants: [focus arcano, focus, catalizzatore]
+
+  - canonical: force_damage
+    category: general
+    en: Force
+    it_primary: Forza (danno)
+    it_variants: [danni da forza, forza danno]
+
+  - canonical: forest
+    category: general
+    en: Forest
+    it_primary: Foresta
+    it_variants: [foresta, bosco]
+
+  - canonical: full_cover
+    category: general
+    en: Full Cover
+    it_primary: Copertura Totale
+    it_variants: [copertura totale]
+
+  - canonical: gauntlets
+    category: general
+    en: Gauntlets
+    it_primary: Guanti
+    it_variants: [guanti, "guanti d'arme"]
+
+  - canonical: giant_type
+    category: general
+    en: Giant
+    it_primary: Gigante
+    it_variants: [gigante]
+
+  - canonical: gold_piece
+    category: general
+    en: Gold Piece
+    it_primary: "Moneta d'Oro"
+    it_variants: ["moneta d'oro", moneta d oro, MO, gp, gold]
+
+  - canonical: grapple
+    category: general
+    en: Grapple
+    it_primary: Lotta
+    it_variants: [lotta, afferrare, grapple]
+
+  - canonical: half_cover
+    category: general
+    en: Half Cover
+    it_primary: Mezza Copertura
+    it_variants: [mezza copertura, copertura parziale]
+
+  - canonical: healing
+    category: general
+    en: Healing
+    it_primary: Guarigione
+    it_variants: [guarigione, cura, healing]
+
+  - canonical: helm
+    category: general
+    en: Helm
+    it_primary: Elmo
+    it_variants: [elmo, helm]
+
+  - canonical: hit
+    category: general
+    en: Hit
+    it_primary: Colpire
+    it_variants: [colpire, colpo, hit]
+
+  - canonical: hit_dice
+    category: general
+    en: Hit Dice
+    it_primary: Dadi Vita
+    it_variants: [dadi vita, DV, HD]
+
+  - canonical: hit_point_maximum
+    category: general
+    en: Hit Point Maximum
+    it_primary: Massimo Punti Ferita
+    it_variants: [massimo punti ferita, PF massimi]
+
+  - canonical: holy_symbol
+    category: general
+    en: Holy Symbol
+    it_primary: Simbolo Sacro
+    it_variants: [simbolo sacro, holy symbol]
+
+  - canonical: humanoid
+    category: general
+    en: Humanoid
+    it_primary: Umanoide
+    it_variants: [umanoide]
+
+  - canonical: ideal
+    category: general
+    en: Ideal
+    it_primary: Ideale
+    it_variants: [ideale, ideal]
+
+  - canonical: immunity
+    category: general
+    en: Immunity
+    it_primary: Immunità
+    it_variants: [immunita, immunità]
+
+  - canonical: in_character
+    category: general
+    en: In Character
+    it_primary: In Personaggio
+    it_variants: [in personaggio, IC, in character]
+
+  - canonical: initiative_bonus
+    category: general
+    en: Initiative Bonus
+    it_primary: Bonus di Iniziativa
+    it_variants: [bonus di iniziativa, bonus iniziativa]
+
+  - canonical: initiative_order
+    category: general
+    en: Initiative Order
+    it_primary: Ordine di Iniziativa
+    it_variants: [ordine di iniziativa, ordine iniziativa]
+
+  - canonical: inn
+    category: general
+    en: Inn
+    it_primary: Locanda
+    it_variants: [locanda]
+
+  - canonical: inspiration
+    category: general
+    en: Inspiration
+    it_primary: Ispirazione
+    it_variants: [ispirazione, inspiration]
+
+  - canonical: inventory
+    category: general
+    en: Inventory
+    it_primary: Inventario
+    it_variants: [inventario, equipaggiamento]
+
+  - canonical: jumping
+    category: general
+    en: Jumping
+    it_primary: Saltare
+    it_variants: [saltare, salto]
+
+  - canonical: ki
+    category: general
+    en: Ki
+    it_primary: Ki
+    it_variants: [ki, punti ki]
+
+  - canonical: known_spell
+    category: general
+    en: Known Spell
+    it_primary: Incantesimo Conosciuto
+    it_variants: [incantesimo conosciuto, incantesimi conosciuti]
+
+  - canonical: language
+    category: general
+    en: Language
+    it_primary: Linguaggio
+    it_variants: [linguaggio, lingua]
+
+  - canonical: lawful_evil
+    category: general
+    en: Lawful Evil
+    it_primary: Legale Malvagio
+    it_variants: [legale malvagio, LM]
+
+  - canonical: lawful_good
+    category: general
+    en: Lawful Good
+    it_primary: Legale Buono
+    it_variants: [legale buono, LB]
+
+  - canonical: lawful_neutral
+    category: general
+    en: Lawful Neutral
+    it_primary: Legale Neutrale
+    it_variants: [legale neutrale, LN]
+
+  - canonical: lay_on_hands
+    category: general
+    en: Lay on Hands
+    it_primary: Imposizione delle Mani
+    it_variants: [imposizione delle mani, lay on hands]
+
+  - canonical: level
+    category: general
+    en: Level
+    it_primary: Livello
+    it_variants: [livello, LV, lv]
+
+  - canonical: lightning_damage
+    category: general
+    en: Lightning
+    it_primary: Fulmine
+    it_variants: [fulmine, danni da fulmine, elettricita]
+
+  - canonical: line_of_sight
+    category: general
+    en: Line of Sight
+    it_primary: Linea di Vista
+    it_variants: [linea di vista, linea visiva]
+
+  - canonical: loot
+    category: general
+    en: Loot
+    it_primary: Bottino
+    it_variants: [bottino, loot, saccheggiare]
+
+  - canonical: magic_item
+    category: general
+    en: Magic Item
+    it_primary: Oggetto Magico
+    it_variants: [oggetto magico, magic item]
+
+  - canonical: material_component
+    category: general
+    en: Material
+    it_primary: Materiale
+    it_variants: [materiale, M]
+
+  - canonical: material_plane
+    category: general
+    en: Material Plane
+    it_primary: Piano Materiale
+    it_variants: [piano materiale]
+
+  - canonical: metagaming
+    category: general
+    en: Metagaming
+    it_primary: Metagaming
+    it_variants: [metagaming, metagame]
+
+  - canonical: metamagic
+    category: general
+    en: Metamagic
+    it_primary: Metamagia
+    it_variants: [metamagia, metamagic]
+
+  - canonical: milestone
+    category: general
+    en: Milestone
+    it_primary: Traguardo
+    it_variants: [traguardo, milestone]
+
+  - canonical: miss
+    category: general
+    en: Miss
+    it_primary: Mancare
+    it_variants: [mancare, mancato, miss]
+
+  - canonical: modifier
+    category: general
+    en: Modifier
+    it_primary: Modificatore
+    it_variants: [modificatore, mod]
+
+  - canonical: monster_general
+    category: general
+    en: Monster
+    it_primary: Mostro
+    it_variants: [mostro, creatura, monster]
+
+  - canonical: monstrosity
+    category: general
+    en: Monstrosity
+    it_primary: Mostruosità
+    it_variants: [mostruosita, mostruosità]
+
+  - canonical: mountain
+    category: general
+    en: Mountain
+    it_primary: Montagna
+    it_variants: [montagna]
+
+  - canonical: movement
+    category: general
+    en: Movement
+    it_primary: Movimento
+    it_variants: [movimento]
+
+  - canonical: multiclass
+    category: general
+    en: Multiclass
+    it_primary: Multiclasse
+    it_variants: [multiclasse, multiclass]
+
+  - canonical: natural_1
+    category: general
+    en: Natural 1
+    it_primary: 1 Naturale
+    it_variants: [1 naturale, nat 1, fallimento critico]
+
+  - canonical: natural_20
+    category: general
+    en: Natural 20
+    it_primary: 20 Naturale
+    it_variants: [20 naturale, nat 20, critico naturale]
+
+  - canonical: natural_explorer
+    category: general
+    en: Natural Explorer
+    it_primary: Esploratore Nato
+    it_variants: [esploratore nato, natural explorer]
+
+  - canonical: necrotic_damage
+    category: general
+    en: Necrotic
+    it_primary: Necrotico
+    it_variants: [necrotico, danni necrotici]
+
+  - canonical: neutral_evil
+    category: general
+    en: Neutral Evil
+    it_primary: Neutrale Malvagio
+    it_variants: [neutrale malvagio, NM]
+
+  - canonical: neutral_good
+    category: general
+    en: Neutral Good
+    it_primary: Neutrale Buono
+    it_variants: [neutrale buono, NB]
+
+  - canonical: non_player_character
+    category: general
+    en: Non-Player Character
+    it_primary: Personaggio Non Giocante
+    it_variants: [personaggio non giocante, PNG, NPC]
+
+  - canonical: ooze
+    category: general
+    en: Ooze
+    it_primary: Melma
+    it_variants: [melma]
+
+  - canonical: out_of_character
+    category: general
+    en: Out of Character
+    it_primary: Fuori Personaggio
+    it_variants: [fuori personaggio, OOC, out of character]
+
+  - canonical: party
+    category: general
+    en: Party
+    it_primary: Gruppo
+    it_variants: [gruppo, party, compagnia]
+
+  - canonical: passive_perception
+    category: general
+    en: Passive Perception
+    it_primary: Percezione Passiva
+    it_variants: [percezione passiva, passive perception]
+
+  - canonical: penalty
+    category: general
+    en: Penalty
+    it_primary: Penalità
+    it_variants: [penalita, penalità]
+
+  - canonical: personality_trait
+    category: general
+    en: Personality Trait
+    it_primary: Tratto Caratteriale
+    it_variants: [tratto caratteriale, personality trait]
+
+  - canonical: piercing_damage
+    category: general
+    en: Piercing
+    it_primary: Perforante
+    it_variants: [perforante, danni perforanti]
+
+  - canonical: plane
+    category: general
+    en: Plane
+    it_primary: Piano
+    it_variants: [piano, piano di esistenza]
+
+  - canonical: plant_type
+    category: general
+    en: Plant
+    it_primary: Vegetale
+    it_variants: [vegetale, pianta]
+
+  - canonical: platinum_piece
+    category: general
+    en: Platinum Piece
+    it_primary: Moneta di Platino
+    it_variants: [moneta di platino, MP, pp]
+
+  - canonical: player_character
+    category: general
+    en: Player Character
+    it_primary: Personaggio Giocante
+    it_variants: [personaggio giocante, PG, PC]
+
+  - canonical: poison_damage
+    category: general
+    en: Poison
+    it_primary: Veleno
+    it_variants: [veleno, danni da veleno]
+
+  - canonical: prepared_spell
+    category: general
+    en: Prepared Spell
+    it_primary: Incantesimo Preparato
+    it_variants: [incantesimo preparato, preparare incantesimi]
+
+  - canonical: proficiency
+    category: general
+    en: Proficiency
+    it_primary: Competenza
+    it_variants: [competenza, proficiency]
+
+  - canonical: psychic_damage
+    category: general
+    en: Psychic
+    it_primary: Psichico
+    it_variants: [psichico, danni psichici]
+
+  - canonical: quest
+    category: general
+    en: Quest
+    it_primary: Missione
+    it_variants: [missione, quest, impresa]
+
+  - canonical: race_general
+    category: general
+    en: Race
+    it_primary: Razza
+    it_variants: [razza, stirpe]
+
+  - canonical: racial_trait
+    category: general
+    en: Racial Trait
+    it_primary: Tratto Razziale
+    it_variants: [tratto razziale, racial trait]
+
+  - canonical: radiant_damage
+    category: general
+    en: Radiant
+    it_primary: Radioso
+    it_variants: [radioso, danni radiosi]
+
+  - canonical: rage
+    category: general
+    en: Rage
+    it_primary: Ira
+    it_variants: [ira, rage, furia]
+
+  - canonical: range
+    category: general
+    en: Range
+    it_primary: Gittata
+    it_variants: [gittata, raggio, range, portata]
+
+  - canonical: ration
+    category: general
+    en: Rations
+    it_primary: Razioni
+    it_variants: [razioni, provviste, cibo]
+
+  - canonical: resistance
+    category: general
+    en: Resistance
+    it_primary: Resistenza
+    it_variants: [resistenza, res]
+
+  - canonical: rest_long
+    category: general
+    en: Long Rest
+    it_primary: Riposo Lungo
+    it_variants: [riposo lungo, long rest]
+
+  - canonical: rest_short
+    category: general
+    en: Short Rest
+    it_primary: Riposo Breve
+    it_variants: [riposo breve, short rest]
+
+  - canonical: resurrection
+    category: general
+    en: Resurrection
+    it_primary: Resurrezione
+    it_variants: [resurrezione, risorgere]
+
+  - canonical: ring
+    category: general
+    en: Ring
+    it_primary: Anello
+    it_variants: [anello, ring]
+
+  - canonical: ritual
+    category: general
+    en: Ritual
+    it_primary: Rituale
+    it_variants: [rituale, ritual]
+
+  - canonical: river
+    category: general
+    en: River
+    it_primary: Fiume
+    it_variants: [fiume]
+
+  - canonical: road
+    category: general
+    en: Road
+    it_primary: Strada
+    it_variants: [strada, sentiero, via]
+
+  - canonical: roleplay
+    category: general
+    en: Roleplay
+    it_primary: Interpretazione
+    it_variants: [interpretazione, roleplay, gioco di ruolo, ruolo]
+
+  - canonical: roll
+    category: general
+    en: Roll
+    it_primary: Tiro
+    it_variants: [tiro, lancio, tirare]
+
+  - canonical: rope
+    category: general
+    en: Rope
+    it_primary: Corda
+    it_variants: [corda]
+
+  - canonical: round
+    category: general
+    en: Round
+    it_primary: Round
+    it_variants: [round, turno di combattimento]
+
+  - canonical: saving_throw_charisma
+    category: general
+    en: Charisma Saving Throw
+    it_primary: Tiro Salvezza su Carisma
+    it_variants: [tiro salvezza su carisma, TS carisma]
+
+  - canonical: saving_throw_constitution
+    category: general
+    en: Constitution Saving Throw
+    it_primary: Tiro Salvezza su Costituzione
+    it_variants: [tiro salvezza su costituzione, TS costituzione]
+
+  - canonical: saving_throw_dexterity
+    category: general
+    en: Dexterity Saving Throw
+    it_primary: Tiro Salvezza su Destrezza
+    it_variants: [tiro salvezza su destrezza, TS destrezza]
+
+  - canonical: saving_throw_intelligence
+    category: general
+    en: Intelligence Saving Throw
+    it_primary: Tiro Salvezza su Intelligenza
+    it_variants: [tiro salvezza su intelligenza, TS intelligenza]
+
+  - canonical: saving_throw_proficiency
+    category: general
+    en: Saving Throw Proficiency
+    it_primary: Competenza nei Tiri Salvezza
+    it_variants: [competenza nei tiri salvezza]
+
+  - canonical: saving_throw_strength
+    category: general
+    en: Strength Saving Throw
+    it_primary: Tiro Salvezza su Forza
+    it_variants: [tiro salvezza su forza, TS forza]
+
+  - canonical: saving_throw_wisdom
+    category: general
+    en: Wisdom Saving Throw
+    it_primary: Tiro Salvezza su Saggezza
+    it_variants: [tiro salvezza su saggezza, TS saggezza]
+
+  - canonical: scroll
+    category: general
+    en: Scroll
+    it_primary: Pergamena
+    it_variants: [pergamena, scroll]
+
+  - canonical: second_wind
+    category: general
+    en: Second Wind
+    it_primary: Recuperare Energia
+    it_variants: [recuperare energia, second wind]
+
+  - canonical: secret_door
+    category: general
+    en: Secret Door
+    it_primary: Porta Segreta
+    it_variants: [porta segreta]
+
+  - canonical: session
+    category: general
+    en: Session
+    it_primary: Sessione
+    it_variants: [sessione]
+
+  - canonical: setting
+    category: general
+    en: Setting
+    it_primary: Ambientazione
+    it_variants: [ambientazione, setting]
+
+  - canonical: shadowfell
+    category: general
+    en: Shadowfell
+    it_primary: Shadowfell
+    it_variants: [shadowfell, terre oscure]
+
+  - canonical: shove
+    category: general
+    en: Shove
+    it_primary: Spingere
+    it_variants: [spingere, spinta, shove]
+
+  - canonical: silver_piece
+    category: general
+    en: Silver Piece
+    it_primary: "Moneta d'Argento"
+    it_variants: ["moneta d'argento", moneta d argento, MA, sp]
+
+  - canonical: skill_proficiency
+    category: general
+    en: Skill Proficiency
+    it_primary: Competenza nelle Abilità
+    it_variants: [competenza nelle abilita, competenza nelle abilità]
+
+  - canonical: slashing_damage
+    category: general
+    en: Slashing
+    it_primary: Tagliente
+    it_variants: [tagliente, danni taglienti]
+
+  - canonical: sneak_attack
+    category: general
+    en: Sneak Attack
+    it_primary: Attacco Furtivo
+    it_variants: [attacco furtivo, sneak attack]
+
+  - canonical: somatic_component
+    category: general
+    en: Somatic
+    it_primary: Somatica
+    it_variants: [somatica, S]
+
+  - canonical: speed
+    category: general
+    en: Speed
+    it_primary: Velocità
+    it_variants: [velocita, velocità, speed, movimento]
+
+  - canonical: spell_attack
+    category: general
+    en: Spell Attack
+    it_primary: Attacco con Incantesimo
+    it_variants: [attacco con incantesimo, spell attack]
+
+  - canonical: spell_general
+    category: general
+    en: Spell
+    it_primary: Incantesimo
+    it_variants: [incantesimo, magia, spell]
+
+  - canonical: spell_level
+    category: general
+    en: Spell Level
+    it_primary: "Livello dell'Incantesimo"
+    it_variants: ["livello dell'incantesimo", livello incantesimo, spell level]
+
+  - canonical: spell_list
+    category: general
+    en: Spell List
+    it_primary: Lista degli Incantesimi
+    it_variants: [lista degli incantesimi, lista incantesimi, spell list]
+
+  - canonical: spell_save_dc
+    category: general
+    en: Spell Save DC
+    it_primary: CD Tiro Salvezza Incantesimi
+    it_variants: [CD tiro salvezza incantesimi, spell save DC, CD incantesimi]
+
+  - canonical: spell_slot
+    category: general
+    en: Spell Slot
+    it_primary: Slot Incantesimo
+    it_variants: [slot incantesimo, slot magia, spell slot]
+
+  - canonical: spellbook
+    category: general
+    en: Spellbook
+    it_primary: Libro degli Incantesimi
+    it_variants: [libro degli incantesimi, grimorio, spellbook]
+
+  - canonical: spellcasting
+    category: general
+    en: Spellcasting
+    it_primary: Incantesimi
+    it_variants: [incantesimi, lanciare incantesimi, spellcasting]
+
+  - canonical: spellcasting_ability
+    category: general
+    en: Spellcasting Ability
+    it_primary: Caratteristica da Incantatore
+    it_variants: [caratteristica da incantatore, spellcasting ability]
+
+  - canonical: stabilize
+    category: general
+    en: Stabilize
+    it_primary: Stabilizzare
+    it_variants: [stabilizzare]
+
+  - canonical: staff
+    category: general
+    en: Staff
+    it_primary: Bastone
+    it_variants: [bastone, staff]
+
+  - canonical: subclass
+    category: general
+    en: Subclass
+    it_primary: Sottoclasse
+    it_variants: [sottoclasse, subclass, archetipo]
+
+  - canonical: surprise
+    category: general
+    en: Surprise
+    it_primary: Sorpresa
+    it_variants: [sorpresa, surprise, round di sorpresa]
+
+  - canonical: swimming
+    category: general
+    en: Swimming
+    it_primary: Nuoto
+    it_variants: [nuoto, nuotare]
+
+  - canonical: tavern
+    category: general
+    en: Tavern
+    it_primary: Taverna
+    it_variants: [taverna, locanda]
+
+  - canonical: temple
+    category: general
+    en: Temple
+    it_primary: Tempio
+    it_variants: [tempio]
+
+  - canonical: three_quarters_cover
+    category: general
+    en: Three-Quarters Cover
+    it_primary: Tre Quarti di Copertura
+    it_variants: [tre quarti di copertura, copertura tre quarti]
+
+  - canonical: thunder_damage
+    category: general
+    en: Thunder
+    it_primary: Tuono
+    it_variants: [tuono, danni da tuono]
+
+  - canonical: tool
+    category: general
+    en: Tool
+    it_primary: Strumento
+    it_variants: [strumento, attrezzo, tool]
+
+  - canonical: tool_proficiency
+    category: general
+    en: Tool Proficiency
+    it_primary: Competenza negli Strumenti
+    it_variants: [competenza negli strumenti]
+
+  - canonical: torch
+    category: general
+    en: Torch
+    it_primary: Torcia
+    it_variants: [torcia]
+
+  - canonical: trap
+    category: general
+    en: Trap
+    it_primary: Trappola
+    it_variants: [trappola]
+
+  - canonical: travel
+    category: general
+    en: Travel
+    it_primary: Viaggio
+    it_variants: [viaggio, viaggiare]
+
+  - canonical: treasure
+    category: general
+    en: Treasure
+    it_primary: Tesoro
+    it_variants: [tesoro, bottino]
+
+  - canonical: true_neutral
+    category: general
+    en: True Neutral
+    it_primary: Neutrale Puro
+    it_variants: [neutrale puro, neutrale, N]
+
+  - canonical: turn
+    category: general
+    en: Turn
+    it_primary: Turno
+    it_variants: [turno, turn]
+
+  - canonical: two_weapon_fighting
+    category: general
+    en: Two-Weapon Fighting
+    it_primary: Combattere con Due Armi
+    it_variants: [combattere con due armi, due armi, two weapon fighting]
+
+  - canonical: undead_type
+    category: general
+    en: Undead
+    it_primary: Non Morto
+    it_variants: [non morto, undead]
+
+  - canonical: upcasting
+    category: general
+    en: Upcasting
+    it_primary: Lanciare a Livello Superiore
+    it_variants: [lanciare a livello superiore, upcastare, upcasting]
+
+  - canonical: verbal_component
+    category: general
+    en: Verbal
+    it_primary: Verbale
+    it_variants: [verbale, V]
+
+  - canonical: village
+    category: general
+    en: Village
+    it_primary: Villaggio
+    it_variants: [villaggio]
+
+  - canonical: vulnerability
+    category: general
+    en: Vulnerability
+    it_primary: Vulnerabilità
+    it_variants: [vulnerabilita, vulnerabilità]
+
+  - canonical: wand
+    category: general
+    en: Wand
+    it_primary: Bacchetta
+    it_variants: [bacchetta, wand]
+
+  - canonical: water_skin
+    category: general
+    en: Waterskin
+    it_primary: Otre
+    it_variants: [otre, borraccia]
+
+  - canonical: weapon
+    category: general
+    en: Weapon
+    it_primary: Arma
+    it_variants: [arma, armi, weapon]
+
+  - canonical: weight
+    category: general
+    en: Weight
+    it_primary: Peso
+    it_variants: [peso, ingombro]
+
+  - canonical: wild_shape
+    category: general
+    en: Wild Shape
+    it_primary: Forma Selvatica
+    it_variants: [forma selvatica, wild shape]
+
+  - canonical: world
+    category: general
+    en: World
+    it_primary: Mondo
+    it_variants: [mondo, ambientazione]

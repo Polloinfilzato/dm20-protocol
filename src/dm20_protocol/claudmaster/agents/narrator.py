@@ -21,6 +21,69 @@ logger = logging.getLogger("dm20-protocol")
 
 
 # ------------------------------------------------------------------
+# Terminology style hint formatting
+# ------------------------------------------------------------------
+
+def format_style_hint(preferences: dict[str, str]) -> str:
+    """Format language preferences into a natural-language hint for the LLM.
+
+    Converts the StyleTracker preferences summary into a readable prompt
+    fragment that instructs the LLM to mirror the player's language style.
+
+    Args:
+        preferences: Dict mapping category to language ("en" or "it")
+            Example: {"spell": "en", "skill": "it", "combat": "it"}
+
+    Returns:
+        A formatted hint string suitable for injection into the narrator prompt.
+        Returns empty string if preferences dict is empty.
+
+    Example:
+        >>> format_style_hint({"spell": "en", "skill": "it"})
+        "Player language preferences (mirror their style):\n- Spells: English (e.g., 'Fireball' not 'Palla di Fuoco')\n- Skills: Italian (e.g., 'Furtività' not 'Stealth')"
+    """
+    if not preferences:
+        return ""
+
+    # Category name mapping for better readability
+    category_names = {
+        "spell": "Spells",
+        "skill": "Skills",
+        "ability": "Abilities",
+        "condition": "Conditions",
+        "combat": "Combat terms",
+        "item": "Items",
+        "class": "Classes",
+        "race": "Races",
+        "general": "General terms",
+    }
+
+    # Language name mapping
+    lang_names = {"en": "English", "it": "Italian"}
+
+    # Build lines
+    lines = ["Player language preferences (mirror their style):"]
+    for category, lang in sorted(preferences.items()):
+        category_display = category_names.get(category, category.capitalize())
+        lang_display = lang_names.get(lang, lang.upper())
+
+        # Add examples for common categories
+        examples = {
+            ("spell", "en"): "(e.g., 'Fireball' not 'Palla di Fuoco')",
+            ("spell", "it"): "(e.g., 'Palla di Fuoco' not 'Fireball')",
+            ("skill", "en"): "(e.g., 'Stealth' not 'Furtività')",
+            ("skill", "it"): "(e.g., 'Furtività' not 'Stealth')",
+            ("combat", "en"): "(e.g., 'Initiative' not 'Iniziativa')",
+            ("combat", "it"): "(e.g., 'Iniziativa' not 'Initiative')",
+        }
+        example = examples.get((category, lang), "")
+
+        lines.append(f"- {category_display}: {lang_display} {example}".strip())
+
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------------------
 # Narrative styles
 # ------------------------------------------------------------------
 
@@ -60,6 +123,8 @@ SCENE_DESCRIPTION_TEMPLATE = """\
 You are the Narrator of a D&D campaign. Your task: {reasoning}
 
 Narration style: {style}
+
+{style_hint}
 
 Bring every scene alive through layered sensory detail — sounds echoing off stone, the bite of \
 cold air, the stench of rot or the warmth of hearth-smoke. When describing a new place, character, \
@@ -213,6 +278,7 @@ class NarratorAgent(Agent):
         self.style = style
         self.max_tokens = max_tokens
         self._voice_profiles: dict[str, VoiceProfile] = {}  # cache for consistency
+        self._current_style_preferences: dict[str, str] = {}  # populated during reason() phase
 
     async def reason(self, context: dict[str, Any]) -> str:
         """Analyze context to determine what kind of description is needed.
@@ -222,7 +288,7 @@ class NarratorAgent(Agent):
 
         Args:
             context: Game context dict with keys like 'player_action',
-                'location', 'recent_events', 'setting', etc.
+                'location', 'recent_events', 'setting', 'style_preferences', etc.
 
         Returns:
             A reasoning string describing the intended narrative approach.
@@ -230,6 +296,9 @@ class NarratorAgent(Agent):
         player_action = context.get("player_action", "")
         location = context.get("location", {})
         location_name = location.get("name", "unknown location") if isinstance(location, dict) else str(location)
+
+        # Store style preferences for use in act() phase
+        self._current_style_preferences = context.get("style_preferences", {})
 
         # Determine the narrative task
         if not player_action:
@@ -291,9 +360,15 @@ class NarratorAgent(Agent):
         Returns:
             Complete prompt string ready for the LLM.
         """
+        # Format style hint from current preferences
+        style_hint = format_style_hint(self._current_style_preferences)
+        if style_hint:
+            style_hint = f"\n{style_hint}\n"  # Add spacing
+
         return SCENE_DESCRIPTION_TEMPLATE.format(
             reasoning=reasoning,
             style=self.style.value,
+            style_hint=style_hint,
         )
 
     def build_voice_profile(
@@ -646,4 +721,5 @@ __all__ = [
     "DialogueLine",
     "DialogueContext",
     "Conversation",
+    "format_style_hint",
 ]
