@@ -1,0 +1,52 @@
+{
+  "id": "v1test01",
+  "name": "Old Gandalf",
+  "player_name": "Tim",
+  "character_class": {
+    "name": "Wizard",
+    "level": 5,
+    "hit_dice": "5d6",
+    "subclass": null
+  },
+  "race": {
+    "name": "Human",
+    "subrace": null,
+    "traits": []
+  },
+  "background": "Sage",
+  "alignment": "Neutral Good",
+  "description": "A wise old wizard",
+  "bio": "Studied at the academy for decades",
+  "abilities": {
+    "strength": {"score": 8},
+    "dexterity": {"score": 14},
+    "constitution": {"score": 12},
+    "intelligence": {"score": 18},
+    "wisdom": {"score": 16},
+    "charisma": {"score": 10}
+  },
+  "armor_class": 12,
+  "hit_points_max": 28,
+  "hit_points_current": 22,
+  "temporary_hit_points": 0,
+  "inspiration": false,
+  "inventory": [
+    {
+      "id": "item001",
+      "name": "Quarterstaff",
+      "description": "A simple wooden staff",
+      "quantity": 1,
+      "weight": 4.0,
+      "value": "2 sp",
+      "item_type": "weapon",
+      "properties": {}
+    }
+  ],
+  "equipment": {
+    "weapon_main": null,
+    "weapon_off": null,
+    "armor": null,
+    "shield": null
+  },
+  "notes": "Veteran adventurer from v1"
+}

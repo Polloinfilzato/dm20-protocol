@@ -264,6 +264,14 @@ class DnDStorage:
         self._campaign_hash = self._compute_campaign_hash()
         logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully.")
 
+    def save(self) -> None:
+        """Save the current campaign to disk.
+
+        Public wrapper for _save_campaign, used by MCP tools that modify
+        character objects directly (equip, spell slots, rests, etc.).
+        """
+        self._save_campaign()
+
     def _save_monolithic_campaign(self) -> None:
         """Save campaign as a single JSON file (legacy format)."""
         campaign_file = self._get_campaign_file()
