@@ -22,6 +22,7 @@ class AgentRole(str, Enum):
     ARCHIVIST = "archivist"
     MODULE_KEEPER = "module_keeper"
     CONSISTENCY = "consistency"
+    ARBITER = "arbiter"
 
 
 class AgentRequest(BaseModel):
