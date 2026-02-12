@@ -4,7 +4,7 @@ status: backlog
 created: 2026-02-12T16:41:22Z
 progress: 0%
 prd: .claude/prds/bilingual-terminology-resolver.md
-github: TBD
+github: https://github.com/Polloinfilzato/dm20-protocol/issues/91
 ---
 
 # Epic: Bilingual Terminology Resolver
@@ -179,9 +179,13 @@ Tasks are sequential because each builds on the previous one. However, the dicti
 
 ## Tasks Created
 
-(Will be populated by /pm:epic-decompose)
+- [ ] 89.md - TermEntry Model + TermResolver with YAML Loading and O(1) Lookup (parallel: true)
+- [ ] 90.md - Core Terms Dictionary — ~500 Curated IT/EN Term Pairs (parallel: true)
+- [ ] 91.md - StyleTracker — Per-Category Language Preference Tracking (parallel: false, depends: #89)
+- [ ] 92.md - Rulebook Auto-Indexing — TermResolver Integration with RulebookManager (parallel: false, depends: #89, #90)
+- [ ] 93.md - Claudmaster Integration — Wire Terminology into Player Action Pipeline (parallel: false, depends: #89, #90, #91, #92)
 
 Total tasks: 5
-Parallel tasks: 1 (Task 2 can parallel with Task 1)
-Sequential tasks: 4 (Tasks 1, 3, 4, 5 are sequential)
+Parallel tasks: 2 (#89 and #90 can run in parallel)
+Sequential tasks: 3 (#91, #92, #93 are sequential)
 Estimated total effort: 14-20 hours
