@@ -88,5 +88,11 @@ fastmcp_cache/
 # Ruff
 .ruff_cache/
 
-# Claude Code project management
-# .claude/
+# Claude Code local settings (user-specific permissions)
+.claude/settings.local.json
+
+# Roo (external AI tool)
+.roo/
+
+# Virtual environments with spaces in name
+.venv */
