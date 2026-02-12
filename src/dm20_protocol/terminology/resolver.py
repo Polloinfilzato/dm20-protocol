@@ -2,14 +2,20 @@
 Term resolver with O(1) lookup and accent normalization.
 """
 
+import logging
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import yaml
 
 from .models import TermEntry
+
+if TYPE_CHECKING:
+    from dm20_protocol.rulebooks.manager import RulebookManager
+
+logger = logging.getLogger(__name__)
 
 
 class TermResolver:
@@ -202,3 +208,83 @@ class TermResolver:
         results.sort(key=lambda x: text.find(x[0]))
 
         return results
+
+    # Map source internal storage attributes to TermEntry categories
+    _RULEBOOK_STORAGE_MAP: list[tuple[str, str]] = [
+        ("_spells", "spell"),
+        ("_monsters", "monster"),
+        ("_classes", "class"),
+        ("_subclasses", "general"),
+        ("_races", "race"),
+        ("_subraces", "race"),
+        ("_feats", "general"),
+        ("_backgrounds", "general"),
+        ("_items", "item"),
+    ]
+
+    def index_from_rulebook(self, manager: "RulebookManager") -> int:
+        """Auto-index entity names from loaded rulebook sources.
+
+        Iterates through all loaded sources in the RulebookManager and extracts
+        entity names (spells, monsters, classes, races, items, etc.). Creates
+        basic TermEntry objects for each, indexed for English-term recognition.
+
+        Terms already present in the lookup dict (e.g., from YAML static
+        dictionary) are skipped — curated translations always take priority.
+
+        Auto-indexed terms have it_primary set equal to en (no Italian translation)
+        since they are extracted programmatically without translation data.
+
+        Args:
+            manager: RulebookManager with loaded sources
+
+        Returns:
+            Count of newly indexed terms
+        """
+        count = 0
+
+        for source in manager._sources.values():
+            if not source.is_loaded:
+                continue
+
+            for storage_attr, term_category in self._RULEBOOK_STORAGE_MAP:
+                storage = getattr(source, storage_attr, None)
+                if not storage:
+                    continue
+
+                for index, definition in storage.items():
+                    name = getattr(definition, "name", None)
+                    if not name:
+                        continue
+
+                    normalized_name = self._normalize(name)
+                    normalized_index = self._normalize(index)
+
+                    # Skip if already in lookup (static YAML terms take priority)
+                    if normalized_name in self._lookup or normalized_index in self._lookup:
+                        continue
+
+                    entry = TermEntry(
+                        canonical=index,
+                        category=term_category,
+                        en=name,
+                        it_primary=name,
+                        it_variants=[],
+                    )
+
+                    # Index both the display name and the index key
+                    self._lookup[normalized_name] = entry
+                    self._sorted_variants.append((normalized_name, name))
+
+                    if normalized_index != normalized_name:
+                        self._lookup[normalized_index] = entry
+                        self._sorted_variants.append((normalized_index, index))
+
+                    count += 1
+
+        if count > 0:
+            # Re-sort variants by length (longest first) for greedy matching
+            self._sorted_variants.sort(key=lambda x: len(x[0]), reverse=True)
+            logger.info("Indexed %d terms from rulebook sources", count)
+
+        return count
