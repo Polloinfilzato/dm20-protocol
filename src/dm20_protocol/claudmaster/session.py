@@ -97,10 +97,12 @@ class ClaudmasterSession(BaseModel):
                 - recent_messages: List of recent conversation messages
                 - agent_statuses: Current status of all agents
                 - config: Session configuration
+                - style_preferences: Language preferences from StyleTracker (if available)
+                - (any other metadata fields)
         """
         recent_messages = self.conversation_history[-max_messages:] if max_messages > 0 else []
 
-        return {
+        context = {
             "session_id": self.session_id,
             "campaign_id": self.campaign_id,
             "turn_count": self.turn_count,
@@ -108,6 +110,11 @@ class ClaudmasterSession(BaseModel):
             "agent_statuses": dict(self.active_agents),
             "config": self.config.model_dump()
         }
+
+        # Include metadata (e.g., style_preferences, acting_character, etc.)
+        context.update(self.metadata)
+
+        return context
 
 
 __all__ = ["ClaudmasterSession"]
