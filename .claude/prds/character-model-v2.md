@@ -1,7 +1,7 @@
 ---
 name: character-model-v2
 description: Extend Character model with full D&D 5e sheet fields, add creation wizard with rulebook integration, and implement level-up automation
-status: backlog
+status: complete
 created: 2026-02-12T18:04:10Z
 ---
 
