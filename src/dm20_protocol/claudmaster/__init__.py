@@ -200,6 +200,16 @@ from .split_party import (
     SplitProposal,
     SplitPartyManager,
 )
+from .llm_client import (
+    AnthropicLLMClient,
+    MockLLMClient,
+    MultiModelClient,
+    LLMClientError,
+    LLMConfigurationError,
+    LLMAPIError,
+    LLMRateLimitError,
+    LLMDependencyError,
+)
 
 __all__ = [
     "Agent",
@@ -365,4 +375,13 @@ __all__ = [
     "MessageResult",
     "SplitProposal",
     "SplitPartyManager",
+    # LLM Client (Issue #75)
+    "AnthropicLLMClient",
+    "MockLLMClient",
+    "MultiModelClient",
+    "LLMClientError",
+    "LLMConfigurationError",
+    "LLMAPIError",
+    "LLMRateLimitError",
+    "LLMDependencyError",
 ]

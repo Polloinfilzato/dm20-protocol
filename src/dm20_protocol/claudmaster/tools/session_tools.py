@@ -20,7 +20,10 @@ from ..config import ClaudmasterConfig
 from ..base import AgentRole
 from ..persistence import SessionSerializer, SessionMetadata
 from ..agents.archivist import ArchivistAgent
+from ..agents.narrator import NarratorAgent, NarrativeStyle
+from ..agents.arbiter import ArbiterAgent
 from ..consistency.fact_database import FactDatabase
+from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -138,8 +141,7 @@ class SessionManager:
         # Create orchestrator
         orchestrator = Orchestrator(campaign=campaign, config=session_config)
 
-        # Register Python agents (data retrieval only, no LLM calls yet)
-        # Archivist: provides game state queries, combat state, character stats
+        # Register Python agents (data retrieval only, no LLM calls)
         archivist = ArchivistAgent(
             campaign=campaign,
             rules_lookup_fn=None,  # TODO: Wire RAG rules lookup once vector store ready
@@ -148,7 +150,28 @@ class SessionManager:
         orchestrator.register_agent("archivist", archivist)
         logger.info("[Hybrid Python] Registered ArchivistAgent for data retrieval")
 
-        # TODO: Register NarratorAgent once LLM client is wired
+        # Create LLM clients for dual-agent architecture
+        narrator_llm, arbiter_llm = self._create_llm_clients(session_config)
+
+        # Narrator: fast narrative generation (Haiku by default)
+        narrator_style = NarrativeStyle(session_config.narrative_style) if session_config.narrative_style in [s.value for s in NarrativeStyle] else NarrativeStyle.DESCRIPTIVE
+        narrator = NarratorAgent(
+            llm=narrator_llm,
+            style=narrator_style,
+            max_tokens=session_config.narrator_max_tokens,
+        )
+        orchestrator.register_agent("narrator", narrator)
+        logger.info(f"[Dual-Agent] Registered NarratorAgent (model: {session_config.narrator_model})")
+
+        # Arbiter: thorough mechanical resolution (Sonnet by default)
+        arbiter = ArbiterAgent(
+            llm=arbiter_llm,
+            campaign=campaign,
+            max_tokens=session_config.arbiter_max_tokens,
+        )
+        orchestrator.register_agent("arbiter", arbiter)
+        logger.info(f"[Dual-Agent] Registered ArbiterAgent (model: {session_config.arbiter_model})")
+
         # TODO: Register ModuleKeeperAgent once vector store is wired
 
         # Start the session
@@ -230,7 +253,7 @@ class SessionManager:
         # Create new orchestrator
         orchestrator = Orchestrator(campaign=campaign, config=config)
 
-        # Register Python agents (same as in start_session)
+        # Register agents (same as in start_session)
         archivist = ArchivistAgent(
             campaign=campaign,
             rules_lookup_fn=None,
@@ -238,6 +261,25 @@ class SessionManager:
         )
         orchestrator.register_agent("archivist", archivist)
         logger.info("[Hybrid Python] Registered ArchivistAgent for resumed session")
+
+        # Create LLM clients and register dual agents
+        narrator_llm, arbiter_llm = self._create_llm_clients(config)
+
+        narrator_style = NarrativeStyle(config.narrative_style) if config.narrative_style in [s.value for s in NarrativeStyle] else NarrativeStyle.DESCRIPTIVE
+        narrator = NarratorAgent(
+            llm=narrator_llm,
+            style=narrator_style,
+            max_tokens=config.narrator_max_tokens,
+        )
+        orchestrator.register_agent("narrator", narrator)
+
+        arbiter = ArbiterAgent(
+            llm=arbiter_llm,
+            campaign=campaign,
+            max_tokens=config.arbiter_max_tokens,
+        )
+        orchestrator.register_agent("arbiter", arbiter)
+        logger.info("[Dual-Agent] Registered NarratorAgent + ArbiterAgent for resumed session")
 
         # Recreate session with saved state
         session = ClaudmasterSession(
@@ -406,6 +448,53 @@ class SessionManager:
             session=session,
             status="active"
         )
+
+    @staticmethod
+    def _create_llm_clients(config: ClaudmasterConfig) -> tuple:
+        """
+        Create LLM clients for the dual-agent architecture.
+
+        Attempts to create real Anthropic clients. Falls back to MockLLMClient
+        if the anthropic package is not installed or API key is missing.
+
+        Args:
+            config: Session configuration with per-agent model settings.
+
+        Returns:
+            Tuple of (narrator_llm, arbiter_llm) client instances.
+        """
+        try:
+            narrator_llm = AnthropicLLMClient(
+                model=config.narrator_model,
+                temperature=config.narrator_temperature,
+                default_max_tokens=config.narrator_max_tokens,
+            )
+            arbiter_llm = AnthropicLLMClient(
+                model=config.arbiter_model,
+                temperature=config.arbiter_temperature,
+                default_max_tokens=config.arbiter_max_tokens,
+            )
+            logger.info(
+                f"[Dual-Agent] Created Anthropic LLM clients: "
+                f"Narrator={config.narrator_model}, Arbiter={config.arbiter_model}"
+            )
+            return narrator_llm, arbiter_llm
+
+        except (LLMDependencyError, Exception) as e:
+            # Fallback to mock clients (useful for testing without API key)
+            logger.warning(
+                f"[Dual-Agent] Cannot create Anthropic clients ({e}). "
+                f"Using MockLLMClient as fallback."
+            )
+            narrator_llm = MockLLMClient(
+                default_response="The scene unfolds before you..."
+            )
+            arbiter_llm = MockLLMClient(
+                default_response='{"success": true, "dice_rolls": [], "state_changes": [], '
+                '"rules_applied": [], "narrative_hooks": ["The action resolves."], '
+                '"reasoning": "Mock resolution."}'
+            )
+            return narrator_llm, arbiter_llm
 
     def _build_session_state(
         self,

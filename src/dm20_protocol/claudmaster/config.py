@@ -37,6 +37,40 @@ class ClaudmasterConfig(BaseModel):
         description="LLM temperature parameter for creativity (0.0-2.0)"
     )
 
+    # Per-agent model configuration (dual-agent architecture)
+    narrator_model: str = Field(
+        default="claude-haiku-4-5-20251001",
+        description="Model for the Narrator agent (fast, creative)"
+    )
+    arbiter_model: str = Field(
+        default="claude-sonnet-4-5-20250929",
+        description="Model for the Arbiter agent (thorough, rules-focused)"
+    )
+    narrator_max_tokens: int = Field(
+        default=1024,
+        ge=256,
+        le=8192,
+        description="Max tokens for Narrator responses"
+    )
+    arbiter_max_tokens: int = Field(
+        default=2048,
+        ge=256,
+        le=16384,
+        description="Max tokens for Arbiter responses"
+    )
+    narrator_temperature: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=2.0,
+        description="Temperature for Narrator (higher = more creative)"
+    )
+    arbiter_temperature: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=2.0,
+        description="Temperature for Arbiter (lower = more precise)"
+    )
+
     # Agent Behavior
     improvisation_level: ImprovisationLevel = Field(
         default=ImprovisationLevel.MEDIUM,
@@ -137,7 +171,7 @@ class ClaudmasterConfig(BaseModel):
             f"improvisation_level must be ImprovisationLevel, str, or int, got {type(v)}"
         )
 
-    @field_validator("temperature")
+    @field_validator("temperature", "narrator_temperature", "arbiter_temperature")
     @classmethod
     def validate_temperature(cls, v: float) -> float:
         """Ensure temperature is within valid range."""

@@ -481,8 +481,12 @@ class Orchestrator:
         """
         Determine which agents should handle this intent.
 
+        Dual-agent routing: Narrator (narrative) + Arbiter (mechanics) run
+        in parallel for any intent that may require mechanical resolution.
+
         Routing logic:
         - NARRATOR: Always included (provides narrative)
+        - ARBITER: Combat, action, exploration with checks (mechanical resolution)
         - ARCHIVIST: Combat, system actions (tracks state, rules)
         - MODULE_KEEPER: Exploration, questions (provides lore, details)
         - CONSISTENCY: Complex roleplay or multi-turn actions (fact checking)
@@ -495,43 +499,60 @@ class Orchestrator:
         """
         selected_agents: list[Agent] = []
 
+        # Helper to find agent by role
+        def _find(role: AgentRole) -> Agent | None:
+            return next((a for a in self.agents.values() if a.role == role), None)
+
         # Narrator always participates (primary narrative voice)
-        narrator = next((a for a in self.agents.values() if a.role == AgentRole.NARRATOR), None)
+        narrator = _find(AgentRole.NARRATOR)
         if narrator:
             selected_agents.append(narrator)
 
         # Route based on intent type
         if intent.intent_type == IntentType.COMBAT:
-            # Combat needs Archivist for rules and state tracking
-            archivist = next((a for a in self.agents.values() if a.role == AgentRole.ARCHIVIST), None)
+            # Combat: Arbiter resolves mechanics, Archivist tracks state
+            arbiter = _find(AgentRole.ARBITER)
+            if arbiter:
+                selected_agents.append(arbiter)
+            archivist = _find(AgentRole.ARCHIVIST)
             if archivist:
                 selected_agents.append(archivist)
 
+        elif intent.intent_type == IntentType.ACTION:
+            # General actions may need mechanical resolution
+            arbiter = _find(AgentRole.ARBITER)
+            if arbiter:
+                selected_agents.append(arbiter)
+
         elif intent.intent_type == IntentType.EXPLORATION:
-            # Exploration benefits from Module Keeper for location details
-            module_keeper = next((a for a in self.agents.values() if a.role == AgentRole.MODULE_KEEPER), None)
+            # Exploration: Arbiter for checks, Module Keeper for lore
+            arbiter = _find(AgentRole.ARBITER)
+            if arbiter:
+                selected_agents.append(arbiter)
+            module_keeper = _find(AgentRole.MODULE_KEEPER)
             if module_keeper:
                 selected_agents.append(module_keeper)
 
         elif intent.intent_type == IntentType.QUESTION:
             # Questions may need Module Keeper for lore lookup
-            module_keeper = next((a for a in self.agents.values() if a.role == AgentRole.MODULE_KEEPER), None)
+            module_keeper = _find(AgentRole.MODULE_KEEPER)
             if module_keeper:
                 selected_agents.append(module_keeper)
 
         elif intent.intent_type == IntentType.ROLEPLAY:
-            # Roleplay benefits from Consistency for fact tracking
-            consistency = next((a for a in self.agents.values() if a.role == AgentRole.CONSISTENCY), None)
+            # Roleplay: Arbiter for persuasion/deception checks, Consistency for facts
+            arbiter = _find(AgentRole.ARBITER)
+            if arbiter:
+                selected_agents.append(arbiter)
+            consistency = _find(AgentRole.CONSISTENCY)
             if consistency:
                 selected_agents.append(consistency)
 
         elif intent.intent_type == IntentType.SYSTEM:
             # System commands need Archivist for state management
-            archivist = next((a for a in self.agents.values() if a.role == AgentRole.ARCHIVIST), None)
+            archivist = _find(AgentRole.ARCHIVIST)
             if archivist:
                 selected_agents.append(archivist)
-
-        # ACTION type gets just Narrator (default handling)
 
         logger.debug(
             f"Routed intent {intent.intent_type} to agents: "
@@ -590,37 +611,57 @@ class Orchestrator:
                 metadata={"error": "no_agents"}
             )
 
-        # Step 3: Execute agents with timeout
+        # Step 3: Execute agents in parallel with timeout
         context = self.session.get_context()
         context["player_input"] = player_input
+        context["player_action"] = player_input  # Alias for agent compatibility
         context["intent"] = intent.model_dump()
+        context["player_intent"] = intent.model_dump()  # Alias for Arbiter
         context["game_state"] = self.campaign.game_state.model_dump()
 
-        agent_responses: list[AgentResponse] = []
-
+        # Mark all agents as working
         for agent in agents_to_run:
             self.session.set_agent_status(agent.name, "working")
+
+        # Run all agents in parallel using asyncio.gather
+        async def _run_agent(agent: Agent) -> AgentResponse:
+            """Execute a single agent with timeout and status tracking."""
             try:
-                # Execute agent with timeout
                 response = await asyncio.wait_for(
                     agent.run(context),
                     timeout=self.config.agent_timeout
                 )
-                agent_responses.append(response)
                 self.session.set_agent_status(agent.name, "completed")
                 logger.info(f"Agent {agent.name} completed successfully")
-
+                return response
             except asyncio.TimeoutError:
                 self.session.set_agent_status(agent.name, "error")
-                error = AgentTimeoutError(agent.name, self.config.agent_timeout)
-                logger.error(str(error))
-                raise error
-
+                raise AgentTimeoutError(agent.name, self.config.agent_timeout)
             except Exception as e:
                 self.session.set_agent_status(agent.name, "error")
-                error = AgentExecutionError(agent.name, e)
-                logger.error(str(error))
-                raise error
+                raise AgentExecutionError(agent.name, e)
+
+        results = await asyncio.gather(
+            *[_run_agent(agent) for agent in agents_to_run],
+            return_exceptions=True,
+        )
+
+        # Separate successes from failures
+        agent_responses: list[AgentResponse] = []
+        errors: list[Exception] = []
+        for result in results:
+            if isinstance(result, Exception):
+                errors.append(result)
+            else:
+                agent_responses.append(result)
+
+        # If all agents failed, raise the first error
+        if not agent_responses and errors:
+            raise errors[0]
+
+        # Log any partial failures (some agents succeeded, some failed)
+        for err in errors:
+            logger.warning(f"Agent error (non-fatal, other agents succeeded): {err}")
 
         # Step 4: Aggregate responses
         orchestrator_response = self._aggregate_responses(agent_responses)
@@ -687,10 +728,12 @@ class Orchestrator:
         """
         Aggregate multiple agent responses into a single coherent response.
 
-        Aggregation strategy:
-        - Narrator response becomes primary narrative
-        - Other agents contribute to state_changes and metadata
-        - All raw agent responses are preserved for debugging
+        Dual-agent merge strategy:
+        1. Narrator response becomes primary narrative
+        2. Arbiter provides mechanical outcomes (dice, state changes, narrative hooks)
+        3. Narrative hooks from Arbiter are appended to enrich the narrative
+        4. State changes come from both Archivist and Arbiter
+        5. All raw agent responses are preserved for debugging
 
         Args:
             responses: List of agent responses to aggregate
@@ -718,11 +761,24 @@ class Orchestrator:
             if responses and isinstance(responses[0].action_result, str):
                 primary_narrative = responses[0].action_result
 
-        # Collect state changes from all agents
+        # Find arbiter response for mechanical enrichment
+        arbiter_response = next(
+            (r for r in responses if r.agent_role == AgentRole.ARBITER),
+            None
+        )
+
+        # Merge arbiter narrative hooks into the narrative
+        if arbiter_response:
+            hooks = arbiter_response.observations.get("narrative_hooks", [])
+            if hooks and isinstance(hooks, list):
+                hooks_text = " ".join(hooks)
+                primary_narrative = f"{primary_narrative}\n\n{hooks_text}"
+                logger.debug(f"Merged {len(hooks)} narrative hooks from Arbiter")
+
+        # Collect state changes from Archivist and Arbiter
         state_changes: list[dict[str, Any]] = []
         for response in responses:
-            if response.agent_role == AgentRole.ARCHIVIST:
-                # Archivist manages state, extract changes from observations
+            if response.agent_role in (AgentRole.ARCHIVIST, AgentRole.ARBITER):
                 if "state_changes" in response.observations:
                     changes = response.observations["state_changes"]
                     if isinstance(changes, list):
@@ -734,8 +790,16 @@ class Orchestrator:
         metadata: dict[str, Any] = {
             "agent_count": len(responses),
             "agents_used": [r.agent_name for r in responses],
-            "roles_used": [r.agent_role.value for r in responses]
+            "roles_used": [r.agent_role.value for r in responses],
         }
+
+        # Add Arbiter mechanical summary to metadata
+        if arbiter_response:
+            metadata["arbiter_success"] = arbiter_response.observations.get("success")
+            metadata["dice_roll_count"] = arbiter_response.observations.get("num_dice_rolls", 0)
+            metadata["has_mechanical_resolution"] = True
+        else:
+            metadata["has_mechanical_resolution"] = False
 
         return OrchestratorResponse(
             narrative=primary_narrative,
