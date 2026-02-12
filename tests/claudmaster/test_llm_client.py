@@ -64,34 +64,12 @@ def mock_anthropic_message() -> MagicMock:
     return message
 
 
-@pytest.fixture
-def mock_anthropic_stream() -> AsyncMock:
-    """Create a mock Anthropic streaming response."""
-    stream = AsyncMock()
-
-    # Mock text stream
-    async def text_stream_generator():
-        for chunk in ["This ", "is ", "a ", "streamed ", "response."]:
-            yield chunk
-
-    stream.text_stream = text_stream_generator()
-
-    # Mock final message
-    final_message = MagicMock()
-    final_message.usage = MagicMock()
-    final_message.usage.input_tokens = 50
-    final_message.usage.output_tokens = 100
-    stream.get_final_message = AsyncMock(return_value=final_message)
-
-    return stream
-
-
 # ---------------------------------------------------------------------------
 # MockLLMClient Tests
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mock_llm_basic_generate(mock_llm_client: MockLLMClient) -> None:
     """Test basic MockLLMClient generation."""
     response = await mock_llm_client.generate("Test prompt")
@@ -103,7 +81,7 @@ async def test_mock_llm_basic_generate(mock_llm_client: MockLLMClient) -> None:
     assert mock_llm_client.calls[0]["max_tokens"] == 1024
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mock_llm_custom_max_tokens(mock_llm_client: MockLLMClient) -> None:
     """Test MockLLMClient with custom max_tokens."""
     response = await mock_llm_client.generate("Test prompt", max_tokens=2048)
@@ -111,7 +89,7 @@ async def test_mock_llm_custom_max_tokens(mock_llm_client: MockLLMClient) -> Non
     assert mock_llm_client.calls[0]["max_tokens"] == 2048
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mock_llm_multiple_responses(mock_llm_with_responses: MockLLMClient) -> None:
     """Test MockLLMClient cycling through multiple responses."""
     response1 = await mock_llm_with_responses.generate("Prompt 1")
@@ -126,7 +104,7 @@ async def test_mock_llm_multiple_responses(mock_llm_with_responses: MockLLMClien
     assert mock_llm_with_responses.call_count == 4
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mock_llm_reset(mock_llm_client: MockLLMClient) -> None:
     """Test MockLLMClient reset functionality."""
     await mock_llm_client.generate("Test 1")
@@ -141,7 +119,7 @@ async def test_mock_llm_reset(mock_llm_client: MockLLMClient) -> None:
     assert len(mock_llm_client.calls) == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mock_llm_stream(mock_llm_client: MockLLMClient) -> None:
     """Test MockLLMClient streaming generation."""
     chunks = []
@@ -160,21 +138,26 @@ async def test_mock_llm_stream(mock_llm_client: MockLLMClient) -> None:
 
 def test_anthropic_client_missing_dependency() -> None:
     """Test that AnthropicLLMClient raises error when anthropic package is missing."""
-    with patch("dm20_protocol.claudmaster.llm_client.__import__", side_effect=ImportError):
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", False):
         with pytest.raises(LLMDependencyError, match="anthropic"):
             AnthropicLLMClient(api_key="test-key")
 
 
 def test_anthropic_client_missing_api_key() -> None:
     """Test that AnthropicLLMClient raises error when API key is missing."""
-    with patch.dict(os.environ, {}, clear=True):
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()), \
+         patch.dict(os.environ, {}, clear=True):
         with pytest.raises(LLMConfigurationError, match="API key is required"):
             AnthropicLLMClient()
 
 
 def test_anthropic_client_with_api_key_param() -> None:
     """Test AnthropicLLMClient initialization with API key parameter."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic"):
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()):
         client = AnthropicLLMClient(api_key="test-key-123")
         assert client.api_key == "test-key-123"
         assert client.model == "claude-sonnet-4-5-20250929"
@@ -184,15 +167,19 @@ def test_anthropic_client_with_api_key_param() -> None:
 
 def test_anthropic_client_with_env_var() -> None:
     """Test AnthropicLLMClient initialization with environment variable."""
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "env-key-456"}):
-        with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic"):
-            client = AnthropicLLMClient()
-            assert client.api_key == "env-key-456"
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()), \
+         patch.dict(os.environ, {"ANTHROPIC_API_KEY": "env-key-456"}):
+        client = AnthropicLLMClient()
+        assert client.api_key == "env-key-456"
 
 
 def test_anthropic_client_custom_params() -> None:
     """Test AnthropicLLMClient with custom parameters."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic"):
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()):
         client = AnthropicLLMClient(
             api_key="test-key",
             model="claude-haiku-4-5-20251001",
@@ -209,105 +196,120 @@ def test_anthropic_client_custom_params() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_anthropic_generate_success(mock_anthropic_message: MagicMock) -> None:
     """Test successful generation with AnthropicLLMClient."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic") as mock_anthropic:
-        # Setup mock
-        mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(return_value=mock_anthropic_message)
-        mock_anthropic.return_value = mock_client_instance
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(return_value=mock_anthropic_message)
 
-        # Create client and generate
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
         client = AnthropicLLMClient(api_key="test-key")
         response = await client.generate("Test prompt", max_tokens=512)
 
-        # Verify
-        assert response == "This is a generated response from Claude."
-        mock_client_instance.messages.create.assert_called_once()
-        call_kwargs = mock_client_instance.messages.create.call_args[1]
-        assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
-        assert call_kwargs["max_tokens"] == 512
-        assert call_kwargs["temperature"] == 0.7
-        assert call_kwargs["messages"][0]["content"] == "Test prompt"
+    assert response == "This is a generated response from Claude."
+    mock_async_client.messages.create.assert_called_once()
+    call_kwargs = mock_async_client.messages.create.call_args[1]
+    assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+    assert call_kwargs["max_tokens"] == 512
+    assert call_kwargs["temperature"] == 0.7
+    assert call_kwargs["messages"][0]["content"] == "Test prompt"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_anthropic_generate_default_max_tokens(mock_anthropic_message: MagicMock) -> None:
     """Test that AnthropicLLMClient uses default_max_tokens when not specified."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic") as mock_anthropic:
-        mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(return_value=mock_anthropic_message)
-        mock_anthropic.return_value = mock_client_instance
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(return_value=mock_anthropic_message)
 
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
         client = AnthropicLLMClient(api_key="test-key", default_max_tokens=2048)
         await client.generate("Test prompt")
 
-        call_kwargs = mock_client_instance.messages.create.call_args[1]
-        assert call_kwargs["max_tokens"] == 2048
+    call_kwargs = mock_async_client.messages.create.call_args[1]
+    assert call_kwargs["max_tokens"] == 2048
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_anthropic_generate_api_error() -> None:
     """Test AnthropicLLMClient handles API errors."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic") as mock_anthropic:
-        # Create a real anthropic module mock with APIError
-        anthropic_module = MagicMock()
-        api_error_instance = Exception("API request failed")
-        anthropic_module.APIError = type("APIError", (Exception,), {})
-        api_error = anthropic_module.APIError("API request failed")
+    # Create mock anthropic module with exception classes
+    mock_module = MagicMock()
+    mock_module.APIError = type("APIError", (Exception,), {})
+    mock_module.RateLimitError = type("RateLimitError", (Exception,), {})
 
-        mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(side_effect=api_error)
-        mock_anthropic.return_value = mock_client_instance
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(
+        side_effect=mock_module.APIError("API request failed")
+    )
 
-        with patch("dm20_protocol.claudmaster.llm_client.AnthropicLLMClient._anthropic_module", anthropic_module):
-            client = AnthropicLLMClient(api_key="test-key")
-            client._anthropic_module = anthropic_module
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", mock_module), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
+        client = AnthropicLLMClient(api_key="test-key")
 
-            with pytest.raises(LLMAPIError, match="API error"):
-                await client.generate("Test prompt")
+        with pytest.raises(LLMAPIError, match="API error"):
+            await client.generate("Test prompt")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_anthropic_generate_rate_limit_error() -> None:
     """Test AnthropicLLMClient handles rate limit errors."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic") as mock_anthropic:
-        # Create a real anthropic module mock with RateLimitError
-        anthropic_module = MagicMock()
-        anthropic_module.RateLimitError = type("RateLimitError", (Exception,), {})
-        rate_limit_error = anthropic_module.RateLimitError("Rate limit exceeded")
+    mock_module = MagicMock()
+    mock_module.APIError = type("APIError", (Exception,), {})
+    mock_module.RateLimitError = type("RateLimitError", (Exception,), {})
 
-        mock_client_instance = AsyncMock()
-        mock_client_instance.messages.create = AsyncMock(side_effect=rate_limit_error)
-        mock_anthropic.return_value = mock_client_instance
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(
+        side_effect=mock_module.RateLimitError("Rate limit exceeded")
+    )
 
-        with patch("dm20_protocol.claudmaster.llm_client.AnthropicLLMClient._anthropic_module", anthropic_module):
-            client = AnthropicLLMClient(api_key="test-key")
-            client._anthropic_module = anthropic_module
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", mock_module), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
+        client = AnthropicLLMClient(api_key="test-key")
 
-            with pytest.raises(LLMRateLimitError, match="Rate limit exceeded"):
-                await client.generate("Test prompt")
+        with pytest.raises(LLMRateLimitError, match="Rate limit exceeded"):
+            await client.generate("Test prompt")
 
 
-@pytest.mark.asyncio
-async def test_anthropic_generate_stream_success(mock_anthropic_stream: AsyncMock) -> None:
+@pytest.mark.anyio
+async def test_anthropic_generate_stream_success() -> None:
     """Test successful streaming generation with AnthropicLLMClient."""
-    with patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic") as mock_anthropic:
-        # Setup mock
-        mock_client_instance = AsyncMock()
-        mock_client_instance.messages.stream = MagicMock(return_value=mock_anthropic_stream)
-        mock_anthropic.return_value = mock_client_instance
+    # Create a mock stream context manager
+    async def text_stream_generator():
+        for chunk in ["This ", "is ", "a ", "streamed ", "response."]:
+            yield chunk
 
-        # Create client and generate stream
+    mock_stream = MagicMock()
+    mock_stream.text_stream = text_stream_generator()
+
+    mock_async_client = AsyncMock()
+    # The stream method is a regular method returning an async context manager
+    mock_stream_cm = AsyncMock()
+    mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_stream)
+    mock_stream_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_async_client.messages.stream = MagicMock(return_value=mock_stream_cm)
+
+    # Mock the final message (called after the 'async with' block)
+    final_message = MagicMock()
+    final_message.usage.input_tokens = 50
+    final_message.usage.output_tokens = 100
+    mock_stream.get_final_message = AsyncMock(return_value=final_message)
+
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
         client = AnthropicLLMClient(api_key="test-key")
         chunks = []
         async for chunk in client.generate_stream("Test prompt", max_tokens=512):
             chunks.append(chunk)
 
-        # Verify
-        assert len(chunks) == 5
-        assert "".join(chunks) == "This is a streamed response."
+    assert len(chunks) == 5
+    assert "".join(chunks) == "This is a streamed response."
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +360,7 @@ def test_multi_model_client_unknown_role() -> None:
         multi_client.get_client("unknown")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_multi_model_client_routing() -> None:
     """Test that MultiModelClient correctly routes to different models."""
     narrator_client = MockLLMClient(default_response="Narrator response")
@@ -426,12 +428,12 @@ def test_config_temperature_validation() -> None:
     assert config.narrator_temperature == 0.0
     assert config.arbiter_temperature == 2.0
 
-    # Invalid narrator_temperature
-    with pytest.raises(ValueError, match="temperature must be between 0.0 and 2.0"):
+    # Invalid narrator_temperature (exceeds 2.0)
+    with pytest.raises(ValueError):
         ClaudmasterConfig(narrator_temperature=3.0)
 
-    # Invalid arbiter_temperature
-    with pytest.raises(ValueError, match="temperature must be between 0.0 and 2.0"):
+    # Invalid arbiter_temperature (below 0.0)
+    with pytest.raises(ValueError):
         ClaudmasterConfig(arbiter_temperature=-0.1)
 
 

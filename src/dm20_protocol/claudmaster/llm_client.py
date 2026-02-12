@@ -14,6 +14,16 @@ from typing import Any, AsyncGenerator
 
 logger = logging.getLogger("dm20-protocol")
 
+# Lazy import of anthropic SDK — stored at module level for patchability in tests
+try:
+    from anthropic import AsyncAnthropic
+    import anthropic as _anthropic_module
+    _HAS_ANTHROPIC = True
+except ImportError:
+    AsyncAnthropic = None  # type: ignore[assignment,misc]
+    _anthropic_module = None  # type: ignore[assignment]
+    _HAS_ANTHROPIC = False
+
 
 # ---------------------------------------------------------------------------
 # Custom Exceptions
@@ -162,15 +172,14 @@ class AnthropicLLMClient:
         temperature: float = 0.7,
         default_max_tokens: int = 1024,
     ) -> None:
-        # Lazy import anthropic to make it optional
-        try:
-            from anthropic import AsyncAnthropic
-            self._anthropic_module = __import__("anthropic")
-        except ImportError as e:
+        # Check that anthropic SDK is available
+        if not _HAS_ANTHROPIC:
             raise LLMDependencyError(
                 "The 'anthropic' package is required to use AnthropicLLMClient. "
                 "Install it with: pip install anthropic"
-            ) from e
+            )
+
+        self._anthropic_module = _anthropic_module
 
         # Get API key
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
