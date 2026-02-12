@@ -1,8 +1,8 @@
 ---
 name: multi-source-rulebook
-status: backlog
+status: in_progress
 created: 2026-02-12T02:41:42Z
-progress: 0%
+progress: 20%
 prd: .claude/prds/multi-source-rulebook.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/80
 ---
