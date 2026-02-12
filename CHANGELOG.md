@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Extended update_character** — Now supports `experience_points`, `speed` scalar fields and list add/remove operations for `conditions`, `skill_proficiencies`, `tool_proficiencies`, `saving_throw_proficiencies`, `languages`, and `features_and_traits`. List params accept JSON arrays or comma-separated strings. Ability score updates now correctly modify the abilities dict.
+- **Spell Management Tools** — `use_spell_slot` (decrement available slots with validation), `add_spell` (add to spells_known with duplicate detection), `remove_spell` (remove by name or ID).
+- **Rest Mechanics** — `long_rest` (reset spell slots, restore half hit dice, clear death saves, optionally restore HP to max), `short_rest` (spend hit dice for healing with CON modifier, minimum 1 HP per die).
+- **Death Save Tracking** — `add_death_save` tool tracks successes/failures. Auto-stabilizes at 3 successes (HP → 1, removes unconscious condition) or reports death at 3 failures.
 - **Inventory Management** — Three new MCP tools: `equip_item` (move item from inventory to equipment slot with auto-unequip), `unequip_item` (move equipped item back to inventory), `remove_item` (delete item with partial quantity support). Item lookup supports case-insensitive name and ID matching.
 - **Level-Up Engine** — New `LevelUpEngine` module handles character progression with `level_up_character` MCP tool. Supports average and roll HP methods, class feature addition from rulebook data, spell slot progression for full/half/third casters, ASI at standard levels (with Fighter/Rogue extras), subclass selection at class-specific levels, and hit dice tracking. Returns structured `LevelUpResult` with summary of all changes.
 - **Character Builder** — New `CharacterBuilder` module auto-populates characters from rulebook data (class, race, background). Supports Standard Array, Point Buy, and manual ability score methods. Calculates HP, assigns saving throws, proficiencies, starting equipment, spell slots, racial traits, class features, and languages automatically. Enhanced `create_character` MCP tool with `subclass`, `subrace`, `ability_method`, and `ability_assignments` parameters.
@@ -26,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Player guide** — `GUIDA_DM.md` rewritten with practical gameplay instructions, context management guide, and troubleshooting
 
 ### Fixed
+- **DnDStorage.save()** — Added public `save()` method (was missing despite being called by inventory/level-up tools)
 - `start_claudmaster_session` — Now properly integrates with `DnDStorage` to load campaigns by name instead of returning hardcoded error
 - `player_action` tool — Registered as `@mcp.tool` in `main.py` (existed but was not exposed via MCP)
 - Tool output enrichment — Key tools (`get_character`, `get_npc`, `get_game_state`) now return comprehensive data for AI DM consumption including inventory details, NPC relationships, and combat state

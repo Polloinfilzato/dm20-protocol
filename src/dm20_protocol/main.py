@@ -18,7 +18,7 @@ from pydantic import Field
 from .storage import DnDStorage
 from .models import (
     Character, NPC, Location, Quest, SessionNote, AdventureEvent, EventType,
-    AbilityScore, CharacterClass, Race, Item
+    AbilityScore, CharacterClass, Race, Item, Spell
 )
 from .character_builder import CharacterBuilder, CharacterBuilderError
 from .level_up_engine import LevelUpEngine, LevelUpError
@@ -413,42 +413,159 @@ Level {character.character_class.level} {character.race.name} {character.charact
 
     return char_info
 
+# --- Character Update Helpers ---
+
+def _parse_json_list(value: str) -> list[str]:
+    """Parse a JSON list string, or fall back to comma-separated values."""
+    try:
+        parsed = json.loads(value)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+        return [str(parsed)]
+    except json.JSONDecodeError:
+        return [item.strip() for item in value.split(",") if item.strip()]
+
+
+# Mapping from add/remove param names to (character field, operation)
+_LIST_OPERATIONS = {
+    "add_conditions": ("conditions", "add"),
+    "remove_conditions": ("conditions", "remove"),
+    "add_skill_proficiencies": ("skill_proficiencies", "add"),
+    "remove_skill_proficiencies": ("skill_proficiencies", "remove"),
+    "add_tool_proficiencies": ("tool_proficiencies", "add"),
+    "remove_tool_proficiencies": ("tool_proficiencies", "remove"),
+    "add_languages": ("languages", "add"),
+    "remove_languages": ("languages", "remove"),
+    "add_saving_throw_proficiencies": ("saving_throw_proficiencies", "add"),
+    "remove_saving_throw_proficiencies": ("saving_throw_proficiencies", "remove"),
+    "add_features_and_traits": ("features_and_traits", "add"),
+    "remove_features_and_traits": ("features_and_traits", "remove"),
+}
+
+_ABILITY_NAMES = {"strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"}
+
+
 @mcp.tool
 def update_character(
     name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")],
+    # Basic info
     name: Annotated[str | None, Field(description="New character name. If you change this, you must use the character's ID to identify them.")] = None,
     player_name: Annotated[str | None, Field(description="The name of the player in control of this character")] = None,
     description: Annotated[str | None, Field(description="A brief description of the character's appearance and demeanor.")] = None,
     bio: Annotated[str | None, Field(description="The character's backstory, personality, and motivations.")] = None,
     background: Annotated[str | None, Field(description="Character background")] = None,
     alignment: Annotated[str | None, Field(description="Character alignment")] = None,
+    # Combat stats
     hit_points_current: Annotated[int | None, Field(description="Current hit points", ge=0)] = None,
     hit_points_max: Annotated[int | None, Field(description="Maximum hit points", ge=1)] = None,
     temporary_hit_points: Annotated[int | None, Field(description="Temporary hit points", ge=0)] = None,
     armor_class: Annotated[int | None, Field(description="Armor class")] = None,
+    # Progression
+    experience_points: Annotated[int | None, Field(description="Experience points", ge=0)] = None,
+    speed: Annotated[int | None, Field(description="Movement speed in feet", ge=0)] = None,
+    # Misc
     inspiration: Annotated[bool | None, Field(description="Inspiration status")] = None,
     notes: Annotated[str | None, Field(description="Additional notes about the character")] = None,
+    # Ability scores
     strength: Annotated[int | None, Field(description="Strength score", ge=1, le=30)] = None,
     dexterity: Annotated[int | None, Field(description="Dexterity score", ge=1, le=30)] = None,
     constitution: Annotated[int | None, Field(description="Constitution score", ge=1, le=30)] = None,
     intelligence: Annotated[int | None, Field(description="Intelligence score", ge=1, le=30)] = None,
     wisdom: Annotated[int | None, Field(description="Wisdom score", ge=1, le=30)] = None,
     charisma: Annotated[int | None, Field(description="Charisma score", ge=1, le=30)] = None,
+    # List add/remove operations (pass JSON arrays, e.g. '["poisoned","prone"]')
+    add_conditions: Annotated[str | None, Field(description="JSON list of conditions to add, e.g. '[\"poisoned\",\"prone\"]'")] = None,
+    remove_conditions: Annotated[str | None, Field(description="JSON list of conditions to remove")] = None,
+    add_skill_proficiencies: Annotated[str | None, Field(description="JSON list of skill proficiencies to add")] = None,
+    remove_skill_proficiencies: Annotated[str | None, Field(description="JSON list of skill proficiencies to remove")] = None,
+    add_tool_proficiencies: Annotated[str | None, Field(description="JSON list of tool proficiencies to add")] = None,
+    remove_tool_proficiencies: Annotated[str | None, Field(description="JSON list of tool proficiencies to remove")] = None,
+    add_languages: Annotated[str | None, Field(description="JSON list of languages to add")] = None,
+    remove_languages: Annotated[str | None, Field(description="JSON list of languages to remove")] = None,
+    add_saving_throw_proficiencies: Annotated[str | None, Field(description="JSON list of saving throw proficiencies to add")] = None,
+    remove_saving_throw_proficiencies: Annotated[str | None, Field(description="JSON list of saving throw proficiencies to remove")] = None,
+    add_features_and_traits: Annotated[str | None, Field(description="JSON list of features/traits to add")] = None,
+    remove_features_and_traits: Annotated[str | None, Field(description="JSON list of features/traits to remove")] = None,
 ) -> str:
-    """Update a character's properties."""
+    """Update a character's properties.
+
+    Supports scalar field updates, ability score changes, and list add/remove
+    operations for conditions, proficiencies, languages, and features.
+    List parameters accept JSON arrays (e.g. '["poisoned","prone"]') or
+    comma-separated strings (e.g. 'poisoned,prone').
+    """
     character = storage.get_character(name_or_id)
     if not character:
         return f"❌ Character '{name_or_id}' not found."
 
-    updates = {k: v for k, v in locals().items() if v is not None and k not in ["name_or_id", "character"]}
-    updated_fields = [f"{key.replace('_', ' ')}: {value}" for key, value in updates.items()]
+    messages = []
+    all_params = locals()
 
-    if not updates:
+    # 1. Scalar field updates (passed to storage.update_character)
+    scalar_fields = {
+        "name", "player_name", "description", "bio", "background", "alignment",
+        "hit_points_current", "hit_points_max", "temporary_hit_points",
+        "armor_class", "experience_points", "speed", "inspiration", "notes",
+    }
+    scalar_updates = {
+        k: all_params[k] for k in scalar_fields
+        if all_params.get(k) is not None
+    }
+
+    # 2. Ability score updates (need special handling via abilities dict)
+    ability_updates = {
+        k: all_params[k] for k in _ABILITY_NAMES
+        if all_params.get(k) is not None
+    }
+    if ability_updates:
+        for ability, score in ability_updates.items():
+            character.abilities[ability].score = score
+            messages.append(f"{ability} → {score}")
+        scalar_updates["abilities"] = character.abilities
+
+    # 3. List add/remove operations
+    list_params = {
+        k: all_params[k] for k in _LIST_OPERATIONS
+        if all_params.get(k) is not None
+    }
+    for param_name, json_value in list_params.items():
+        field_name, operation = _LIST_OPERATIONS[param_name]
+        items = _parse_json_list(json_value)
+        current_list = getattr(character, field_name)
+
+        if operation == "add":
+            added = [item for item in items if item not in current_list]
+            for item in added:
+                current_list.append(item)
+            skipped = [item for item in items if item not in added]
+            if added:
+                messages.append(f"Added to {field_name}: {', '.join(added)}")
+            if skipped:
+                messages.append(f"ℹ️ Already in {field_name}: {', '.join(skipped)}")
+        else:  # remove
+            removed = [item for item in items if item in current_list]
+            not_found = [item for item in items if item not in current_list]
+            for item in removed:
+                current_list.remove(item)
+            if removed:
+                messages.append(f"Removed from {field_name}: {', '.join(removed)}")
+            if not_found:
+                messages.append(f"⚠️ Not found in {field_name}: {', '.join(not_found)}")
+
+    # Apply scalar updates if any
+    if scalar_updates:
+        for key, value in scalar_updates.items():
+            if key != "abilities":
+                messages.append(f"{key.replace('_', ' ')}: {value}")
+        storage.update_character(str(character.id), **scalar_updates)
+    elif list_params:
+        # Only list operations — save directly
+        storage.save()
+
+    if not messages:
         return f"No updates provided for {character.name}."
 
-    storage.update_character(str(character.id), **updates)
-
-    return f"Updated {character.name}'s properties: {'; '.join(updated_fields)}."
+    return f"Updated {character.name}: {'; '.join(messages)}"
 
 @mcp.tool
 def bulk_update_characters(
@@ -704,6 +821,299 @@ def remove_item(
     result = _remove_item_logic(character, item_name_or_id, quantity)
     if result.startswith("✅"):
         storage.save()
+    return result
+
+
+# ----------------------------------------------------------------------
+# Character Utility Tools (spell slots, rests, death saves)
+# ----------------------------------------------------------------------
+
+# --- Spell Management ---
+
+def _use_spell_slot_logic(character: Character, slot_level: int) -> str:
+    """Core logic for using a spell slot. Testable without MCP wrapper."""
+    if slot_level < 1 or slot_level > 9:
+        return "❌ Spell slot level must be between 1 and 9."
+
+    max_slots = character.spell_slots.get(slot_level, 0)
+    if max_slots == 0:
+        return f"❌ {character.name} has no level {slot_level} spell slots."
+
+    used = character.spell_slots_used.get(slot_level, 0)
+    available = max_slots - used
+    if available <= 0:
+        return f"❌ {character.name} has no level {slot_level} spell slots remaining (0/{max_slots})."
+
+    character.spell_slots_used[slot_level] = used + 1
+    remaining = available - 1
+    return f"✅ {character.name} used a level {slot_level} spell slot ({remaining}/{max_slots} remaining)"
+
+
+@mcp.tool
+def use_spell_slot(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    slot_level: Annotated[int, Field(description="Spell slot level to use (1-9)", ge=1, le=9)],
+) -> str:
+    """Use a spell slot, decrementing available slots for the given level.
+
+    Validates that the character has slots at this level and that at least
+    one is still available. Returns remaining slot count.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _use_spell_slot_logic(character, slot_level)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
+def _add_spell_logic(character: Character, spell: Spell) -> str:
+    """Core logic for adding a spell to spells_known."""
+    # Check for duplicate by name (case-insensitive)
+    for existing in character.spells_known:
+        if existing.name.lower() == spell.name.lower():
+            return f"ℹ️ {character.name} already knows {spell.name}."
+    character.spells_known.append(spell)
+    return f"✅ Added {spell.name} (level {spell.level}) to {character.name}'s spells known"
+
+
+@mcp.tool
+def add_spell(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    spell_name: Annotated[str, Field(description="Spell name")],
+    spell_level: Annotated[int, Field(description="Spell level (0 for cantrip)", ge=0, le=9)],
+    school: Annotated[str, Field(description="School of magic (e.g. 'evocation', 'abjuration')")] = "unknown",
+    casting_time: Annotated[str, Field(description="Casting time (e.g. '1 action')")] = "1 action",
+    spell_range: Annotated[int, Field(description="Range in feet")] = 5,
+    duration: Annotated[str, Field(description="Duration (e.g. 'instantaneous')")] = "instantaneous",
+    components: Annotated[str | None, Field(description="JSON list of components, e.g. '[\"V\",\"S\",\"M\"]'")] = None,
+    spell_description: Annotated[str, Field(description="Spell description")] = "",
+    prepared: Annotated[bool, Field(description="Whether the spell is prepared")] = False,
+) -> str:
+    """Add a spell to a character's spells known list."""
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+
+    comp_list = _parse_json_list(components) if components else ["V", "S"]
+    spell = Spell(
+        name=spell_name,
+        level=spell_level,
+        school=school,
+        casting_time=casting_time,
+        range=spell_range,
+        duration=duration,
+        components=comp_list,
+        description=spell_description,
+        prepared=prepared,
+    )
+    result = _add_spell_logic(character, spell)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
+def _remove_spell_logic(character: Character, spell_name_or_id: str) -> str:
+    """Core logic for removing a spell from spells_known."""
+    name_lower = spell_name_or_id.lower()
+    for spell in character.spells_known:
+        if spell.name.lower() == name_lower or spell.id == spell_name_or_id:
+            character.spells_known.remove(spell)
+            return f"✅ Removed {spell.name} from {character.name}'s spells known"
+    return f"❌ Spell '{spell_name_or_id}' not found in {character.name}'s spells known."
+
+
+@mcp.tool
+def remove_spell(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    spell_name_or_id: Annotated[str, Field(description="Spell name or ID to remove")],
+) -> str:
+    """Remove a spell from a character's spells known list."""
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _remove_spell_logic(character, spell_name_or_id)
+    if result.startswith("✅"):
+        storage.save()
+    return result
+
+
+# --- Rest Mechanics ---
+
+def _long_rest_logic(character: Character, restore_hp: bool = True) -> str:
+    """Core logic for long rest. Testable without MCP wrapper."""
+    messages = []
+
+    # 1. Reset spell slots used
+    if character.spell_slots:
+        character.spell_slots_used = {level: 0 for level in character.spell_slots}
+        messages.append("Spell slots restored")
+
+    # 2. Restore hit dice (half of total, minimum 1)
+    # hit_dice_remaining is stored as e.g. "3d10", total = class level
+    total_dice = character.character_class.level
+    match = re.match(r'(\d+)d(\d+)', character.hit_dice_remaining)
+    if match:
+        current_remaining = int(match.group(1))
+        die_type = match.group(2)
+    else:
+        current_remaining = 0
+        die_type = character.hit_dice_type.lstrip("d")
+
+    dice_to_restore = max(1, total_dice // 2)
+    new_remaining = min(total_dice, current_remaining + dice_to_restore)
+    character.hit_dice_remaining = f"{new_remaining}d{die_type}"
+    messages.append(f"Hit dice: {new_remaining}d{die_type}")
+
+    # 3. Reset death saves
+    if character.death_saves_success > 0 or character.death_saves_failure > 0:
+        character.death_saves_success = 0
+        character.death_saves_failure = 0
+        messages.append("Death saves reset")
+
+    # 4. Restore HP to max (optional)
+    if restore_hp:
+        character.hit_points_current = character.hit_points_max
+        character.temporary_hit_points = 0
+        messages.append(f"HP restored to {character.hit_points_max}")
+
+    return f"✅ {character.name} completed a long rest: {'; '.join(messages)}"
+
+
+@mcp.tool
+def long_rest(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    restore_hp: Annotated[bool, Field(description="Restore HP to maximum (default: true)")] = True,
+) -> str:
+    """Perform a long rest for a character.
+
+    Resets spell slots, restores hit dice (half of total, minimum 1),
+    clears death saves, and optionally restores HP to maximum.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _long_rest_logic(character, restore_hp)
+    storage.save()
+    return result
+
+
+def _short_rest_logic(character: Character, hit_dice_to_spend: int) -> str:
+    """Core logic for short rest. Testable without MCP wrapper."""
+    if hit_dice_to_spend == 0:
+        return f"✅ {character.name} completed a short rest (no hit dice spent)"
+
+    # Parse hit_dice_remaining
+    match = re.match(r'(\d+)d(\d+)', character.hit_dice_remaining)
+    if not match:
+        return f"❌ {character.name} has no hit dice remaining."
+
+    remaining = int(match.group(1))
+    die_size = int(match.group(2))
+
+    if remaining <= 0:
+        return f"❌ {character.name} has no hit dice remaining."
+
+    dice_to_spend = min(hit_dice_to_spend, remaining)
+    con_mod = character.abilities["constitution"].mod
+
+    total_healing = 0
+    rolls = []
+    for _ in range(dice_to_spend):
+        roll = random.randint(1, die_size)
+        healing = max(1, roll + con_mod)  # minimum 1 HP per die
+        total_healing += healing
+        rolls.append(roll)
+
+    # Apply healing
+    old_hp = character.hit_points_current
+    character.hit_points_current = min(
+        character.hit_points_current + total_healing,
+        character.hit_points_max
+    )
+    actual_healing = character.hit_points_current - old_hp
+
+    # Update hit dice remaining
+    new_remaining = remaining - dice_to_spend
+    character.hit_dice_remaining = f"{new_remaining}d{die_size}"
+
+    rolls_text = ", ".join(str(r) for r in rolls)
+    con_text = f" + CON({con_mod:+d})" if con_mod != 0 else ""
+    return (
+        f"✅ {character.name} completed a short rest: spent {dice_to_spend}d{die_size} "
+        f"[{rolls_text}]{con_text} = {total_healing} healing "
+        f"(HP: {old_hp} → {character.hit_points_current}/{character.hit_points_max}, "
+        f"hit dice remaining: {new_remaining}d{die_size})"
+    )
+
+
+@mcp.tool
+def short_rest(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    hit_dice_to_spend: Annotated[int, Field(description="Number of hit dice to spend for healing", ge=0)] = 0,
+) -> str:
+    """Perform a short rest for a character.
+
+    Optionally spend hit dice to regain hit points. Each hit die rolled
+    adds 1dX + CON modifier HP (minimum 1 per die).
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _short_rest_logic(character, hit_dice_to_spend)
+    storage.save()
+    return result
+
+
+# --- Death Save Tracking ---
+
+def _add_death_save_logic(character: Character, success: bool) -> str:
+    """Core logic for tracking death saves. Testable without MCP wrapper."""
+    if success:
+        character.death_saves_success = min(3, character.death_saves_success + 1)
+        if character.death_saves_success >= 3:
+            character.death_saves_success = 0
+            character.death_saves_failure = 0
+            character.hit_points_current = 1
+            # Remove unconscious condition if present
+            if "unconscious" in character.conditions:
+                character.conditions.remove("unconscious")
+            return f"✅ {character.name} stabilized! (3 successes → HP set to 1)"
+        return (
+            f"✅ {character.name} death save SUCCESS "
+            f"({character.death_saves_success}/3 successes, "
+            f"{character.death_saves_failure}/3 failures)"
+        )
+    else:
+        character.death_saves_failure = min(3, character.death_saves_failure + 1)
+        if character.death_saves_failure >= 3:
+            return (
+                f"💀 {character.name} has DIED! (3 death save failures) "
+                f"— {character.death_saves_success}/3 successes, 3/3 failures"
+            )
+        return (
+            f"✅ {character.name} death save FAILURE "
+            f"({character.death_saves_success}/3 successes, "
+            f"{character.death_saves_failure}/3 failures)"
+        )
+
+
+@mcp.tool
+def add_death_save(
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    success: Annotated[bool, Field(description="True for success, False for failure")],
+) -> str:
+    """Record a death saving throw result.
+
+    Tracks successes and failures. At 3 successes, the character stabilizes
+    (HP set to 1, death saves reset). At 3 failures, the character dies.
+    """
+    character = storage.get_character(character_name_or_id)
+    if not character:
+        return f"❌ Character '{character_name_or_id}' not found."
+    result = _add_death_save_logic(character, success)
+    storage.save()
     return result
 
 
