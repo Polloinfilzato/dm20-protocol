@@ -1,8 +1,8 @@
 ---
 name: dm-improvements
-status: backlog
+status: closed
 created: 2026-02-12T02:50:26Z
-progress: 0%
+progress: 100%
 prd:
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/86
 ---
