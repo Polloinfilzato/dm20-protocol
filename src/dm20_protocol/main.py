@@ -3,6 +3,7 @@ D&D MCP Server
 A comprehensive D&D campaign management server built with modern FastMCP framework.
 """
 
+import json
 import logging
 import random
 import re
@@ -19,6 +20,7 @@ from .models import (
     Character, NPC, Location, Quest, SessionNote, AdventureEvent, EventType,
     AbilityScore, CharacterClass, Race, Item
 )
+from .character_builder import CharacterBuilder, CharacterBuilderError
 from .rulebooks import RulebookManager
 from .rulebooks.sources.srd import SRDSource
 from .rulebooks.sources.custom import CustomSource
@@ -146,38 +148,98 @@ def create_character(
     bio: Annotated[str | None, Field(description="The character's backstory, personality, and motivations.")] = None,
     background: Annotated[str | None, Field(description="Character background")] = None,
     alignment: Annotated[str | None, Field(description="Character alignment")] = None,
-    strength: Annotated[int, Field(description="Strength score", ge=1, le=30)] = 10,
-    dexterity: Annotated[int, Field(description="Dexterity score", ge=1, le=30)] = 10,
-    constitution: Annotated[int, Field(description="Constitution score", ge=1, le=30)] = 10,
-    intelligence: Annotated[int, Field(description="Intelligence score", ge=1, le=30)] = 10,
-    wisdom: Annotated[int, Field(description="Wisdom score", ge=1, le=30)] = 10,
-    charisma: Annotated[int, Field(description="Charisma score", ge=1, le=30)] = 10,
+    subclass: Annotated[str | None, Field(description="Subclass name (required if level >= subclass level)")] = None,
+    subrace: Annotated[str | None, Field(description="Subrace name (e.g., 'Hill Dwarf')")] = None,
+    ability_method: Annotated[str, Field(description="Ability score method: 'manual' (default), 'standard_array', or 'point_buy'")] = "manual",
+    ability_assignments: Annotated[str | None, Field(description="JSON dict for standard_array/point_buy: {\"strength\": 15, \"dexterity\": 14, ...}")] = None,
+    strength: Annotated[int, Field(description="Strength score (manual mode)", ge=1, le=30)] = 10,
+    dexterity: Annotated[int, Field(description="Dexterity score (manual mode)", ge=1, le=30)] = 10,
+    constitution: Annotated[int, Field(description="Constitution score (manual mode)", ge=1, le=30)] = 10,
+    intelligence: Annotated[int, Field(description="Intelligence score (manual mode)", ge=1, le=30)] = 10,
+    wisdom: Annotated[int, Field(description="Wisdom score (manual mode)", ge=1, le=30)] = 10,
+    charisma: Annotated[int, Field(description="Charisma score (manual mode)", ge=1, le=30)] = 10,
 ) -> str:
-    """Create a new player character."""
-    # Build ability scores
-    abilities = {
-        "strength": AbilityScore(score=strength),
-        "dexterity": AbilityScore(score=dexterity),
-        "constitution": AbilityScore(score=constitution),
-        "intelligence": AbilityScore(score=intelligence),
-        "wisdom": AbilityScore(score=wisdom),
-        "charisma": AbilityScore(score=charisma),
-    }
+    """Create a new player character.
 
-    character = Character(
-        name=name,
-        player_name=player_name,
-        character_class=CharacterClass(name=character_class, level=class_level),
-        race=Race(name=race),
-        background=background,
-        alignment=alignment,
-        abilities=abilities,
-        description=description,
-        bio=bio,
-    )
+    When a rulebook is loaded, auto-populates the character with saving throws,
+    proficiencies, starting equipment, features, HP, spell slots, and more from
+    the class, race, and background definitions. Requires a rulebook to be loaded
+    (use load_rulebook source="srd" first).
+
+    Without a rulebook, returns an error message asking to load one first.
+    """
+    # Require a rulebook for the builder
+    if not storage.rulebook_manager or not storage.rulebook_manager.sources:
+        return (
+            "⚠️ No rulebook loaded. The character creation wizard requires rulebook data "
+            "to auto-populate proficiencies, features, HP, and equipment.\n\n"
+            "Please load a rulebook first:\n"
+            "  load_rulebook source=\"srd\"\n\n"
+            "Then retry create_character."
+        )
+
+    # Parse ability_assignments JSON if provided
+    parsed_assignments = None
+    if ability_assignments:
+        try:
+            parsed_assignments = json.loads(ability_assignments)
+        except json.JSONDecodeError:
+            return f"❌ Invalid ability_assignments JSON: {ability_assignments}"
+
+    builder = CharacterBuilder(storage.rulebook_manager)
+    try:
+        character = builder.build(
+            name=name,
+            class_name=character_class,
+            race_name=race,
+            level=class_level,
+            background=background,
+            subclass=subclass,
+            subrace=subrace,
+            ability_method=ability_method,
+            ability_assignments=parsed_assignments,
+            player_name=player_name,
+            alignment=alignment,
+            description=description,
+            bio=bio,
+            strength=strength,
+            dexterity=dexterity,
+            constitution=constitution,
+            intelligence=intelligence,
+            wisdom=wisdom,
+            charisma=charisma,
+        )
+    except CharacterBuilderError as e:
+        return f"❌ Character creation failed: {e}"
 
     storage.add_character(character)
-    return f"Created character '{character.name}' (Level {character.character_class.level} {character.race.name} {character.character_class.name})"
+
+    # Build a summary of what was populated
+    populated = []
+    if character.saving_throw_proficiencies:
+        populated.append(f"Saves: {', '.join(character.saving_throw_proficiencies)}")
+    if character.skill_proficiencies:
+        populated.append(f"Skills: {', '.join(character.skill_proficiencies)}")
+    if character.languages:
+        populated.append(f"Languages: {', '.join(character.languages)}")
+    if character.features:
+        populated.append(f"Features: {len(character.features)}")
+    if character.inventory:
+        populated.append(f"Equipment: {len(character.inventory)} items")
+    if character.spell_slots:
+        slots_str = ", ".join(f"L{k}: {v}" for k, v in sorted(character.spell_slots.items()))
+        populated.append(f"Spell slots: {slots_str}")
+    populated.append(f"HP: {character.hit_points_max}")
+    populated.append(f"Speed: {character.speed}ft")
+    populated.append(f"Prof bonus: +{character.proficiency_bonus}")
+
+    summary = "\n".join(f"  • {p}" for p in populated)
+    return (
+        f"✅ Created character '{character.name}' "
+        f"(Level {character.character_class.level} {character.race.name} "
+        f"{character.character_class.name})\n\n"
+        f"Auto-populated from rulebook:\n{summary}"
+    )
 
 @mcp.tool
 def get_character(

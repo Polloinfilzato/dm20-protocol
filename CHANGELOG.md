@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Character Builder** — New `CharacterBuilder` module auto-populates characters from rulebook data (class, race, background). Supports Standard Array, Point Buy, and manual ability score methods. Calculates HP, assigns saving throws, proficiencies, starting equipment, spell slots, racial traits, class features, and languages automatically. Enhanced `create_character` MCP tool with `subclass`, `subrace`, `ability_method`, and `ability_assignments` parameters.
 - **Character Model v2** — Extended Character model with `experience_points`, `speed`, `conditions`, `tool_proficiencies`, `hit_dice_type`, and structured `Feature` model (name, source, description, level_gained). Proficiency bonus is now auto-calculated from class level. Full backward compatibility with v1 characters via Pydantic defaults.
 - **DM Persona system** — `.claude/dm-persona.md` defines Claude's behavior as a full D&D 5e Dungeon Master with structured game loop (CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE), combat protocol, session management, output formatting rules, and authority guidelines
 - **Specialist sub-agents** — Three Claude Code agent files in `.claude/agents/`:
