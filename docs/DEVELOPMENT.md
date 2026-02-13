@@ -1,90 +1,124 @@
 # Table of Contents
 - [Table of Contents](#table-of-contents)
 - [D\&D MCP Server - Development Guide (FastMCP 2.9.0+)](#dd-mcp-server---development-guide-fastmcp-290)
-  - [CORE PROJECT RULES](#core-project-rules)
-  - [📁 Project Structure](#-project-structure)
-  - [🚀 FastMCP 2.9.0+ Architecture](#-fastmcp-290-architecture)
-    - [**Major Changes from Raw MCP SDK**](#major-changes-from-raw-mcp-sdk)
-      - [**1. Import Statement**](#1-import-statement)
-      - [**2. Server Initialization**](#2-server-initialization)
-      - [**3. Tool Definition**](#3-tool-definition)
-      - [**4. Type Annotations \& Validation**](#4-type-annotations--validation)
-      - [**5. Server Execution**](#5-server-execution)
-  - [🏗️ FastMCP Tool Architecture](#️-fastmcp-tool-architecture)
-    - [**Tool Categories (25+ tools)**](#tool-categories-25-tools)
-    - [**FastMCP Tool Implementation Pattern**](#fastmcp-tool-implementation-pattern)
-    - [**Advanced Parameter Types**](#advanced-parameter-types)
-  - [💾 Storage Layer Guide](#-storage-layer-guide)
-    - [**Data Flow and Architecture**](#data-flow-and-architecture)
-    - [**Properties**](#properties)
-    - [**Private Methods (Internal Logic)**](#private-methods-internal-logic)
-    - [**Public Methods (Tool-Facing API)**](#public-methods-tool-facing-api)
-      - [**Campaign Management**](#campaign-management)
-      - [**Character Management**](#character-management)
-      - [**NPC, Location, and Quest Management**](#npc-location-and-quest-management)
-      - [**Game State \& Session Management**](#game-state--session-management)
-      - [**Adventure Log / Event Management**](#adventure-log--event-management)
-  - [📖 Data Models Guide](#-data-models-guide)
-    - [**`AbilityScore`**](#abilityscore)
-    - [**`CharacterClass`**](#characterclass)
-    - [**`Race`**](#race)
-    - [**`Item`**](#item)
-    - [**`Spell`**](#spell)
-    - [**`Character`**](#character)
-    - [**`NPC`**](#npc)
-    - [**`Location`**](#location)
-    - [**`Quest`**](#quest)
-    - [**`CombatEncounter`**](#combatencounter)
-    - [**`SessionNote`**](#sessionnote)
-    - [**`GameState`**](#gamestate)
-    - [**`Campaign`**](#campaign)
-    - [**`EventType`**](#eventtype)
-    - [**`AdventureEvent`**](#adventureevent)
-  - [🎯 Development Workflows](#-development-workflows)
-    - [**Adding a New Tool with FastMCP 2.9.0+**](#adding-a-new-tool-with-fastmcp-290)
-    - [**Extending Data Models**](#extending-data-models)
-    - [**Testing with FastMCP CLI**](#testing-with-fastmcp-cli)
-  - [🧪 Testing \& Validation](#-testing--validation)
-    - [**FastMCP Development Workflow**](#fastmcp-development-workflow)
-    - [**Tool Testing**](#tool-testing)
-  - [🔍 Debugging \& Troubleshooting](#-debugging--troubleshooting)
-    - [**FastMCP-Specific Issues**](#fastmcp-specific-issues)
-      - [**Type Annotation Errors**](#type-annotation-errors)
-      - [**Parameter Validation Issues**](#parameter-validation-issues)
-      - [**Import Issues**](#import-issues)
-    - [**Development Tools**](#development-tools)
-  - [🚀 Deployment \& Execution](#-deployment--execution)
-    - [**Running for Development**](#running-for-development)
-    - [**Running as a Standalone Tool (with `uvx`)**](#running-as-a-standalone-tool-with-uvx)
-    - [**Claude Desktop Integration**](#claude-desktop-integration)
-  - [📝 Code Style \& Standards (Updated)](#-code-style--standards-updated)
-    - [**FastMCP-Specific Conventions**](#fastmcp-specific-conventions)
-    - [**Parameter Guidelines**](#parameter-guidelines)
+  - [Architecture Overview](#architecture-overview)
+  - [Project Structure](#project-structure)
+  - [FastMCP 2.9.0+ Architecture](#fastmcp-290-architecture)
+    - [Major Changes from Raw MCP SDK](#major-changes-from-raw-mcp-sdk)
+  - [FastMCP Tool Architecture](#fastmcp-tool-architecture)
+    - [Tool Categories (66 tools)](#tool-categories-66-tools)
+    - [FastMCP Tool Implementation Pattern](#fastmcp-tool-implementation-pattern)
+    - [Advanced Parameter Types](#advanced-parameter-types)
+  - [Storage Layer Guide](#storage-layer-guide)
+    - [Data Flow and Architecture](#data-flow-and-architecture)
+    - [Properties](#properties)
+    - [Private Methods (Internal Logic)](#private-methods-internal-logic)
+    - [Public Methods (Tool-Facing API)](#public-methods-tool-facing-api)
+  - [Data Models Guide](#data-models-guide)
+    - [AbilityScore](#abilityscore)
+    - [CharacterClass](#characterclass)
+    - [Race](#race)
+    - [Item](#item)
+    - [Spell](#spell)
+    - [Feature](#feature)
+    - [Character (v2)](#character-v2)
+    - [NPC](#npc)
+    - [Location](#location)
+    - [Quest](#quest)
+    - [CombatEncounter](#combatencounter)
+    - [SessionNote](#sessionnote)
+    - [GameState](#gamestate)
+    - [Campaign](#campaign)
+    - [EventType](#eventtype)
+    - [AdventureEvent](#adventureevent)
+    - [TermEntry](#termentry)
+  - [Development Workflows](#development-workflows)
+  - [Testing \& Validation](#testing--validation)
+  - [Debugging \& Troubleshooting](#debugging--troubleshooting)
+  - [Deployment \& Execution](#deployment--execution)
+  - [Code Style \& Standards](#code-style--standards)
 
 # D&D MCP Server - Development Guide (FastMCP 2.9.0+)
 
-## CORE PROJECT RULES
+## Architecture Overview
 
-1. After EVERY change or significant development decision, append [roo_actions.log](.roo/roo_actions.log) with a very brief, concise, timestamped description of the change(s) made.
+DM20 Protocol is a **66-tool MCP server** built on FastMCP 2.9.0+. The system is organized into several subsystems:
 
-## 📁 Project Structure
+- **Core** (`main.py`, `models.py`, `storage.py`) — Campaign CRUD, character sheets, NPCs, locations, quests, combat, dice, session notes, adventure log
+- **Character Builder** (`character_builder.py`, `level_up_engine.py`) — Rule-aware character creation (standard array, point buy, manual) and automated level-up with HP/feature/spell slot grants
+- **Rulebooks** (`rulebooks/`) — Multi-source rulebook manager that merges content from SRD 2014/2024, Open5e API, 5etools JSON, and custom sources into a unified query interface; includes character validation
+- **PDF Library** (`library/`) — PDF/Markdown rulebook import, TOC extraction, keyword + TF-IDF search, content extraction to JSON, per-campaign source bindings
+- **Claudmaster** (`claudmaster/`) — AI DM system with dual-agent architecture (Narrator + Archivist), Arbiter for rule disputes, consistency engine (facts, contradictions, timeline), improvisation control, session persistence, crash recovery
+- **Terminology** (`terminology/`) — Bilingual Italian/English D&D term resolution with fuzzy matching and output style tracking
+
+## Project Structure
 
 ```text
 dm20-protocol/
 ├── src/
-│   ├── dm20_protocol/           # Renamed for FastMCP compliance
-│   │   ├── __init__.py          # Package initialization
-│   │   ├── __main__.py          # Module entry point
-│   │   ├── main.py              # FastMCP 2.9.0+ server implementation
-│   │   ├── models.py            # Pydantic data models
-│   │   └── storage.py           # Data persistence layer
-│   └── main.py                  # CLI entry point
-├── demo.py                      # Example usage script
-├── requirements.txt             # Runtime dependencies
-├── pyproject.toml              # Project configuration (FastMCP compliant)
-├── mypy.ini                    # Type checking configuration
-├── .gitignore                  # Git ignore rules
-└── README.md                   # User documentation
+│   └── dm20_protocol/              # Main package
+│       ├── __init__.py             # Package initialization
+│       ├── __main__.py             # Module entry point
+│       ├── main.py                 # FastMCP 2.9.0+ server (66 tools)
+│       ├── models.py               # Core Pydantic data models
+│       ├── storage.py              # Campaign data persistence layer
+│       ├── character_builder.py    # Rule-aware character creation wizard
+│       ├── level_up_engine.py      # Automated level-up with feature/HP grants
+│       ├── logutils.py             # Logging utilities
+│       ├── claudmaster/            # AI DM subsystem
+│       │   ├── agents/             # Dual-agent architecture
+│       │   │   ├── narrator.py     # Narrative descriptions, NPC dialogue
+│       │   │   ├── archivist.py    # Game state, rules, data retrieval
+│       │   │   ├── arbiter.py      # Rule dispute resolution
+│       │   │   └── module_keeper.py # Module content retrieval
+│       │   ├── consistency/        # World consistency engine
+│       │   │   ├── fact_database.py
+│       │   │   ├── contradiction.py
+│       │   │   ├── timeline.py
+│       │   │   ├── npc_knowledge.py
+│       │   │   └── location_state.py
+│       │   ├── continuity/         # Session continuity (auto-save, recaps)
+│       │   ├── models/             # Module data models
+│       │   ├── performance/        # Caching, parallel execution, profiling
+│       │   ├── persistence/        # Session serialization
+│       │   ├── recovery/           # Crash recovery, rollback, degradation
+│       │   ├── tools/              # MCP tool implementations
+│       │   │   ├── session_tools.py
+│       │   │   └── action_tools.py
+│       │   ├── orchestrator.py     # Multi-agent orchestration pipeline
+│       │   ├── session.py          # Session lifecycle management
+│       │   ├── config.py           # Claudmaster configuration
+│       │   ├── improvisation.py    # Improvisation level control
+│       │   ├── companions.py       # AI companion NPCs
+│       │   └── ...                 # Additional modules
+│       ├── rulebooks/              # Multi-source rulebook system
+│       │   ├── manager.py          # Unified rulebook manager
+│       │   ├── models.py           # Rulebook data models
+│       │   ├── validators.py       # Character validation against rules
+│       │   └── sources/            # Pluggable content sources
+│       │       ├── base.py         # Abstract source interface
+│       │       ├── srd.py          # SRD 2014/2024 built-in data
+│       │       ├── open5e.py       # Open5e API integration
+│       │       ├── fivetools.py    # 5etools JSON import
+│       │       └── custom.py       # Custom JSON sources
+│       ├── library/                # PDF rulebook library
+│       │   ├── manager.py          # Library index management
+│       │   ├── models.py           # TOC and search models
+│       │   ├── search.py           # Keyword + TF-IDF search
+│       │   ├── bindings.py         # Campaign-source bindings
+│       │   └── extractors/         # Content extraction pipeline
+│       │       ├── toc.py          # Table of contents extraction
+│       │       └── content.py      # Full content extraction to JSON
+│       └── terminology/            # Bilingual term resolution
+│           ├── resolver.py         # Italian/English term resolver
+│           ├── style.py            # Output language style tracking
+│           ├── models.py           # TermEntry model
+│           └── data/
+│               └── core_terms.yaml # Term database
+├── tests/                          # Test suite
+├── docs/                           # Documentation
+├── pyproject.toml                  # Project configuration (FastMCP compliant)
+└── README.md                       # User documentation
 ```
 
 ## 🚀 FastMCP 2.9.0+ Architecture
@@ -142,17 +176,23 @@ def main() -> None:
 
 ## 🏗️ FastMCP Tool Architecture
 
-### **Tool Categories (25+ tools)**
-1. **Campaign Tools** (4) - Automatic schema generation
-2. **Character Tools** (5) - Rich parameter validation
-3. **NPC Tools** (3) - Type-safe implementations
-4. **Location Tools** (3) - Literal type constraints
-5. **Quest Tools** (3) - Optional parameter handling
-6. **Game State Tools** (2) - Complex object updates
-7. **Combat Tools** (3) - List parameter processing
-8. **Session Tools** (2) - Nested data structures
-9. **Event Tools** (2) - Search and filtering
-10. **Utility Tools** (2) - Mathematical calculations
+### **Tool Categories (66 tools)**
+1. **Campaign Tools** (4) — create, get info, list, load campaigns
+2. **Character Tools** (17) — create, level up, get, update, bulk update, inventory (add/equip/unequip/remove), spellcasting (add/remove/use spell slot), rests (long/short), death saves, list, delete
+3. **NPC Tools** (3) — create, get, list NPCs
+4. **Location Tools** (3) — create, get, list locations
+5. **Quest Tools** (3) — create, update, list quests
+6. **Game State Tools** (2) — update and get game state
+7. **Combat Tools** (3) — start combat, end combat, next turn
+8. **Session Tools** (3) — add session note, summarize session from transcription, get sessions
+9. **Adventure Log Tools** (2) — add event, get/search events
+10. **Rulebook Management Tools** (3) — load, list, unload rulebooks (SRD, Open5e, 5etools, custom)
+11. **Rulebook Query Tools** (6) — search rules, get class/race/spell/monster info, validate character
+12. **Utility Tools** (2) — roll dice, calculate experience
+13. **PDF Library Tools** (7) — open library folder, scan, list, get TOC, search, ask books (NLP), extract content
+14. **Library Binding Tools** (3) — enable, disable, list enabled library sources per campaign
+15. **Claudmaster Config Tools** (1) — configure AI DM settings (difficulty, narrative style, improvisation)
+16. **Claudmaster Session Tools** (4) — start/end/get session state, process player action
 
 ### **FastMCP Tool Implementation Pattern**
 **Use the following pattern when implementing or updating MCP server tools:**
@@ -320,7 +360,7 @@ These methods follow the same CRUD (Create, Read, Update, Delete) pattern as Cha
 - **`search_events(query: str) -> list[AdventureEvent]`**: Searches event titles and descriptions for a given query string.
 
 ## 📖 Data Models Guide
-This section provides a detailed overview of the Pydantic data models used in the D&D MCP Server, defined in `src/dm20_protocol/models.py`. These models are the backbone of the data persistence and validation layer.
+This section provides a detailed overview of the Pydantic data models used in the D&D MCP Server. Core models are defined in `src/dm20_protocol/models.py`. Subsystem-specific models live in their respective packages (`terminology/models.py`, `library/models.py`, `rulebooks/models.py`, `claudmaster/consistency/models.py`). These models are the backbone of the data persistence and validation layer.
 
 ### **`AbilityScore`**
 Represents a single D&D ability score (e.g., Strength, Dexterity).
@@ -363,15 +403,23 @@ Represents a single spell.
 - `material_components` (str | None): Specific material components required.
 - `prepared` (bool): Whether the spell is currently prepared by a caster.
 
-### **`Character`**
-The comprehensive model for a player character (PC), composing many of the other models.
-- **Basic Info**: `name`, `player_name`, `character_class` (`CharacterClass`), `race` (`Race`), `background`, `alignment`.
+### **`Feature`**
+Structured class/race/background feature with provenance tracking.
+- `name` (str): The feature name (e.g., "Favored Enemy").
+- `source` (str): Where the feature comes from (e.g., "Ranger 1", "Wood Elf", "Outlander").
+- `description` (str): Full description of the feature's effects.
+- `level_gained` (int): The level at which this feature was gained.
+
+### **`Character`** (v2)
+The comprehensive model for a player character (PC), composing many of the other models. Updated with progression, conditions, and structured features.
+- **Basic Info**: `id`, `name`, `player_name`, `character_class` (`CharacterClass`), `race` (`Race`), `background`, `alignment`, `description`, `bio`.
 - **Core Stats**: `abilities` (a dictionary mapping ability names to `AbilityScore` models).
-- **Combat Stats**: `armor_class`, `hit_points_max`, `hit_points_current`, `temporary_hit_points`, `hit_dice_remaining`, `death_saves_success`, `death_saves_failure`.
-- **Skills & Proficiencies**: `proficiency_bonus`, `skill_proficiencies`, `saving_throw_proficiencies`.
-- **Equipment**: `inventory` (list of `Item`), `equipment` (dictionary for equipped items).
+- **Progression**: `experience_points` (int), `speed` (int, default 30).
+- **Combat Stats**: `armor_class`, `hit_points_max`, `hit_points_current`, `temporary_hit_points`, `hit_dice_type` (e.g., "d10" for Fighter), `hit_dice_remaining`, `death_saves_success`, `death_saves_failure`, `conditions` (list of active conditions like "poisoned", "prone").
+- **Skills & Proficiencies**: `proficiency_bonus` (auto-calculated from level), `skill_proficiencies`, `saving_throw_proficiencies`, `tool_proficiencies`.
+- **Equipment**: `inventory` (list of `Item`), `equipment` (dictionary for equipped items with weapon_main, weapon_off, armor, shield slots).
 - **Spellcasting**: `spellcasting_ability`, `spell_slots`, `spell_slots_used`, `spells_known` (list of `Spell`).
-- **Character Features**: `features_and_traits`, `languages`.
+- **Character Features**: `features_and_traits` (legacy plain text list), `features` (list of `Feature` — structured with source/level), `languages`.
 - **Misc**: `inspiration`, `notes`, `created_at`, `updated_at`.
 
 ### **`NPC`**
@@ -480,6 +528,14 @@ Represents a single, taggable event in the adventure log, allowing for a more gr
 - `location` (str | None): Where the event took place.
 - `tags` (list[str]): Custom tags for filtering and searching.
 - `importance` (int): A rating from 1 (minor) to 5 (major).
+
+### **`TermEntry`** *(terminology subsystem)*
+A bilingual term entry mapping Italian and English variants to a canonical game entity.
+- `canonical` (str): Canonical English key (e.g., "fireball").
+- `category` (str): Term category — one of: spell, skill, condition, ability, combat, item, class, race, general.
+- `en` (str): English display name (e.g., "Fireball").
+- `it_primary` (str): Primary Italian name (e.g., "Palla di Fuoco").
+- `it_variants` (list[str]): Italian variant forms including colloquial alternatives.
 
 ## 🎯 Development Workflows
 
