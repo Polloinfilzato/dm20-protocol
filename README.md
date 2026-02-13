@@ -11,15 +11,20 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 ## Features
 
 - **Campaign Management** — Create and switch between multiple campaigns
-- **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, progression
+- **Character Builder** — Auto-populated characters from loaded rulebooks (Standard Array, Point Buy, Manual)
+- **Level-Up & Progression** — Automatic HP, class features, spell slots, ASI/feats on level-up
+- **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, death saves
+- **Rest & Recovery** — Long rest, short rest with hit dice, spell slot management, death saves
 - **NPCs & Locations** — Rich world-building with relationships and connections
 - **Quest Tracking** — Objectives, status, rewards, and branching paths
 - **Combat System** — Initiative, turns, conditions, damage/healing
+- **Multi-Source Rulebooks** — Load rules from SRD, Open5e, 5etools, or custom JSON
+- **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
+- **Bilingual Play** — Italian/English D&D terminology resolution (500+ terms)
 - **Session Notes** — Per-session summaries, XP, loot, attendance
 - **Adventure Log** — Searchable timeline of all campaign events
 - **Dice & Utilities** — Rolls, XP calculations, rules lookup
-- **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
-- **50+ MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
+- **66 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
 
 ## Installation
 
@@ -199,7 +204,11 @@ Create a new campaign called "The Lost Kingdom"
 ```
 
 ```
-Create a character named Elara, a High Elf Wizard with 16 INT
+Load the D&D 5e rules: load_rulebook source=srd
+```
+
+```
+Create a level 3 High Elf Wizard named Lyra with Standard Array
 ```
 
 ```
@@ -214,9 +223,9 @@ Create an NPC named Marta, an elderly herbalist who lives in Silverdale
 Create a quest called "The Missing Amulet" given by Marta
 ```
 
-The AI will use DM20's tools automatically — no special syntax needed. Just describe what you want in plain English.
+The AI will use DM20's tools automatically — no special syntax needed. Just describe what you want in plain English. With a rulebook loaded, the Character Builder auto-populates HP, proficiencies, features, equipment, and spell slots from official rules.
 
-For the full list of 50+ tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
+For the full list of 66 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
 
 ## Optional: RAG Dependencies
 
@@ -263,11 +272,12 @@ DM20 Protocol includes a complete **AI Dungeon Master** system for solo D&D play
 
 ### How It Works
 
-The system uses a **DM Persona** (`.claude/dm-persona.md`) that instructs Claude to follow a structured game loop: gather context → decide what happens → execute via tools → update state → narrate the outcome. Three specialist sub-agents handle complex scenarios in parallel:
+The system uses a **dual-agent architecture** where two specialized LLM agents run in parallel on every player action:
 
-- **Narrator** — Rich scene descriptions, NPC dialogue, atmospheric text
-- **Combat Handler** — Initiative, turn management, advanced enemy tactics
-- **Rules Lookup** — Fast spell details, monster stat blocks, class features
+- **Narrator** (Haiku — fast, creative) — Rich scene descriptions, NPC dialogue, atmospheric text
+- **Arbiter** (Sonnet — thorough, rules-focused) — Mechanical resolution, dice rolls, rule adjudication
+
+A **DM Persona** (`.claude/dm-persona.md`) orchestrates the game loop: gather context, decide what happens, execute via tools, update state, narrate the outcome. A Python-side **Archivist** agent handles data retrieval and game state tracking without consuming LLM tokens.
 
 Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches. Built on the Claudmaster architecture with session persistence, difficulty scaling, and configurable narrative style.
 
@@ -291,7 +301,7 @@ This project started as a fork of [gamemaster-mcp](https://github.com/study-flam
 | Original code (v0.1.0 foundation) | Joel Casimir | ~3.9% |
 | New code (library system, claudmaster, tools, tests) | DM20 Protocol contributors | ~96.1% |
 
-The project has since been extensively rewritten and expanded with 50+ new tools, a PDF rulebook library system, the Claudmaster multi-agent architecture, and comprehensive test coverage.
+The project has since been extensively rewritten and expanded with 66 MCP tools, a multi-source rulebook system, a PDF library, the Claudmaster dual-agent AI DM, and comprehensive test coverage.
 
 ## License
 
