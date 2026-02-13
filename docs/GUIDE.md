@@ -118,10 +118,10 @@ These slash commands are the player-facing interface:
 
 1. `/dm:start` loads the campaign and activates the DM persona (`.claude/dm-persona.md`)
 2. Claude follows the game loop: **CONTEXT → DECIDE → EXECUTE → PERSIST → NARRATE**
-3. Three specialist agents (`.claude/agents/`) handle complex scenarios:
-   - **narrator** — Scene descriptions, NPC dialogue, atmosphere
-   - **combat-handler** — Initiative, turns, enemy tactics, damage resolution
-   - **rules-lookup** — Spell details, monster stats, class features
+3. A **dual-agent architecture** runs in parallel on every player action:
+   - **Narrator** (Haiku — fast, creative) — Scene descriptions, NPC dialogue, atmosphere
+   - **Arbiter** (Sonnet — thorough, rules-focused) — Mechanical resolution, dice rolls, rule adjudication
+   - A Python-side **Archivist** handles data retrieval and game state tracking without consuming LLM tokens
 4. `/dm:save` persists all state to the backend for later resumption
 
 ### Context Management

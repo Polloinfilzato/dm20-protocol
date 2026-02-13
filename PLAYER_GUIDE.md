@@ -418,12 +418,14 @@ dm20-protocol uses a **dual-agent system** to deliver a richer DM experience tha
 - **Temperature**: 0.8 (higher for more creative output)
 - **Strengths**: vivid prose, distinct NPC voices, immersive atmosphere, pacing
 
-### The Arbiter Agent (Archivist)
+### The Arbiter Agent
 
-- **Role**: manages game state, tracks character stats, looks up rules, handles combat mechanics
+- **Role**: resolves game mechanics, looks up rules, handles combat math, adjudicates disputes
 - **Model**: Claude Sonnet (thorough, rules-focused)
 - **Temperature**: 0.3 (lower for precise, consistent output)
-- **Strengths**: accurate rule application, state tracking, combat resolution, HP/inventory management
+- **Strengths**: accurate rule application, combat resolution, dice math, rule adjudication
+
+A Python-side **Archivist** agent handles data retrieval (character stats, game state, NPC info) without consuming LLM tokens — keeping responses fast and token-efficient.
 
 ### Why two agents?
 
