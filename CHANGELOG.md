@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Rulebook System** — `RulebookManager` with multi-source support and unified query interface. `SRDSource` adapter fetches D&D 5e SRD data (2014 and 2024 versions) via the 5e-srd-api with file-based caching. `CustomSource` adapter loads local JSON/YAML homebrew rulebooks. 9 MCP tools: `load_rulebook`, `list_rulebooks`, `unload_rulebook`, `search_rules`, `get_class_info`, `get_race_info`, `get_spell_info`, `get_monster_info`, `validate_character_rules`
+- **PDF Rulebook Library** — Import third-party PDFs and Markdown rulebooks into a shared library. Automatic TOC extraction via PyMuPDF, on-demand content extraction to `CustomSource` JSON format, campaign-scoped enable/disable via library bindings, and TF-IDF semantic search with D&D synonym expansion. 10 MCP tools: `open_library_folder`, `scan_library`, `list_library`, `get_library_toc`, `search_library`, `extract_content`, `enable_library_source`, `disable_library_source`, `list_enabled_library`, `ask_books`
+- **Multi-Source Rulebook** — Two additional rulebook adapters: `Open5eSource` (REST API with auto-pagination and local caching) and `FiveToolsSource` (GitHub JSON data with custom markup conversion). Extended `load_rulebook` tool to accept `"open5e"` and `"5etools"` source types
+- **Bilingual Terminology Resolver** — Italian-to-English D&D term resolution for bilingual play sessions. ~500 curated term pairs in `core_terms.yaml` covering spells, skills, conditions, classes, races, and items. `TermResolver` with O(1) dict lookup, accent-insensitive matching via `unicodedata` normalization, and automatic rulebook indexing. `StyleTracker` observes per-category language preferences and injects style hints into narrator prompts
+- **Claudmaster AI DM Engine** — Multi-agent architecture for autonomous D&D game mastering. Orchestrator coordinates Narrator (scene descriptions, NPC dialogue), Archivist (game state, rules, combat), and Module Keeper (RAG on PDF adventure modules via ChromaDB vector store) agents. Includes consistency engine (fact tracking, NPC knowledge state, contradiction detection, timeline consistency), 5-level improvisation control system, companion NPC system with AI combat tactics, multi-player support with split party handling, session continuity with auto-save and recap generation, and performance optimization (caching, parallel execution, context optimizer). 5 MCP tools: `configure_claudmaster`, `start_claudmaster_session`, `end_claudmaster_session`, `get_claudmaster_session_state`, `player_action`
+- **Dual-Agent Response Architecture** — Parallel Narrator (fast) + Arbiter (reasoned) agents for responsive gameplay. `LLMClient` protocol for model-agnostic agent calls. Graceful degradation to single-agent mode on failure
+- **Session Transcription Summarizer** — `summarize_session` MCP tool generates structured `SessionNote` from raw session transcriptions or file paths. Leverages campaign context (characters, NPCs, locations, quests) to enrich summaries. Automatic chunking with overlap for large transcriptions (>200k characters)
 - **Extended update_character** — Now supports `experience_points`, `speed` scalar fields and list add/remove operations for `conditions`, `skill_proficiencies`, `tool_proficiencies`, `saving_throw_proficiencies`, `languages`, and `features_and_traits`. List params accept JSON arrays or comma-separated strings. Ability score updates now correctly modify the abilities dict.
 - **Spell Management Tools** — `use_spell_slot` (decrement available slots with validation), `add_spell` (add to spells_known with duplicate detection), `remove_spell` (remove by name or ID).
 - **Rest Mechanics** — `long_rest` (reset spell slots, restore half hit dice, clear death saves, optionally restore HP to max), `short_rest` (spend hit dice for healing with CON modifier, minimum 1 HP per die).
@@ -29,12 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/dm:save` — Save session state with narrative cliffhanger
 - **Hybrid Python integration** — Intent classification and data retrieval wired into tool flow, leveraging existing Orchestrator/Archivist for deterministic operations
 - **Player guide** — `GUIDA_DM.md` rewritten with practical gameplay instructions, context management guide, and troubleshooting
+- **Dice roll context labels** — `roll_dice` tool now accepts an optional `label` parameter for contextual roll descriptions (e.g., "Goblin Archer 2 attack vs Aldric")
+- **`/dm:help` command** — Help overview listing all available `/dm` commands with descriptions and usage examples
+
+### Changed
+- **Storage system** — Refactored storage backend to split-storage architecture with per-campaign directory structure and separate files for characters, NPCs, locations, quests, and game state
 
 ### Fixed
 - **DnDStorage.save()** — Added public `save()` method (was missing despite being called by inventory/level-up tools)
 - `start_claudmaster_session` — Now properly integrates with `DnDStorage` to load campaigns by name instead of returning hardcoded error
 - `player_action` tool — Registered as `@mcp.tool` in `main.py` (existed but was not exposed via MCP)
 - Tool output enrichment — Key tools (`get_character`, `get_npc`, `get_game_state`) now return comprehensive data for AI DM consumption including inventory details, NPC relationships, and combat state
+- `/dm:action` and `/dm:combat` slash commands — Fixed broken mid-session command invocation
 
 ## [0.2.0] - 2026-02-08
 
