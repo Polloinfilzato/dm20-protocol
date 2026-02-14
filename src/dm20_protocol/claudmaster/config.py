@@ -37,6 +37,12 @@ class ClaudmasterConfig(BaseModel):
         description="LLM temperature parameter for creativity (0.0-2.0)"
     )
 
+    # Effort level (Opus models only)
+    effort: str | None = Field(
+        default=None,
+        description="Effort level for main model (low/medium/high/max). Only supported on Opus models. None to omit."
+    )
+
     # Per-agent model configuration (dual-agent architecture)
     narrator_model: str = Field(
         default="claude-haiku-4-5-20251001",
@@ -69,6 +75,14 @@ class ClaudmasterConfig(BaseModel):
         ge=0.0,
         le=2.0,
         description="Temperature for Arbiter (lower = more precise)"
+    )
+    narrator_effort: str | None = Field(
+        default=None,
+        description="Effort level for Narrator agent (low/medium/high/max). Only supported on Opus models."
+    )
+    arbiter_effort: str | None = Field(
+        default=None,
+        description="Effort level for Arbiter agent (low/medium/high/max). Only supported on Opus models."
     )
 
     # Agent Behavior
@@ -104,6 +118,12 @@ class ClaudmasterConfig(BaseModel):
     fudge_rolls: bool = Field(
         default=False,
         description="Whether DM can fudge dice rolls for narrative purposes"
+    )
+
+    # Model Profile
+    model_profile: str = Field(
+        default="balanced",
+        description="Active model quality profile: quality, balanced, economy, or custom"
     )
 
     # House Rules
@@ -170,6 +190,30 @@ class ClaudmasterConfig(BaseModel):
         raise ValueError(
             f"improvisation_level must be ImprovisationLevel, str, or int, got {type(v)}"
         )
+
+    @field_validator("model_profile")
+    @classmethod
+    def validate_model_profile(cls, v: str) -> str:
+        """Ensure model_profile is a valid option."""
+        from .profiles import VALID_PROFILES
+        if v.lower() not in VALID_PROFILES:
+            raise ValueError(
+                f"model_profile must be one of: {', '.join(sorted(VALID_PROFILES))}"
+            )
+        return v.lower()
+
+    @field_validator("effort", "narrator_effort", "arbiter_effort", mode="before")
+    @classmethod
+    def validate_effort(cls, v: str | None) -> str | None:
+        """Ensure effort is a valid level or None."""
+        if v is None:
+            return v
+        valid = {"low", "medium", "high", "max"}
+        if v.lower() not in valid:
+            raise ValueError(
+                f"effort must be one of: {', '.join(sorted(valid))}, or null to omit"
+            )
+        return v.lower()
 
     @field_validator("temperature", "narrator_temperature", "arbiter_temperature")
     @classmethod

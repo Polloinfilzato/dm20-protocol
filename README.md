@@ -217,15 +217,28 @@ DM20 Protocol includes a complete **AI Dungeon Master** system for solo D&D play
 | `/dm:action I search the room` | Process any player action |
 | `/dm:combat goblins ambush us!` | Start or manage combat |
 | `/dm:save` | Save session and pause |
+| `/dm:profile [tier]` | Switch model quality: quality, balanced, economy |
 
 ### How It Works
 
 The system uses a **dual-agent architecture** where two specialized LLM agents run in parallel on every player action:
 
-- **Narrator** (Haiku — fast, creative) — Rich scene descriptions, NPC dialogue, atmospheric text
-- **Arbiter** (Sonnet — thorough, rules-focused) — Mechanical resolution, dice rolls, rule adjudication
+- **Narrator** — Rich scene descriptions, NPC dialogue, atmospheric text
+- **Arbiter** — Mechanical resolution, dice rolls, rule adjudication
 
 A **DM Persona** (`.claude/dm-persona.md`) orchestrates the game loop: gather context, decide what happens, execute via tools, update state, narrate the outcome. A Python-side **Archivist** agent handles data retrieval and game state tracking without consuming LLM tokens.
+
+**Model Profiles** let you trade quality vs token cost with a single command. All profiles use Opus with different effort levels — medium effort matches Sonnet quality with ~76% fewer output tokens:
+
+| Profile | Model + Effort | CC Agents | Best for |
+|---------|---------------|-----------|----------|
+| `quality` | Opus, effort high | Opus | Boss fights, key story moments |
+| `balanced` | Opus, effort medium | Opus | General play (default) |
+| `economy` | Opus, effort low | Haiku | Stretching token budgets |
+
+Switch mid-session with `/dm:profile economy` or via `configure_claudmaster(model_profile="quality")`. The profile updates both the Python-side config and the Claude Code agent files at once.
+
+> **Note:** Model profiles and effort levels are a **Claude-specific feature**. The effort parameter is only supported on Anthropic's Opus models via the Claude API. If you're using dm20-protocol with a different MCP client or LLM backend, the effort setting will have no effect — the system still works, but you won't get the quality/cost scaling that effort provides. CC agent file updates (`.claude/agents/*.md`) are specific to Claude Code.
 
 Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches. Built on the Claudmaster architecture with session persistence, difficulty scaling, and configurable narrative style.
 

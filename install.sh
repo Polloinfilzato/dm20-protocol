@@ -21,6 +21,7 @@ CODE_SCOPE="global"      # "global" or "project"
 INSTALL_RAG=false        # whether to install RAG extras
 DM20_BINARY_PATH=""      # user mode: resolved path to dm20-protocol binary
 ON_ICLOUD=false          # true if target dir is on iCloud Drive
+MODEL_PROFILE="balanced" # model quality profile: quality, balanced, economy
 
 # ─── Colors ────────────────────────────────────────────────────────────────────
 
@@ -540,6 +541,19 @@ gather_options_user() {
     esac
     CODE_SCOPE="project"  # always project-scoped in user mode
 
+    # ── Model Quality Profile ─────────────────────────────────────────────
+    echo ""
+    local profile_choice
+    profile_choice=$(prompt_choice "Model quality profile:" \
+        "Balanced — Sonnet models, good quality [recommended]" \
+        "Quality — Opus models, best narrative (uses more tokens)" \
+        "Economy — Haiku models, fast and cheap (great for Pro plan)")
+    case "$profile_choice" in
+        2) MODEL_PROFILE="quality" ;;
+        3) MODEL_PROFILE="economy" ;;
+        *) MODEL_PROFILE="balanced" ;;
+    esac
+
     # ── RAG dependencies ──────────────────────────────────────────────────
     INSTALL_RAG=false
     echo ""
@@ -626,6 +640,19 @@ gather_options_developer() {
         *) DATA_DIR="$HOME/dm20-data" ;;
     esac
 
+    # ── Model Quality Profile ─────────────────────────────────────────────
+    echo ""
+    local profile_choice
+    profile_choice=$(prompt_choice "Model quality profile:" \
+        "Balanced — Sonnet models, good quality [recommended]" \
+        "Quality — Opus models, best narrative (uses more tokens)" \
+        "Economy — Haiku models, fast and cheap (great for Pro plan)")
+    case "$profile_choice" in
+        2) MODEL_PROFILE="quality" ;;
+        3) MODEL_PROFILE="economy" ;;
+        *) MODEL_PROFILE="balanced" ;;
+    esac
+
     # ── RAG dependencies ──────────────────────────────────────────────────
     INSTALL_RAG=false
     echo ""
@@ -682,7 +709,52 @@ do_create_play_dir() {
     mkdir -p "${PLAY_DIR}/data/library/pdfs"
     mkdir -p "${PLAY_DIR}/data/library/index"
     mkdir -p "${PLAY_DIR}/data/library/extracted"
-    success "Play directory created at ${PLAY_DIR}"
+    mkdir -p "${PLAY_DIR}/.claude/agents"
+
+    # Copy agent template files from the installed package into the play dir
+    # so that /dm:profile can modify them at runtime
+    info "Copying CC agent templates to play directory..."
+    local agents_src
+    agents_src=$(python3 -c "
+import importlib.resources as pkg_resources
+try:
+    # dm20-protocol ships agent templates in the package data
+    import dm20_protocol
+    import os
+    pkg_dir = os.path.dirname(dm20_protocol.__file__)
+    # Walk up to find .claude/agents/ in the installed tree
+    base = pkg_dir
+    for _ in range(5):
+        candidate = os.path.join(base, '.claude', 'agents')
+        if os.path.isdir(candidate):
+            print(candidate)
+            break
+        base = os.path.dirname(base)
+except Exception:
+    pass
+" 2>/dev/null)
+
+    if [[ -n "$agents_src" && -d "$agents_src" ]]; then
+        cp -n "$agents_src"/*.md "${PLAY_DIR}/.claude/agents/" 2>/dev/null || true
+        success "Agent templates copied to ${PLAY_DIR}/.claude/agents/"
+    else
+        # Fallback: create minimal agent files from scratch
+        for agent_file in narrator.md combat-handler.md rules-lookup.md; do
+            local target="${PLAY_DIR}/.claude/agents/${agent_file}"
+            if [[ ! -f "$target" ]]; then
+                local agent_name="${agent_file%.md}"
+                local model="sonnet"
+                [[ "$agent_name" == "rules-lookup" ]] && model="haiku"
+                cat > "$target" << AGENTEOF
+---
+name: ${agent_name}
+model: ${model}
+---
+AGENTEOF
+            fi
+        done
+        success "Minimal agent templates created in ${PLAY_DIR}/.claude/agents/"
+    fi
 }
 
 # ─── Installation (Developer mode) ────────────────────────────────────────────
@@ -776,11 +848,13 @@ install_mode = "$INSTALL_MODE"
 use_abs_uv = "$use_abs_uv" == "true"
 add_type = "$add_type" == "true"
 on_icloud = "$ON_ICLOUD" == "true"
+model_profile = "$MODEL_PROFILE"
 
 server_entry = {}
 
 if install_mode == "user":
     data_dir = "$DATA_DIR"
+    play_dir = "$PLAY_DIR"
     binary_path = "${DM20_BINARY_PATH}"
 
     if add_type:
@@ -791,7 +865,12 @@ if install_mode == "user":
         # Claude Desktop — needs absolute path (no user PATH)
         server_entry["command"] = binary_path if binary_path else "dm20-protocol"
 
-    server_entry["env"] = {"DM20_STORAGE_DIR": data_dir}
+    env = {"DM20_STORAGE_DIR": data_dir}
+    # Point to play dir's .claude/agents/ for profile switching
+    agents_dir = str(Path(play_dir) / ".claude" / "agents")
+    env["DM20_AGENTS_DIR"] = agents_dir
+    env["DM20_DEFAULT_PROFILE"] = model_profile
+    server_entry["env"] = env
 
 else:
     install_dir = "${INSTALL_DIR}"
@@ -815,6 +894,9 @@ else:
         server_entry["args"] = ["run", "--directory", install_dir, "python", "-m", "dm20_protocol"]
 
     env = {"DM20_STORAGE_DIR": data_dir}
+    # Developer mode: agents live in repo's .claude/agents/
+    env["DM20_AGENTS_DIR"] = str(Path(install_dir) / ".claude" / "agents")
+    env["DM20_DEFAULT_PROFILE"] = model_profile
     # Safety net: if on iCloud, add PYTHONPATH to bypass hidden .pth files
     if on_icloud:
         env["PYTHONPATH"] = str(Path(install_dir) / "src")
@@ -926,6 +1008,7 @@ print_summary_user() {
     echo -e "  ${BOLD}Play dir:${NC}     ${PLAY_DIR}"
     echo -e "  ${BOLD}Data dir:${NC}     ${DATA_DIR}"
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
+    echo -e "  ${BOLD}Profile:${NC}      ${MODEL_PROFILE}"
     echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
     echo ""
@@ -958,6 +1041,7 @@ print_summary_developer() {
     echo -e "  ${BOLD}Install dir:${NC}  ${INSTALL_DIR}"
     echo -e "  ${BOLD}Data dir:${NC}     ${DATA_DIR}"
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
+    echo -e "  ${BOLD}Profile:${NC}      ${MODEL_PROFILE}"
     echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
     if [[ "$ON_ICLOUD" == true ]]; then

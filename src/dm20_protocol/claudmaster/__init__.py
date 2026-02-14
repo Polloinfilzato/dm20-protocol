@@ -133,6 +133,16 @@ from .guidance import (
     ACKNOWLEDGMENTS,
 )
 from .config import ClaudmasterConfig
+from .profiles import (
+    MODEL_PROFILES,
+    AGENT_MODEL_MAP,
+    CC_RECOMMENDATIONS,
+    VALID_PROFILES,
+    apply_profile,
+    get_profile_summary,
+    resolve_agents_dir,
+    update_agent_files,
+)
 from .consistency import (
     GameTime,
     LocationState,
@@ -201,6 +211,7 @@ from .split_party import (
     SplitPartyManager,
 )
 from .llm_client import (
+    VALID_EFFORT_LEVELS,
     AnthropicLLMClient,
     MockLLMClient,
     MultiModelClient,
@@ -324,6 +335,15 @@ __all__ = [
     "LocationStateManager",
     # Config
     "ClaudmasterConfig",
+    # Model Profiles
+    "MODEL_PROFILES",
+    "AGENT_MODEL_MAP",
+    "CC_RECOMMENDATIONS",
+    "VALID_PROFILES",
+    "apply_profile",
+    "get_profile_summary",
+    "resolve_agents_dir",
+    "update_agent_files",
     # Module Fidelity Enforcement (Issue #53)
     "NarrationContext",
     "Deviation",
@@ -376,6 +396,7 @@ __all__ = [
     "SplitProposal",
     "SplitPartyManager",
     # LLM Client (Issue #75)
+    "VALID_EFFORT_LEVELS",
     "AnthropicLLMClient",
     "MockLLMClient",
     "MultiModelClient",

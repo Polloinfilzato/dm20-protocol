@@ -2980,10 +2980,15 @@ def _configure_claudmaster_impl(
     improvisation_level=None,
     agent_timeout=None,
     fudge_rolls=None,
+    model_profile=None,
     reset_to_defaults=False,
 ) -> str:
     """Implementation for configure_claudmaster (testable without MCP wrapper)."""
     from dm20_protocol.claudmaster.config import ClaudmasterConfig
+    from dm20_protocol.claudmaster.profiles import (
+        apply_profile, update_agent_files, resolve_agents_dir,
+        get_profile_summary, CC_RECOMMENDATIONS,
+    )
 
     if not storage_ref._current_campaign:
         return "No active campaign. Load or create a campaign first."
@@ -2991,10 +2996,48 @@ def _configure_claudmaster_impl(
     if reset_to_defaults:
         config = ClaudmasterConfig()
         storage_ref.save_claudmaster_config(config)
-        return _format_claudmaster_config(config, header="Claudmaster Configuration Reset to Defaults")
+        # Also reset agent files to balanced defaults
+        updated_agents = update_agent_files("balanced")
+        header = "Claudmaster Configuration Reset to Defaults"
+        if updated_agents:
+            header += f" (agents updated: {', '.join(updated_agents)})"
+        return _format_claudmaster_config(config, header=header)
 
     config = storage_ref.get_claudmaster_config()
 
+    # ── Profile switch: apply preset then update agent files ──
+    if model_profile is not None:
+        try:
+            config = apply_profile(config, model_profile)
+        except ValueError as e:
+            return f"Configuration error: {e}"
+
+        # Update CC agent .md files
+        updated_agents = update_agent_files(model_profile)
+
+        storage_ref.save_claudmaster_config(config)
+
+        # Build rich output
+        lines = [_format_claudmaster_config(config, header=f"Profile Applied: {model_profile.upper()}")]
+        if updated_agents:
+            lines.append("")
+            lines.append(f"**CC Agent files updated:** {', '.join(a + '.md' for a in updated_agents)}")
+        else:
+            agents_dir = resolve_agents_dir()
+            if agents_dir is None:
+                lines.append("")
+                lines.append("**Note:** Could not find .claude/agents/ directory. "
+                             "Agent files were not updated. Set DM20_AGENTS_DIR env var to fix this.")
+
+        rec = CC_RECOMMENDATIONS.get(model_profile, {})
+        if rec:
+            lines.append("")
+            lines.append(f"**Tip:** Run `/model {rec['model']}` in Claude Code to match this profile.")
+            lines.append(f"  {rec['description']}")
+
+        return "\n".join(lines)
+
+    # ── Individual field updates ──
     updates: dict = {}
     if llm_model is not None:
         updates["llm_model"] = llm_model
@@ -3017,6 +3060,14 @@ def _configure_claudmaster_impl(
 
     if not updates:
         return _format_claudmaster_config(config, header="Claudmaster Configuration (Current)")
+
+    # If user changed a model field individually, mark profile as "custom"
+    model_fields = {"llm_model", "narrator_model", "arbiter_model",
+                    "narrator_max_tokens", "arbiter_max_tokens", "max_tokens",
+                    "temperature", "narrator_temperature", "arbiter_temperature",
+                    "effort", "narrator_effort", "arbiter_effort"}
+    if updates.keys() & model_fields:
+        updates["model_profile"] = "custom"
 
     try:
         merged = config.model_dump()
@@ -3041,19 +3092,21 @@ def configure_claudmaster(
     improvisation_level: Annotated[int | None, Field(description="AI improvisation level: 0=None, 1=Low, 2=Medium, 3=High, 4=Full")] = None,
     agent_timeout: Annotated[float | None, Field(description="Maximum seconds per agent call (> 0)")] = None,
     fudge_rolls: Annotated[bool | None, Field(description="Whether DM can fudge dice rolls for narrative purposes")] = None,
+    model_profile: Annotated[Literal["quality", "balanced", "economy"] | None, Field(description="Switch model quality profile. Updates all model settings and CC agent files at once.")] = None,
     reset_to_defaults: Annotated[bool, Field(description="Reset all settings to defaults")] = False,
 ) -> str:
     """Configure the Claudmaster AI DM settings for the current campaign.
 
     Call with no arguments to view current configuration.
     Provide specific fields to update only those settings (partial update).
+    Set model_profile to switch all model settings at once (quality/balanced/economy).
     Set reset_to_defaults=True to restore all settings to their default values.
     """
     return _configure_claudmaster_impl(
         storage, llm_model=llm_model, temperature=temperature, max_tokens=max_tokens,
         narrative_style=narrative_style, dialogue_style=dialogue_style, difficulty=difficulty,
         improvisation_level=improvisation_level, agent_timeout=agent_timeout,
-        fudge_rolls=fudge_rolls, reset_to_defaults=reset_to_defaults,
+        fudge_rolls=fudge_rolls, model_profile=model_profile, reset_to_defaults=reset_to_defaults,
     )
 
 
@@ -3143,14 +3196,21 @@ def _format_claudmaster_config(config, header: str = "Claudmaster Configuration"
     improv_display = improv_labels.get(level_value, str(config.improvisation_level))
     improv_num = improv_index.get(level_value, "?")
 
+    profile_display = getattr(config, "model_profile", "balanced").upper()
+
     lines = [
         f"**{header}**",
         "",
+        f"**Model Profile:** {profile_display}",
+        "",
         "**LLM Settings:**",
         f"  Provider: {config.llm_provider}",
-        f"  Model: {config.llm_model}",
-        f"  Temperature: {config.temperature}",
-        f"  Max Tokens: {config.max_tokens}",
+        f"  Main Model: {config.llm_model}",
+        f"  Narrator Model: {config.narrator_model}",
+        f"  Arbiter Model: {config.arbiter_model}",
+        f"  Effort (main/narrator/arbiter): {config.effort or 'none'}/{config.narrator_effort or 'none'}/{config.arbiter_effort or 'none'}",
+        f"  Temperature (main/narrator/arbiter): {config.temperature}/{config.narrator_temperature}/{config.arbiter_temperature}",
+        f"  Max Tokens (main/narrator/arbiter): {config.max_tokens}/{config.narrator_max_tokens}/{config.arbiter_max_tokens}",
         "",
         "**Narrative Settings:**",
         f"  Style: {config.narrative_style}",

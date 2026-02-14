@@ -22,6 +22,7 @@ Commands for playing D&D with the AI Dungeon Master.
 | `/dm:action <description>` | Process a player action through the game loop. The core gameplay command. |
 | `/dm:combat [situation]` | Initiate or manage a combat encounter with initiative and turn tracking. |
 | `/dm:save` | Save session state and pause. Creates session notes with a narrative stopping point. |
+| `/dm:profile [tier]` | Switch model quality tier: quality, balanced, economy. Trade quality vs token cost. |
 | `/dm:help` | Show this help overview. |
 
 ### Quick Start

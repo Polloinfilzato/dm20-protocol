@@ -119,6 +119,18 @@ async def test_mock_llm_reset(mock_llm_client: MockLLMClient) -> None:
     assert len(mock_llm_client.calls) == 0
 
 
+def test_mock_llm_effort_stored() -> None:
+    """Test that MockLLMClient stores effort parameter."""
+    mock = MockLLMClient(effort="high")
+    assert mock.effort == "high"
+
+
+def test_mock_llm_effort_none_by_default() -> None:
+    """Test that MockLLMClient effort is None by default."""
+    mock = MockLLMClient()
+    assert mock.effort is None
+
+
 @pytest.mark.anyio
 async def test_mock_llm_stream(mock_llm_client: MockLLMClient) -> None:
     """Test MockLLMClient streaming generation."""
@@ -191,6 +203,37 @@ def test_anthropic_client_custom_params() -> None:
         assert client.default_max_tokens == 2048
 
 
+def test_anthropic_client_with_effort() -> None:
+    """Test AnthropicLLMClient with effort parameter."""
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()):
+        client = AnthropicLLMClient(
+            api_key="test-key",
+            model="claude-opus-4-5-20250929",
+            effort="medium",
+        )
+        assert client.effort == "medium"
+
+
+def test_anthropic_client_effort_none_by_default() -> None:
+    """Test that effort is None by default."""
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()):
+        client = AnthropicLLMClient(api_key="test-key")
+        assert client.effort is None
+
+
+def test_anthropic_client_invalid_effort() -> None:
+    """Test that invalid effort level raises error."""
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", MagicMock()):
+        with pytest.raises(LLMConfigurationError, match="Invalid effort level"):
+            AnthropicLLMClient(api_key="test-key", effort="ultra")
+
+
 # ---------------------------------------------------------------------------
 # AnthropicLLMClient Tests - Generation
 # ---------------------------------------------------------------------------
@@ -215,6 +258,38 @@ async def test_anthropic_generate_success(mock_anthropic_message: MagicMock) -> 
     assert call_kwargs["max_tokens"] == 512
     assert call_kwargs["temperature"] == 0.7
     assert call_kwargs["messages"][0]["content"] == "Test prompt"
+
+
+@pytest.mark.anyio
+async def test_anthropic_generate_with_effort(mock_anthropic_message: MagicMock) -> None:
+    """Test that effort parameter is passed as output_config in API call."""
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(return_value=mock_anthropic_message)
+
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
+        client = AnthropicLLMClient(api_key="test-key", effort="medium")
+        await client.generate("Test prompt", max_tokens=512)
+
+    call_kwargs = mock_async_client.messages.create.call_args[1]
+    assert call_kwargs["output_config"] == {"effort": "medium"}
+
+
+@pytest.mark.anyio
+async def test_anthropic_generate_without_effort(mock_anthropic_message: MagicMock) -> None:
+    """Test that output_config is not included when effort is None."""
+    mock_async_client = AsyncMock()
+    mock_async_client.messages.create = AsyncMock(return_value=mock_anthropic_message)
+
+    with patch("dm20_protocol.claudmaster.llm_client._HAS_ANTHROPIC", True), \
+         patch("dm20_protocol.claudmaster.llm_client._anthropic_module", MagicMock()), \
+         patch("dm20_protocol.claudmaster.llm_client.AsyncAnthropic", return_value=mock_async_client):
+        client = AnthropicLLMClient(api_key="test-key")
+        await client.generate("Test prompt", max_tokens=512)
+
+    call_kwargs = mock_async_client.messages.create.call_args[1]
+    assert "output_config" not in call_kwargs
 
 
 @pytest.mark.anyio

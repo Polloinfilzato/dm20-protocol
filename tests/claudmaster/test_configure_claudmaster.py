@@ -9,6 +9,8 @@ Tests cover:
 - Read-only view (no arguments)
 - Persistence (save/load cycle)
 - Requires active campaign
+- Model profile switching via MCP tool
+- Individual model field changes set profile to 'custom'
 """
 
 import json
@@ -313,3 +315,96 @@ class TestFormatConfig:
         config = ClaudmasterConfig()
         result = _format_claudmaster_config(config, header="Test Header")
         assert "Test Header" in result
+
+    def test_format_shows_model_profile(self):
+        from dm20_protocol.main import _format_claudmaster_config
+        config = ClaudmasterConfig(model_profile="economy")
+        result = _format_claudmaster_config(config)
+        assert "ECONOMY" in result
+        assert "Model Profile" in result
+
+    def test_format_shows_per_agent_models(self):
+        from dm20_protocol.main import _format_claudmaster_config
+        config = ClaudmasterConfig()
+        result = _format_claudmaster_config(config)
+        assert "Narrator Model" in result
+        assert "Arbiter Model" in result
+        assert "Main Model" in result
+
+
+# ============================================================================
+# Model Profile Integration Tests
+# ============================================================================
+
+class TestConfigureWithModelProfile:
+    """Test model_profile parameter through the MCP tool implementation."""
+
+    def _call_tool(self, mock_storage, **kwargs) -> str:
+        from dm20_protocol.main import _configure_claudmaster_impl
+        return _configure_claudmaster_impl(mock_storage, **kwargs)
+
+    @patch("dm20_protocol.claudmaster.profiles.update_agent_files", return_value=["narrator", "combat-handler"])
+    def test_profile_applies_config(self, mock_update, mock_storage):
+        result = self._call_tool(mock_storage, model_profile="economy")
+        assert "ECONOMY" in result
+
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "economy"
+        assert config.llm_model == "claude-opus-4-5-20250929"
+        assert config.narrator_model == "claude-opus-4-5-20250929"
+        assert config.effort == "low"
+        assert config.narrator_effort == "low"
+        assert config.arbiter_effort == "low"
+
+    @patch("dm20_protocol.claudmaster.profiles.update_agent_files", return_value=["narrator", "combat-handler"])
+    def test_profile_shows_agent_update_status(self, mock_update, mock_storage):
+        result = self._call_tool(mock_storage, model_profile="quality")
+        assert "narrator.md" in result
+        assert "combat-handler.md" in result
+        mock_update.assert_called_once_with("quality")
+
+    @patch("dm20_protocol.claudmaster.profiles.update_agent_files", return_value=["narrator", "combat-handler"])
+    def test_profile_shows_cc_recommendation(self, mock_update, mock_storage):
+        result = self._call_tool(mock_storage, model_profile="quality")
+        assert "/model opus" in result
+
+    def test_individual_model_change_sets_custom(self, mock_storage):
+        """Changing llm_model without profile should set model_profile to custom."""
+        self._call_tool(mock_storage, llm_model="some-custom-model")
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "custom"
+
+    def test_individual_temperature_sets_custom(self, mock_storage):
+        """Changing temperature should also set profile to custom."""
+        self._call_tool(mock_storage, temperature=0.99)
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "custom"
+
+    @patch("dm20_protocol.claudmaster.profiles.update_agent_files", return_value=["narrator", "combat-handler"])
+    def test_profile_then_individual_override(self, mock_update, mock_storage):
+        """Apply profile, then change one field -> profile becomes custom."""
+        self._call_tool(mock_storage, model_profile="quality")
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "quality"
+
+        self._call_tool(mock_storage, llm_model="some-other-model")
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "custom"
+        # But the other profile fields should remain
+        assert config.narrator_model == "claude-opus-4-5-20250929"
+
+    @patch("dm20_protocol.claudmaster.profiles.update_agent_files", return_value=["narrator", "combat-handler"])
+    def test_profile_preserves_non_model_settings(self, mock_update, mock_storage):
+        """Profile switch must preserve difficulty, narrative style, etc."""
+        self._call_tool(mock_storage, difficulty="deadly", narrative_style="cinematic")
+        self._call_tool(mock_storage, model_profile="economy")
+        config = mock_storage.get_claudmaster_config()
+        assert config.difficulty == "deadly"
+        assert config.narrative_style == "cinematic"
+        assert config.model_profile == "economy"
+
+    def test_non_model_field_change_does_not_set_custom(self, mock_storage):
+        """Changing difficulty should not change model_profile."""
+        self._call_tool(mock_storage, difficulty="hard")
+        config = mock_storage.get_claudmaster_config()
+        assert config.model_profile == "balanced"  # unchanged

@@ -60,6 +60,9 @@ class LLMDependencyError(LLMClientError):
 # ---------------------------------------------------------------------------
 
 
+VALID_EFFORT_LEVELS = {"low", "medium", "high", "max", None}
+
+
 class MockLLMClient:
     """Mock LLM client for testing purposes.
 
@@ -70,6 +73,7 @@ class MockLLMClient:
         responses: List of responses to return in order. If empty, returns a default response.
             When exhausted, cycles back to the first response.
         default_response: Default response when responses list is empty.
+        effort: Effort level (low/medium/high/max or None to omit). Recorded but not used.
 
     Example:
         >>> mock = MockLLMClient(responses=["First response", "Second response"])
@@ -83,9 +87,11 @@ class MockLLMClient:
         self,
         responses: list[str] | None = None,
         default_response: str = "Mock LLM response.",
+        effort: str | None = None,
     ) -> None:
         self.responses = responses or []
         self.default_response = default_response
+        self.effort = effort
         self.call_count = 0
         self.calls: list[dict[str, Any]] = []
 
@@ -151,6 +157,10 @@ class AnthropicLLMClient:
         model: Model identifier (e.g., "claude-sonnet-4-5-20250929").
         temperature: Temperature parameter for generation (0.0-2.0).
         default_max_tokens: Default max tokens if not specified in generate().
+        effort: Effort level for Opus models (low/medium/high/max). None to omit.
+            Only supported on claude-opus-4-5 and claude-opus-4-6 models.
+            Controls output verbosity: medium effort matches Sonnet quality
+            with ~76% fewer output tokens.
 
     Raises:
         LLMDependencyError: If anthropic package is not installed.
@@ -159,8 +169,9 @@ class AnthropicLLMClient:
     Example:
         >>> client = AnthropicLLMClient(
         ...     api_key="sk-ant-...",
-        ...     model="claude-sonnet-4-5-20250929",
-        ...     temperature=0.7
+        ...     model="claude-opus-4-5-20250929",
+        ...     temperature=0.7,
+        ...     effort="medium"
         ... )
         >>> response = await client.generate("Hello, Claude!", max_tokens=100)
     """
@@ -171,6 +182,7 @@ class AnthropicLLMClient:
         model: str = "claude-sonnet-4-5-20250929",
         temperature: float = 0.7,
         default_max_tokens: int = 1024,
+        effort: str | None = None,
     ) -> None:
         # Check that anthropic SDK is available
         if not _HAS_ANTHROPIC:
@@ -189,16 +201,23 @@ class AnthropicLLMClient:
                 "or set the ANTHROPIC_API_KEY environment variable."
             )
 
+        if effort is not None and effort not in {"low", "medium", "high", "max"}:
+            raise LLMConfigurationError(
+                f"Invalid effort level '{effort}'. Must be one of: low, medium, high, max"
+            )
+
         self.model = model
         self.temperature = temperature
         self.default_max_tokens = default_max_tokens
+        self.effort = effort
 
         # Create async client
         self.client = AsyncAnthropic(api_key=self.api_key)
 
+        effort_str = f", effort={effort}" if effort else ""
         logger.info(
             f"Initialized AnthropicLLMClient with model={model}, "
-            f"temperature={temperature}, default_max_tokens={default_max_tokens}"
+            f"temperature={temperature}, default_max_tokens={default_max_tokens}{effort_str}"
         )
 
     async def generate(self, prompt: str, max_tokens: int | None = None) -> str:
@@ -219,15 +238,18 @@ class AnthropicLLMClient:
             max_tokens = self.default_max_tokens
 
         try:
+            # Build API call kwargs
+            create_kwargs: dict[str, Any] = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "temperature": self.temperature,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if self.effort is not None:
+                create_kwargs["output_config"] = {"effort": self.effort}
+
             # Make API call
-            message = await self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-            )
+            message = await self.client.messages.create(**create_kwargs)
 
             # Extract text from response
             # The response content is a list of content blocks
@@ -281,15 +303,18 @@ class AnthropicLLMClient:
             max_tokens = self.default_max_tokens
 
         try:
+            # Build streaming API call kwargs
+            stream_kwargs: dict[str, Any] = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "temperature": self.temperature,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if self.effort is not None:
+                stream_kwargs["output_config"] = {"effort": self.effort}
+
             # Make streaming API call
-            async with self.client.messages.stream(
-                model=self.model,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-            ) as stream:
+            async with self.client.messages.stream(**stream_kwargs) as stream:
                 async for text in stream.text_stream:
                     yield text
 
@@ -383,6 +408,7 @@ class MultiModelClient:
 
 
 __all__ = [
+    "VALID_EFFORT_LEVELS",
     "LLMClientError",
     "LLMConfigurationError",
     "LLMAPIError",
