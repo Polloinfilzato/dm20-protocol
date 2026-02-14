@@ -67,6 +67,27 @@ prompt_choice() {
     echo "$choice"
 }
 
+# Reject system paths where a git clone would be dangerous or nonsensical
+validate_install_path() {
+    local dir="$1"
+
+    # Normalize: strip trailing slashes, resolve ~ to $HOME
+    dir="${dir%/}"
+    dir="${dir/#\~/$HOME}"
+
+    case "$dir" in
+        /|/usr|/usr/local|/bin|/sbin|/etc|/var|/tmp|/opt|/System|/Library|/private)
+            error "Cannot install to system directory: ${dir}"
+            exit 1
+            ;;
+        "$HOME")
+            error "Cannot install directly into your home directory."
+            echo "  Try: ${HOME}/dm20-protocol"
+            exit 1
+            ;;
+    esac
+}
+
 # ─── Banner ────────────────────────────────────────────────────────────────────
 
 banner() {
@@ -450,6 +471,8 @@ gather_options() {
         else
             CLONE_NEEDED=true
         fi
+        # Validate path safety before proceeding
+        validate_install_path "$INSTALL_DIR"
     fi
 
     # ── MCP Client ─────────────────────────────────────────────────────────
@@ -518,14 +541,11 @@ do_clone() {
     if [[ "$CLONE_NEEDED" == true ]]; then
         step "Cloning repository"
         if [[ -d "$INSTALL_DIR" ]]; then
-            warn "Directory ${INSTALL_DIR} exists but is not a dm20-protocol clone"
-            prompt_yn "Remove it and clone fresh?" "n" REMOVE_DIR
-            if [[ "$REMOVE_DIR" == true ]]; then
-                rm -rf "$INSTALL_DIR"
-            else
-                error "Cannot proceed — directory exists. Choose a different location."
-                exit 1
-            fi
+            # Directory exists but is not a dm20-protocol clone — refuse to touch it
+            error "Directory ${INSTALL_DIR} already exists and is not a dm20-protocol clone."
+            echo "  Please choose an empty or non-existing directory and re-run."
+            echo "  Example: ${INSTALL_DIR}/dm20-protocol"
+            exit 1
         fi
         git clone "$REPO_URL" "$INSTALL_DIR"
         success "Cloned to ${INSTALL_DIR}"
