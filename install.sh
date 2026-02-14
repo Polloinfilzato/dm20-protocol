@@ -541,11 +541,14 @@ do_clone() {
     if [[ "$CLONE_NEEDED" == true ]]; then
         step "Cloning repository"
         if [[ -d "$INSTALL_DIR" ]]; then
-            # Directory exists but is not a dm20-protocol clone — refuse to touch it
-            error "Directory ${INSTALL_DIR} already exists and is not a dm20-protocol clone."
-            echo "  Please choose an empty or non-existing directory and re-run."
-            echo "  Example: ${INSTALL_DIR}/dm20-protocol"
-            exit 1
+            # Directory exists but is not a dm20-protocol clone — install into a subdirectory
+            INSTALL_DIR="${INSTALL_DIR}/dm20-protocol"
+            info "Target directory exists — installing into ${INSTALL_DIR}"
+            if [[ -d "$INSTALL_DIR" ]]; then
+                error "Directory ${INSTALL_DIR} already exists too."
+                echo "  Please remove it or choose a different location and re-run."
+                exit 1
+            fi
         fi
         git clone "$REPO_URL" "$INSTALL_DIR"
         success "Cloned to ${INSTALL_DIR}"
