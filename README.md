@@ -28,50 +28,93 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 
 ## Installation
 
-This server implements the open [Model Context Protocol](https://modelcontextprotocol.io/) standard. It works with **any MCP-compatible client** — not just Claude. If your AI tool supports MCP, it can run this server.
+### 3 Steps to Play D&D
 
-**Tested with:** Claude Desktop, Claude Code, Cursor, VS Code (Copilot), Windsurf, Cline, OpenAI Codex, Gemini CLI.
-
-### Quick Install (Recommended)
+You don't need to install anything beforehand. One command sets up everything:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh)
 ```
 
-The interactive installer is designed to get you running **with zero prior setup**. It handles everything from prerequisites to MCP client configuration in a single command.
+The installer asks a few questions (which MCP client you use, where to put your data), handles all dependencies automatically, and configures everything. When it's done:
 
-**What the installer does for you:**
+```bash
+cd ~/dm20    # go to your play directory
+claude       # start Claude Code — the MCP server connects automatically
+```
 
-| Step | What happens |
-|------|--------------|
-| **Platform detection** | Identifies your OS (macOS, Linux, WSL) and CPU architecture |
-| **Dependency resolution** | Detects missing tools and offers to install them automatically |
-| **Homebrew** (macOS) | If not installed, explains what it is and offers one-click setup |
-| **uv** | Auto-installs via Homebrew (macOS) or official installer (Linux) |
-| **Python 3.12** | Auto-installs via `uv python install` — no system Python needed |
-| **git** | Auto-installs via Homebrew (macOS) or system package manager (Linux) |
-| **Repository clone** | Clones the repo or updates an existing copy |
-| **iCloud Drive protection** | Detects iCloud-synced directories and shields `.venv` from sync corruption |
-| **Virtual environment** | Creates `.venv` and installs all Python dependencies |
-| **MCP client config** | Writes the JSON config for Claude Desktop, Claude Code, or both |
-| **Data directory** | Sets up campaign storage in your preferred location |
-| **Verification** | Smoke-tests the server to confirm everything works |
+That's it. You're ready to play.
 
-**Supported platforms:**
+> **Using Claude Desktop instead?** Just restart it after installation — the MCP server is already configured.
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **macOS** (Apple Silicon) | Full support | Homebrew integration for all dependencies |
-| **macOS** (Intel) | Full support | RAG/semantic search unavailable (onnxruntime limitation) |
-| **Linux** (x86_64 / arm64) | Full support | Auto-detects apt, dnf, pacman, zypper, apk |
-| **Windows** (via WSL) | Full support | WSL is detected as Linux — everything works |
-| **Windows** (native) | Not supported | Use WSL instead |
+The installer offers two modes. **Most users should pick "User"** — it's the default:
 
-> **You don't need to install anything beforehand.** The only requirement is `curl` and `bash`, which you already have if you're running the command above. The installer takes care of the rest, asking permission before each step.
+| | User (recommended) | Developer |
+|---|---|---|
+| **Who it's for** | Players who want to play D&D | Contributors who want to modify the code |
+| **What it installs** | A single `dm20-protocol` command | Full source code repository |
+| **Disk footprint** | Minimal (~50 MB) | Full dev environment (~200+ MB) |
+| **Prerequisites** | None (auto-installed) | None (auto-installed) |
+| **How to update** | `uv tool upgrade dm20-protocol` | `git pull && uv sync` |
+
+> Running `bash install.sh` from inside an existing clone? The installer auto-detects it and switches to Developer mode.
+
+**Supported platforms:** macOS (Apple Silicon & Intel), Linux (x86_64/arm64), Windows via WSL. See [Installer Details](docs/INSTALLER.md) for the full breakdown.
+
+**Want to know what happens under the hood?** The [Installer Guide](docs/INSTALLER.md) covers the full architecture, every edge case we handle, and why we built it this way.
+
+### Compatibility
+
+This server implements the open [Model Context Protocol](https://modelcontextprotocol.io/) standard. It works with **any MCP-compatible client** — not just Claude.
+
+| Platform / Client | Status |
+|---|---|
+| macOS + Claude Code | **Tested** (Intel & Apple Silicon) |
+| macOS + Claude Desktop | **Tested** (Intel & Apple Silicon) |
+| Linux + Claude Code | Supported, community testing welcome |
+| Linux + Claude Desktop | Supported, community testing welcome |
+| Windows (via WSL) | Supported, community testing welcome |
+| Cursor, Windsurf, Cline, VS Code Copilot | Supported, community testing welcome |
+| OpenAI Codex, Gemini CLI, Amazon Q | Supported, community testing welcome |
+
+> We're confident in cross-platform support (the installer and server are designed for it), but we can only mark combinations as "Tested" once a contributor confirms them. If you try one of the untested combinations and it works (or doesn't), please [open an issue](https://github.com/Polloinfilzato/dm20-protocol/issues) — it helps everyone.
+
+For detailed per-client setup instructions, config file locations, and platform-specific notes, see the **[MCP Client Setup Guide](docs/MCP_CLIENTS.md)**.
 
 ### Manual Install
 
-Clone and install dependencies (same for all clients):
+<details>
+<summary><strong>Option A: Install as a tool (simplest — no git clone needed)</strong></summary>
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
+```bash
+uv tool install "dm20-protocol @ git+https://github.com/Polloinfilzato/dm20-protocol.git"
+```
+
+Then add to your MCP client's config file (see [MCP Client Setup Guide](docs/MCP_CLIENTS.md) for your client's config path):
+
+```json
+{
+  "mcpServers": {
+    "dm20-protocol": {
+      "command": "dm20-protocol",
+      "env": {
+        "DM20_STORAGE_DIR": "/path/to/your/data"
+      }
+    }
+  }
+}
+```
+
+> **Note:** Some clients (like Claude Desktop) don't inherit your shell PATH. Use the absolute path instead: `"command": "/Users/you/.local/bin/dm20-protocol"` (find it with `which dm20-protocol`).
+
+On Linux, if `dm20-protocol` is not found after install, run `uv tool update-shell` or add `~/.local/bin` to your PATH manually.
+
+</details>
+
+<details>
+<summary><strong>Option B: Clone the repository (for development)</strong></summary>
 
 ```bash
 git clone https://github.com/Polloinfilzato/dm20-protocol.git
@@ -79,46 +122,16 @@ cd dm20-protocol
 uv sync
 ```
 
-Then configure your client:
-
-<details>
-<summary><strong>Claude Desktop</strong></summary>
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Then add to your MCP client's config file (see [MCP Client Setup Guide](docs/MCP_CLIENTS.md) for your client's config path):
 
 ```json
 {
   "mcpServers": {
     "dm20-protocol": {
-      "command": "/absolute/path/to/uv",
+      "command": "uv",
       "args": ["run", "python", "-m", "dm20_protocol"],
       "cwd": "/absolute/path/to/dm20-protocol",
       "env": {
-        "DM20_STORAGE_DIR": "/absolute/path/to/your/data"
-      }
-    }
-  }
-}
-```
-
-> **Important:** Claude Desktop does not inherit your shell PATH. Use the absolute path to `uv` (find it with `which uv`).
-
-</details>
-
-<details>
-<summary><strong>Claude Code</strong></summary>
-
-Add to `~/.claude/mcp.json` (global) or `.mcp.json` (project-level):
-
-```json
-{
-  "mcpServers": {
-    "dm20-protocol": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "python", "-m", "dm20_protocol"],
-      "cwd": "/path/to/dm20-protocol",
-      "env": {
         "DM20_STORAGE_DIR": "/path/to/your/data"
       }
     }
@@ -126,72 +139,7 @@ Add to `~/.claude/mcp.json` (global) or `.mcp.json` (project-level):
 }
 ```
 
-</details>
-
-<details>
-<summary><strong>Cursor / Windsurf / Cline</strong></summary>
-
-These editors have built-in MCP support. Add the server through their MCP settings UI, or edit the config file directly:
-
-- **Cursor:** `~/.cursor/mcp.json`
-- **Windsurf:** `~/.codeium/windsurf/mcp_config.json`
-- **Cline:** VS Code settings → Cline → MCP Servers
-
-```json
-{
-  "mcpServers": {
-    "dm20-protocol": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "dm20_protocol"],
-      "cwd": "/path/to/dm20-protocol",
-      "env": {
-        "DM20_STORAGE_DIR": "/path/to/your/data"
-      }
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>VS Code + GitHub Copilot</strong></summary>
-
-Add to your VS Code `settings.json` or `.vscode/mcp.json`:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "dm20-protocol": {
-        "command": "uv",
-        "args": ["run", "python", "-m", "dm20_protocol"],
-        "cwd": "/path/to/dm20-protocol",
-        "env": {
-          "DM20_STORAGE_DIR": "/path/to/your/data"
-        }
-      }
-    }
-  }
-}
-```
-
-Requires Copilot Chat in **Agent Mode** (VS Code 1.99+).
-
-</details>
-
-<details>
-<summary><strong>Other MCP Clients (Codex, Gemini CLI, etc.)</strong></summary>
-
-Any MCP-compatible client can use this server. The key configuration:
-
-- **Command:** `uv run python -m dm20_protocol`
-- **Working directory:** The cloned repository root
-- **Environment:** `DM20_STORAGE_DIR` — path where campaign data is stored
-  - **Default:** `./data` relative to the repository root (created automatically on first run)
-  - **Recommended:** use an absolute path like `~/dm20-data` to keep campaign data separate from the repo, making backups and updates easier
-
-Refer to your client's documentation for where to add MCP server entries. The transport is **stdio** (the default for most clients).
+> **Note:** Claude Desktop doesn't inherit your shell PATH. Use absolute paths for both `command` and `cwd`. Find `uv` with `which uv`.
 
 </details>
 

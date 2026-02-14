@@ -5,8 +5,22 @@
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 REPO_URL="https://github.com/Polloinfilzato/dm20-protocol.git"
+
+# ─── Global State ─────────────────────────────────────────────────────────────
+
+INSTALL_MODE=""          # "user" or "developer"
+INSIDE_CLONE=false       # true when running from inside an existing clone
+INSTALL_DIR=""           # developer mode: repo directory
+PLAY_DIR=""              # user mode: play directory
+DATA_DIR=""              # both modes: campaign data directory
+CLONE_NEEDED=false       # developer mode: whether to git clone
+MCP_CLIENT=""            # "desktop", "code", or "both"
+CODE_SCOPE="global"      # "global" or "project"
+INSTALL_RAG=false        # whether to install RAG extras
+DM20_BINARY_PATH=""      # user mode: resolved path to dm20-protocol binary
+ON_ICLOUD=false          # true if target dir is on iCloud Drive
 
 # ─── Colors ────────────────────────────────────────────────────────────────────
 
@@ -141,18 +155,51 @@ detect_platform() {
     fi
 
     info "Platform: ${BOLD}${OS} ${ARCH}${NC} (${PLATFORM})"
+}
 
-    # Detect iCloud Drive — will be re-evaluated after INSTALL_DIR is known
-    ON_ICLOUD=false
+# ─── Mode Detection ──────────────────────────────────────────────────────────
+
+detect_mode() {
+    step "Detecting install mode"
+
+    # If running from inside an existing clone → auto-set developer
+    if [[ -f "pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' pyproject.toml 2>/dev/null; then
+        INSIDE_CLONE=true
+        INSTALL_MODE="developer"
+        info "Running from inside a dm20-protocol clone — Developer mode selected"
+        return
+    fi
+
+    echo ""
+    echo -e "${BOLD}How do you want to install DM20 Protocol?${NC}"
+    echo ""
+    local choice
+    choice=$(prompt_choice "Choose installation mode:" \
+        "User (recommended) — just play D&D, minimal footprint" \
+        "Developer — full source code for contributors")
+
+    case "$choice" in
+        1) INSTALL_MODE="user" ;;
+        2) INSTALL_MODE="developer" ;;
+        *) INSTALL_MODE="user" ;;
+    esac
+
+    info "Install mode: ${BOLD}${INSTALL_MODE}${NC}"
 }
 
 # ─── iCloud Detection ─────────────────────────────────────────────────────────
 
 detect_icloud() {
-    # Check if INSTALL_DIR is inside iCloud Drive
-    # Covers both direct iCloud paths and Desktop/Documents synced via iCloud
+    local check_dir
+    if [[ "$INSTALL_MODE" == "user" ]]; then
+        check_dir="$PLAY_DIR"
+    else
+        check_dir="$INSTALL_DIR"
+    fi
+
+    # Check if target dir is inside iCloud Drive
     local resolved_dir
-    resolved_dir=$(cd "$INSTALL_DIR" 2>/dev/null && pwd -P || echo "$INSTALL_DIR")
+    resolved_dir=$(cd "$check_dir" 2>/dev/null && pwd -P || echo "$check_dir")
 
     if [[ "$resolved_dir" == *"com~apple~CloudDocs"* ]] || \
        [[ "$resolved_dir" == *"Mobile Documents"* ]]; then
@@ -174,7 +221,11 @@ detect_icloud() {
 
     if [[ "$ON_ICLOUD" == true ]]; then
         warn "Install directory is on iCloud Drive"
-        info "Will protect .venv from iCloud sync (via .nosync + symlink)"
+        if [[ "$INSTALL_MODE" == "developer" ]]; then
+            info "Will protect .venv from iCloud sync (via .nosync + symlink)"
+        else
+            info "Data files will sync via iCloud (this is fine for campaign data)"
+        fi
     fi
 }
 
@@ -348,7 +399,7 @@ check_prerequisites() {
         fi
     fi
 
-    # ── uv (checked FIRST — it can install Python) ────────────────────────
+    # ── uv (always needed — both modes) ──────────────────────────────────
     if command -v uv &>/dev/null; then
         UV_VERSION=$(uv --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         UV_PATH=$(command -v uv)
@@ -373,57 +424,68 @@ check_prerequisites() {
         fi
     fi
 
-    # ── Python 3.12+ ─────────────────────────────────────────────────────
-    local python_ok=false
-    if command -v python3 &>/dev/null; then
-        PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
-        PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
-        PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
-        if [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 12 ]]; then
-            success "Python ${PYTHON_VERSION}"
-            python_ok=true
-        fi
-    fi
-
-    if [[ "$python_ok" == false ]]; then
-        if [[ -n "${PYTHON_VERSION:-}" ]]; then
-            warn "Python ${PYTHON_VERSION} found, but 3.12+ required"
-        else
-            warn "Python not found"
+    # ── Python 3.12+ (developer mode only) ────────────────────────────────
+    if [[ "$INSTALL_MODE" == "developer" ]]; then
+        local python_ok=false
+        if command -v python3 &>/dev/null; then
+            PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
+            PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+            PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+            if [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 12 ]]; then
+                success "Python ${PYTHON_VERSION}"
+                python_ok=true
+            fi
         fi
 
-        # Can only auto-install if uv is available
-        if command -v uv &>/dev/null; then
-            prompt_yn "  Install Python 3.12 via uv?" "y" INSTALL_PYTHON
-            if [[ "$INSTALL_PYTHON" == true ]]; then
-                if install_python; then
-                    success "Python 3.12 available (managed by uv)"
+        if [[ "$python_ok" == false ]]; then
+            if [[ -n "${PYTHON_VERSION:-}" ]]; then
+                warn "Python ${PYTHON_VERSION} found, but 3.12+ required"
+            else
+                warn "Python not found"
+            fi
+
+            # Can only auto-install if uv is available
+            if command -v uv &>/dev/null; then
+                prompt_yn "  Install Python 3.12 via uv?" "y" INSTALL_PYTHON
+                if [[ "$INSTALL_PYTHON" == true ]]; then
+                    if install_python; then
+                        success "Python 3.12 available (managed by uv)"
+                    else
+                        echo "  Install from https://python.org or use pyenv"
+                        missing=1
+                    fi
                 else
                     echo "  Install from https://python.org or use pyenv"
                     missing=1
                 fi
             else
                 echo "  Install from https://python.org or use pyenv"
+                echo "  (uv could install Python for you, but uv is not available)"
                 missing=1
             fi
-        else
-            echo "  Install from https://python.org or use pyenv"
-            echo "  (uv could install Python for you, but uv is not available)"
-            missing=1
         fi
     fi
 
-    # ── git ───────────────────────────────────────────────────────────────
-    if command -v git &>/dev/null; then
-        GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-        success "git ${GIT_VERSION}"
-    else
-        warn "git not found"
-        prompt_yn "  Install git now?" "y" INSTALL_GIT
-        if [[ "$INSTALL_GIT" == true ]]; then
-            if install_git; then
-                GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-                success "git ${GIT_VERSION}"
+    # ── git (developer mode only) ─────────────────────────────────────────
+    if [[ "$INSTALL_MODE" == "developer" ]]; then
+        if command -v git &>/dev/null; then
+            GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            success "git ${GIT_VERSION}"
+        else
+            warn "git not found"
+            prompt_yn "  Install git now?" "y" INSTALL_GIT
+            if [[ "$INSTALL_GIT" == true ]]; then
+                if install_git; then
+                    GIT_VERSION=$(git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                    success "git ${GIT_VERSION}"
+                else
+                    if [[ "$OS" == "Darwin" ]]; then
+                        echo "  Install with: xcode-select --install"
+                    else
+                        echo "  Install with your package manager (apt, dnf, etc.)"
+                    fi
+                    missing=1
+                fi
             else
                 if [[ "$OS" == "Darwin" ]]; then
                     echo "  Install with: xcode-select --install"
@@ -432,13 +494,6 @@ check_prerequisites() {
                 fi
                 missing=1
             fi
-        else
-            if [[ "$OS" == "Darwin" ]]; then
-                echo "  Install with: xcode-select --install"
-            else
-                echo "  Install with your package manager (apt, dnf, etc.)"
-            fi
-            missing=1
         fi
     fi
 
@@ -454,35 +509,86 @@ check_prerequisites() {
 gather_options() {
     step "Configuration"
 
-    # ── Install directory ──────────────────────────────────────────────────
-    echo ""
-    echo -e "${BOLD}Where should DM20 Protocol be installed?${NC}"
-
-    # Detect if running from inside an existing clone
-    if [[ -f "pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' pyproject.toml 2>/dev/null; then
-        info "Detected existing clone in current directory"
-        INSTALL_DIR="$(pwd)"
-        CLONE_NEEDED=false
+    if [[ "$INSTALL_MODE" == "user" ]]; then
+        gather_options_user
     else
-        prompt_default "Install directory" "$HOME/dm20-protocol" INSTALL_DIR
-        if [[ -d "$INSTALL_DIR" && -f "$INSTALL_DIR/pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' "$INSTALL_DIR/pyproject.toml" 2>/dev/null; then
-            info "Found existing clone at ${INSTALL_DIR}"
-            CLONE_NEEDED=false
-        else
-            CLONE_NEEDED=true
-        fi
-        # Validate path safety before proceeding
-        validate_install_path "$INSTALL_DIR"
+        gather_options_developer
     fi
+}
 
-    # ── MCP Client ─────────────────────────────────────────────────────────
+gather_options_user() {
+    # ── Play directory ────────────────────────────────────────────────────
+    echo ""
+    echo -e "${BOLD}Where should DM20 set up your play directory?${NC}"
+    echo -e "  ${DIM}This is where config and campaign data will live${NC}"
+    prompt_default "Play directory" "$HOME/dm20" PLAY_DIR
+    PLAY_DIR="${PLAY_DIR/#\~/$HOME}"
+    DATA_DIR="${PLAY_DIR}/data"
+
+    # ── MCP Client ────────────────────────────────────────────────────────
     echo ""
     local choice
     choice=$(prompt_choice "Which MCP client(s) will you use?" \
         "Claude Desktop" \
         "Claude Code" \
         "Both")
+    case "$choice" in
+        1) MCP_CLIENT="desktop" ;;
+        2) MCP_CLIENT="code" ;;
+        3) MCP_CLIENT="both" ;;
+        *) MCP_CLIENT="desktop" ;;
+    esac
+    CODE_SCOPE="project"  # always project-scoped in user mode
 
+    # ── RAG dependencies ──────────────────────────────────────────────────
+    INSTALL_RAG=false
+    echo ""
+    if [[ "$RAG_SUPPORTED" == false ]]; then
+        warn "RAG dependencies skipped: ${RAG_WARNING}"
+        echo "  The server works fine without RAG. Only the 'ask_books' semantic search"
+        echo "  tool requires it — all other library tools use keyword search."
+    else
+        echo -e "${BOLD}Install RAG dependencies?${NC}"
+        echo "  Enables semantic search via 'ask_books' (~2GB download)"
+        echo "  Not required — all other library tools work without it"
+        prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
+    fi
+}
+
+gather_options_developer() {
+    # ── Install directory ──────────────────────────────────────────────────
+    echo ""
+    echo -e "${BOLD}Where should DM20 Protocol be installed?${NC}"
+
+    if [[ "$INSIDE_CLONE" == true ]]; then
+        INSTALL_DIR="$(pwd)"
+        CLONE_NEEDED=false
+        info "Using current directory: ${INSTALL_DIR}"
+    else
+        echo -e "  ${DIM}A dm20-protocol/ directory will be created inside your choice${NC}"
+        local parent_dir
+        prompt_default "Parent directory" "$HOME" parent_dir
+        parent_dir="${parent_dir/#\~/$HOME}"
+        parent_dir="${parent_dir%/}"
+        INSTALL_DIR="${parent_dir}/dm20-protocol"
+
+        if [[ -d "$INSTALL_DIR" && -f "$INSTALL_DIR/pyproject.toml" ]] && \
+           grep -q 'name = "dm20-protocol"' "$INSTALL_DIR/pyproject.toml" 2>/dev/null; then
+            info "Found existing clone at ${INSTALL_DIR}"
+            CLONE_NEEDED=false
+        else
+            CLONE_NEEDED=true
+        fi
+        validate_install_path "$INSTALL_DIR"
+    fi
+
+    # ── MCP Client ────────────────────────────────────────────────────────
+    echo ""
+    local choice
+    choice=$(prompt_choice "Which MCP client(s) will you use?" \
+        "Claude Desktop" \
+        "Claude Code" \
+        "Both")
     case "$choice" in
         1) MCP_CLIENT="desktop" ;;
         2) MCP_CLIENT="code" ;;
@@ -505,7 +611,7 @@ gather_options() {
         esac
     fi
 
-    # ── Data directory ─────────────────────────────────────────────────────
+    # ── Data directory ────────────────────────────────────────────────────
     echo ""
     local data_choice
     data_choice=$(prompt_choice "Where should campaign data be stored?" \
@@ -520,7 +626,7 @@ gather_options() {
         *) DATA_DIR="$HOME/dm20-data" ;;
     esac
 
-    # ── RAG dependencies ───────────────────────────────────────────────────
+    # ── RAG dependencies ──────────────────────────────────────────────────
     INSTALL_RAG=false
     echo ""
     if [[ "$RAG_SUPPORTED" == false ]]; then
@@ -535,20 +641,59 @@ gather_options() {
     fi
 }
 
-# ─── Installation ──────────────────────────────────────────────────────────────
+# ─── Installation (User mode) ─────────────────────────────────────────────────
+
+do_tool_install() {
+    step "Installing dm20-protocol"
+
+    local pkg_spec="dm20-protocol"
+    if [[ "$INSTALL_RAG" == true ]]; then
+        pkg_spec="dm20-protocol[rag]"
+    fi
+
+    info "Running: uv tool install \"${pkg_spec} @ git+${REPO_URL}\" --force"
+    if uv tool install "${pkg_spec} @ git+${REPO_URL}" --force; then
+        success "dm20-protocol installed"
+    else
+        error "Installation failed"
+        exit 1
+    fi
+
+    # Verify the binary is available
+    if command -v dm20-protocol &>/dev/null; then
+        DM20_BINARY_PATH=$(command -v dm20-protocol)
+        success "Binary available at: ${DM20_BINARY_PATH}"
+    elif [[ -x "$HOME/.local/bin/dm20-protocol" ]]; then
+        DM20_BINARY_PATH="$HOME/.local/bin/dm20-protocol"
+        warn "dm20-protocol installed but not in PATH"
+        echo ""
+        echo -e "  Add this to your shell profile (${BOLD}~/.zshrc${NC} or ${BOLD}~/.bashrc${NC}):"
+        echo -e "    ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+        echo ""
+    else
+        error "dm20-protocol binary not found after installation"
+        exit 1
+    fi
+}
+
+do_create_play_dir() {
+    step "Setting up play directory"
+    mkdir -p "${PLAY_DIR}/data/campaigns"
+    mkdir -p "${PLAY_DIR}/data/library/pdfs"
+    mkdir -p "${PLAY_DIR}/data/library/index"
+    mkdir -p "${PLAY_DIR}/data/library/extracted"
+    success "Play directory created at ${PLAY_DIR}"
+}
+
+# ─── Installation (Developer mode) ────────────────────────────────────────────
 
 do_clone() {
     if [[ "$CLONE_NEEDED" == true ]]; then
         step "Cloning repository"
         if [[ -d "$INSTALL_DIR" ]]; then
-            # Directory exists but is not a dm20-protocol clone — install into a subdirectory
-            INSTALL_DIR="${INSTALL_DIR}/dm20-protocol"
-            info "Target directory exists — installing into ${INSTALL_DIR}"
-            if [[ -d "$INSTALL_DIR" ]]; then
-                error "Directory ${INSTALL_DIR} already exists too."
-                echo "  Please remove it or choose a different location and re-run."
-                exit 1
-            fi
+            error "Directory ${INSTALL_DIR} already exists but is not a dm20-protocol clone."
+            echo "  Remove it or choose a different parent directory and re-run."
+            exit 1
         fi
         git clone "$REPO_URL" "$INSTALL_DIR"
         success "Cloned to ${INSTALL_DIR}"
@@ -627,35 +772,53 @@ from datetime import datetime
 from pathlib import Path
 
 config_file = "$config_file"
-install_dir = "$INSTALL_DIR"
-data_dir = "$DATA_DIR"
+install_mode = "$INSTALL_MODE"
 use_abs_uv = "$use_abs_uv" == "true"
 add_type = "$add_type" == "true"
 on_icloud = "$ON_ICLOUD" == "true"
 
-# Resolve uv path
-if use_abs_uv:
-    uv_cmd = "$UV_PATH"
-else:
-    uv_cmd = "uv"
-
-# Build new server entry
 server_entry = {}
-if add_type:
-    # Claude Code supports "cwd" field
-    server_entry["type"] = "stdio"
-    server_entry["command"] = uv_cmd
-    server_entry["args"] = ["run", "python", "-m", "dm20_protocol"]
-    server_entry["cwd"] = install_dir
+
+if install_mode == "user":
+    data_dir = "$DATA_DIR"
+    binary_path = "${DM20_BINARY_PATH}"
+
+    if add_type:
+        # Claude Code — uses plain command name
+        server_entry["type"] = "stdio"
+        server_entry["command"] = "dm20-protocol"
+    else:
+        # Claude Desktop — needs absolute path (no user PATH)
+        server_entry["command"] = binary_path if binary_path else "dm20-protocol"
+
+    server_entry["env"] = {"DM20_STORAGE_DIR": data_dir}
+
 else:
-    # Claude Desktop does NOT support "cwd" — use --directory flag instead
-    server_entry["command"] = uv_cmd
-    server_entry["args"] = ["run", "--directory", install_dir, "python", "-m", "dm20_protocol"]
-env = {"DM20_STORAGE_DIR": data_dir}
-# Safety net: if on iCloud, add PYTHONPATH to bypass hidden .pth files
-if on_icloud:
-    env["PYTHONPATH"] = str(Path(install_dir) / "src")
-server_entry["env"] = env
+    install_dir = "${INSTALL_DIR}"
+    data_dir = "$DATA_DIR"
+
+    # Resolve uv path
+    if use_abs_uv:
+        uv_cmd = "${UV_PATH:-uv}"
+    else:
+        uv_cmd = "uv"
+
+    if add_type:
+        # Claude Code supports "cwd" field
+        server_entry["type"] = "stdio"
+        server_entry["command"] = uv_cmd
+        server_entry["args"] = ["run", "python", "-m", "dm20_protocol"]
+        server_entry["cwd"] = install_dir
+    else:
+        # Claude Desktop does NOT support "cwd" — use --directory flag instead
+        server_entry["command"] = uv_cmd
+        server_entry["args"] = ["run", "--directory", install_dir, "python", "-m", "dm20_protocol"]
+
+    env = {"DM20_STORAGE_DIR": data_dir}
+    # Safety net: if on iCloud, add PYTHONPATH to bypass hidden .pth files
+    if on_icloud:
+        env["PYTHONPATH"] = str(Path(install_dir) / "src")
+    server_entry["env"] = env
 
 # Read existing config or create new
 config_path = Path(config_file)
@@ -705,7 +868,9 @@ do_configure_mcp() {
     # Claude Code
     if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
         local code_config
-        if [[ "$CODE_SCOPE" == "global" ]]; then
+        if [[ "$INSTALL_MODE" == "user" ]]; then
+            code_config="${PLAY_DIR}/.mcp.json"
+        elif [[ "$CODE_SCOPE" == "global" ]]; then
             code_config="$HOME/.claude/mcp.json"
         else
             code_config="${INSTALL_DIR}/.mcp.json"
@@ -720,13 +885,23 @@ do_configure_mcp() {
 
 do_verify() {
     step "Verifying installation"
-    cd "$INSTALL_DIR"
 
-    # Smoke test: import the package
-    if uv run python3 -c "from dm20_protocol.main import main; print('Import OK')" 2>/dev/null; then
-        success "Server module loads correctly"
+    if [[ "$INSTALL_MODE" == "user" ]]; then
+        if command -v dm20-protocol &>/dev/null; then
+            success "dm20-protocol command is available"
+        elif [[ -x "${DM20_BINARY_PATH}" ]]; then
+            success "dm20-protocol binary exists at ${DM20_BINARY_PATH}"
+        else
+            warn "dm20-protocol command not found in PATH"
+        fi
     else
-        warn "Server module failed to load. Check the output above for errors."
+        cd "$INSTALL_DIR"
+        # Smoke test: import the package
+        if uv run python3 -c "from dm20_protocol.main import main; print('Import OK')" 2>/dev/null; then
+            success "Server module loads correctly"
+        else
+            warn "Server module failed to load. Check the output above for errors."
+        fi
     fi
 }
 
@@ -738,6 +913,48 @@ print_summary() {
     echo -e "${GREEN}${BOLD}  Installation complete!${NC}"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
+
+    if [[ "$INSTALL_MODE" == "user" ]]; then
+        print_summary_user
+    else
+        print_summary_developer
+    fi
+}
+
+print_summary_user() {
+    echo -e "  ${BOLD}Mode:${NC}         User"
+    echo -e "  ${BOLD}Play dir:${NC}     ${PLAY_DIR}"
+    echo -e "  ${BOLD}Data dir:${NC}     ${DATA_DIR}"
+    echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
+    echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
+    echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
+    echo ""
+
+    if [[ "$MCP_CLIENT" == "desktop" || "$MCP_CLIENT" == "both" ]]; then
+        echo -e "  ${BOLD}Next step (Claude Desktop):${NC}"
+        echo "    Restart Claude Desktop to pick up the new MCP server."
+        echo ""
+    fi
+
+    if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
+        echo -e "  ${BOLD}Next step (Claude Code):${NC}"
+        echo "    cd ${PLAY_DIR} && claude"
+        echo "    Then run /mcp to verify the connection."
+        echo ""
+    fi
+
+    echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
+    echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
+    echo ""
+    echo -e "  ${BOLD}Update later:${NC}"
+    echo "    uv tool upgrade dm20-protocol"
+    echo ""
+    echo -e "  ${DIM}Documentation: https://github.com/Polloinfilzato/dm20-protocol${NC}"
+    echo ""
+}
+
+print_summary_developer() {
+    echo -e "  ${BOLD}Mode:${NC}         Developer"
     echo -e "  ${BOLD}Install dir:${NC}  ${INSTALL_DIR}"
     echo -e "  ${BOLD}Data dir:${NC}     ${DATA_DIR}"
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
@@ -775,15 +992,26 @@ print_summary() {
 main() {
     banner
     detect_platform
+    detect_mode
     check_prerequisites
     gather_options
-    do_clone
-    detect_icloud
-    do_install_deps
-    do_create_data_dirs
-    do_write_env
-    do_configure_mcp
-    do_verify
+
+    if [[ "$INSTALL_MODE" == "user" ]]; then
+        do_tool_install
+        do_create_play_dir
+        detect_icloud
+        do_configure_mcp
+        do_verify
+    else
+        do_clone
+        detect_icloud
+        do_install_deps
+        do_create_data_dirs
+        do_write_env
+        do_configure_mcp
+        do_verify
+    fi
+
     print_summary
 }
 
