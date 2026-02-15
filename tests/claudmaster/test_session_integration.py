@@ -143,6 +143,7 @@ async def test_start_session_handles_missing_campaign(monkeypatch):
     mock_storage.load_campaign.side_effect = FileNotFoundError(
         "Campaign 'Ghost Campaign' not found"
     )
+    mock_storage.list_campaigns.return_value = ["Other Campaign"]  # Not a new user
     monkeypatch.setattr(st, "_storage", mock_storage)
 
     result = await start_claudmaster_session(campaign_name="Ghost Campaign")

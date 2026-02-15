@@ -224,6 +224,7 @@ class TestSessionToolsErrorUX:
         """Test missing campaign produces in-character guidance."""
         with patch("dm20_protocol.claudmaster.tools.session_tools._storage") as mock_storage:
             mock_storage.load_campaign.side_effect = FileNotFoundError("Campaign not found")
+            mock_storage.list_campaigns.return_value = ["Other Campaign"]  # Not a new user
 
             result = await start_claudmaster_session(campaign_name="Nonexistent")
 

@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .starter_adventure import populate_campaign_with_starter_content
+
 logger = logging.getLogger("dm20-protocol")
 
 
@@ -64,12 +66,20 @@ You are the Narrator of a D&D campaign. Generate the opening scene for a new adv
 
 Character: {character_name}, a level 1 {character_class} ({character_race})
 Setting: The Sword Coast, Forgotten Realms
-Location: A cozy tavern called The Yawning Portal in Waterdeep
+Location: The Yawning Portal — a sprawling, lantern-lit tavern in Waterdeep built around \
+a gaping well that descends into Undermountain. Warm with hearth-smoke, crowded with \
+adventurers. Trophies line the walls.
+
+Key NPCs present:
+- Durnan: the broad-shouldered, grey-haired tavern owner and retired adventurer. \
+  He is behind the bar polishing glasses, but keeps glancing at a notice board.
+- Viari: a lean half-elf scout in a travel-stained cloak sitting alone in a back \
+  alcove, watching the room warily. He recently arrived looking shaken.
 
 Generate an atmospheric opening (2-3 paragraphs) that:
-1. Sets the scene with vivid sensory details
-2. Introduces the character in the environment
-3. Presents a hook — something interesting happening that invites interaction
+1. Sets the scene with vivid sensory details (sounds, smells, lighting)
+2. Places the character in the environment — they have just arrived
+3. Subtly draws attention to both NPCs as potential interaction points
 4. Ends with an implicit prompt for the player to act
 
 Write in second person ("You..."). Be vivid but concise (under 200 words).
@@ -175,13 +185,17 @@ async def run_onboarding(
     result = OnboardingResult()
     state = OnboardingState()
 
-    # Step 1: Auto-create campaign
+    # Step 1: Auto-create campaign with starter adventure content
     effective_name = campaign_name.strip() if campaign_name.strip() else DEFAULT_CAMPAIGN_NAME
     try:
-        storage.create_campaign(
+        campaign = storage.create_campaign(
             name=effective_name,
             description=DEFAULT_CAMPAIGN_DESCRIPTION,
         )
+        # Populate with starter adventure: location, NPCs, quest, encounter
+        populate_campaign_with_starter_content(campaign)
+        logger.info("[Onboarding] Populated campaign with starter adventure content")
+
         state.campaign_created = True
         state.campaign_name = effective_name
         result.campaign_name = effective_name
@@ -258,15 +272,21 @@ def _fallback_character_suggestions() -> str:
 
 
 def _fallback_first_scene(character_name: str) -> str:
-    """Static fallback first scene."""
+    """Static fallback first scene featuring starter adventure NPCs."""
     return (
         f"The Yawning Portal tavern buzzes with the hum of conversation and "
-        f"the clink of tankards. You, {character_name}, sit at a corner table, "
-        f"nursing a drink and watching the infamous well in the center of the room — "
-        f"the entrance to Undermountain, the legendary dungeon beneath Waterdeep.\n\n"
-        f"A weathered adventurer stumbles through the door, clutching a bloodied map. "
-        f"\"Someone... help,\" they gasp, collapsing at the nearest table. "
-        f"The tavern falls silent. All eyes turn to you."
+        f"the clink of tankards. You, {character_name}, push through the heavy "
+        f"oak door and step into warmth and noise. The infamous well in the center "
+        f"of the room gapes like a dark mouth — the entrance to Undermountain, "
+        f"the legendary dungeon beneath Waterdeep.\n\n"
+        f"Behind the bar, a broad-shouldered man with grey hair and scarred forearms "
+        f"— Durnan, the tavern's legendary owner — polishes a glass and nods in your "
+        f"direction. His gaze flicks toward a notice board near the entrance, crowded "
+        f"with job postings.\n\n"
+        f"In a shadowed alcove at the back, a lean half-elf in a travel-stained cloak "
+        f"sits alone, one hand resting near the hilt of a rapier. He watches the room "
+        f"with restless eyes — and when he sees you looking, he raises his drink in a "
+        f"silent toast."
     )
 
 
