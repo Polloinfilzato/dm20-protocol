@@ -631,6 +631,14 @@ gather_options_user() {
         exit 1
     fi
 
+    # Auto-append /dm20-protocol if the final directory doesn't reference dm20
+    local play_basename
+    play_basename="$(basename "$PLAY_DIR")"
+    if ! echo "$play_basename" | grep -qi "dm20"; then
+        PLAY_DIR="${PLAY_DIR}/dm20-protocol"
+        info "Auto-appended 'dm20-protocol' → ${PLAY_DIR}"
+    fi
+
     DATA_DIR="${PLAY_DIR}/data"
 
     # ── MCP Client ────────────────────────────────────────────────────────
@@ -1234,18 +1242,27 @@ print_summary_user() {
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
     echo ""
 
+    echo ""
+    echo -e "  ${YELLOW}${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "  ${YELLOW}${BOLD}║             ⚡  WHAT'S NEXT  ⚡                      ║${NC}"
+    echo -e "  ${YELLOW}${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
+        echo -e "  ${GREEN}${BOLD}▶ Claude Code:${NC}"
+        echo -e "    ${BOLD}cd ${PLAY_DIR} && claude${NC}"
+        echo -e "    Then type ${BOLD}/mcp${NC} to verify the connection."
+        echo ""
+    fi
+
     if [[ "$MCP_CLIENT" == "desktop" || "$MCP_CLIENT" == "both" ]]; then
-        echo -e "  ${BOLD}Next step (Claude Desktop):${NC}"
+        echo -e "  ${GREEN}${BOLD}▶ Claude Desktop:${NC}"
         echo "    Restart Claude Desktop to pick up the new MCP server."
         echo ""
     fi
 
-    if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
-        echo -e "  ${BOLD}Next step (Claude Code):${NC}"
-        echo "    cd ${PLAY_DIR} && claude"
-        echo "    Then run /mcp to verify the connection."
-        echo ""
-    fi
+    echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
 
     echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
     echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
@@ -1270,17 +1287,26 @@ print_summary_developer() {
     fi
     echo ""
 
+    echo ""
+    echo -e "  ${YELLOW}${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "  ${YELLOW}${BOLD}║             ⚡  WHAT'S NEXT  ⚡                      ║${NC}"
+    echo -e "  ${YELLOW}${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
+        echo -e "  ${GREEN}${BOLD}▶ Claude Code:${NC}"
+        echo -e "    Run ${BOLD}/mcp${NC} in Claude Code to verify the connection."
+        echo ""
+    fi
+
     if [[ "$MCP_CLIENT" == "desktop" || "$MCP_CLIENT" == "both" ]]; then
-        echo -e "  ${BOLD}Next step (Claude Desktop):${NC}"
+        echo -e "  ${GREEN}${BOLD}▶ Claude Desktop:${NC}"
         echo "    Restart Claude Desktop to pick up the new MCP server."
         echo ""
     fi
 
-    if [[ "$MCP_CLIENT" == "code" || "$MCP_CLIENT" == "both" ]]; then
-        echo -e "  ${BOLD}Next step (Claude Code):${NC}"
-        echo "    Run /mcp in Claude Code to verify the connection."
-        echo ""
-    fi
+    echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
 
     echo -e "  ${BOLD}Run manually:${NC}"
     echo "    cd ${INSTALL_DIR} && uv run python -m dm20_protocol"
