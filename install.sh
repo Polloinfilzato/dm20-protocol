@@ -139,7 +139,7 @@ detect_platform() {
     if [[ "$OS" == "Darwin" && "$ARCH" == "x86_64" ]]; then
         PLATFORM="macos-intel"
         RAG_SUPPORTED=true
-        RAG_WARNING=""
+        RAG_WARNING="macOS Intel: ML libraries may require Python 3.12 (auto-fallback enabled)"
     elif [[ "$OS" == "Darwin" && "$ARCH" == "arm64" ]]; then
         PLATFORM="macos-arm"
         RAG_SUPPORTED=true
@@ -578,7 +578,7 @@ gather_options_user() {
         echo "  module indexing — all other tools (including ask_books) work without it."
     else
         echo -e "${BOLD}Install RAG dependencies?${NC}"
-        echo "  Enables vector search for Claudmaster AI DM module indexing (~2GB download)"
+        echo "  Enables vector search for Claudmaster AI DM module indexing (~200MB download)"
         echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
@@ -677,7 +677,7 @@ gather_options_developer() {
         echo "  module indexing — all other tools (including ask_books) work without it."
     else
         echo -e "${BOLD}Install RAG dependencies?${NC}"
-        echo "  Enables vector search for Claudmaster AI DM module indexing (~2GB download)"
+        echo "  Enables vector search for Claudmaster AI DM module indexing (~200MB download)"
         echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
@@ -688,17 +688,49 @@ gather_options_developer() {
 do_tool_install() {
     step "Installing dm20-protocol"
 
-    local pkg_spec="dm20-protocol"
+    local installed=false
+    local rag_installed=false
+
     if [[ "$INSTALL_RAG" == true ]]; then
-        pkg_spec="dm20-protocol[rag]"
+        # ── Attempt 1: RAG with current Python ────────────────────────────
+        info "Installing with RAG dependencies..."
+        if uv tool install "dm20-protocol[rag] @ git+${REPO_URL}" --force 2>&1; then
+            success "dm20-protocol installed with RAG"
+            installed=true
+            rag_installed=true
+        else
+            # ── Attempt 2: RAG with Python 3.12 (broader library compat) ──
+            warn "RAG install failed with default Python. Retrying with Python 3.12..."
+            if uv tool install --python 3.12 "dm20-protocol[rag] @ git+${REPO_URL}" --force 2>&1; then
+                success "dm20-protocol installed with RAG (using Python 3.12)"
+                installed=true
+                rag_installed=true
+            else
+                # ── Attempt 3: give up on RAG, install base ───────────────
+                warn "RAG dependencies are not available on this platform/Python combination."
+                warn "Installing without RAG — TF-IDF keyword search will be used instead."
+                INSTALL_RAG=false
+            fi
+        fi
     fi
 
-    info "Running: uv tool install \"${pkg_spec} @ git+${REPO_URL}\" --force"
-    if uv tool install "${pkg_spec} @ git+${REPO_URL}" --force; then
-        success "dm20-protocol installed"
-    else
-        error "Installation failed"
-        exit 1
+    if [[ "$installed" == false ]]; then
+        # ── Base install (no RAG) ─────────────────────────────────────────
+        info "Installing dm20-protocol (base)..."
+        if uv tool install "dm20-protocol @ git+${REPO_URL}" --force 2>&1; then
+            success "dm20-protocol installed"
+            installed=true
+        else
+            # ── Last resort: pin Python 3.12 ──────────────────────────────
+            warn "Install failed with default Python. Retrying with Python 3.12..."
+            if uv tool install --python 3.12 "dm20-protocol @ git+${REPO_URL}" --force 2>&1; then
+                success "dm20-protocol installed (using Python 3.12)"
+                installed=true
+            else
+                error "Installation failed. Please check the error output above."
+                exit 1
+            fi
+        fi
     fi
 
     # Resolve the binary path (needed for MCP config)
@@ -883,12 +915,21 @@ do_install_deps() {
     success "Core dependencies installed"
 
     if [[ "$INSTALL_RAG" == true ]]; then
-        info "Installing RAG dependencies (this may take a few minutes)..."
+        info "Installing RAG dependencies..."
         if uv sync --extra rag; then
             success "RAG dependencies installed"
         else
-            warn "RAG installation failed. The server will work without RAG."
-            warn "You can try again later with: cd ${INSTALL_DIR} && uv sync --extra rag"
+            # ── Fallback: recreate venv with Python 3.12 ──────────────────
+            warn "RAG failed with default Python. Retrying with Python 3.12..."
+            if uv sync --python 3.12 --extra rag; then
+                success "RAG dependencies installed (using Python 3.12)"
+            else
+                warn "RAG dependencies are not available on this platform."
+                info "The server will work without RAG — TF-IDF keyword search used instead."
+                info "You can try again later with: cd ${INSTALL_DIR} && uv sync --extra rag"
+                # Re-sync without RAG to ensure clean venv state
+                uv sync
+            fi
         fi
     fi
 }
@@ -1260,9 +1301,14 @@ do_upgrade() {
             success "Python package upgraded"
         else
             warn "uv tool upgrade failed — trying reinstall..."
-            uv tool install "dm20-protocol @ git+${REPO_URL}" --force 2>/dev/null && \
-                success "Python package reinstalled" || \
-                warn "Package upgrade failed. Continuing with config update..."
+            if uv tool install "dm20-protocol @ git+${REPO_URL}" --force 2>/dev/null; then
+                success "Python package reinstalled"
+            else
+                warn "Retrying with Python 3.12..."
+                uv tool install --python 3.12 "dm20-protocol @ git+${REPO_URL}" --force 2>/dev/null && \
+                    success "Python package reinstalled (using Python 3.12)" || \
+                    warn "Package upgrade failed. Continuing with config update..."
+            fi
         fi
     else
         warn "uv not found — skipping Python package upgrade"

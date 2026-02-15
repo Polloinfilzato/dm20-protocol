@@ -2,7 +2,8 @@
 Vector store management for the Claudmaster RAG system.
 
 Uses ChromaDB as the backend for storing and querying document embeddings,
-with sentence-transformers for generating embeddings locally.
+with ChromaDB's built-in ONNX-based embedding function (DefaultEmbeddingFunction)
+for generating embeddings locally — no torch or sentence-transformers required.
 Each adventure module gets its own collection for isolated queries.
 """
 
@@ -57,11 +58,10 @@ class VectorStoreManager:
 
     Args:
         persist_directory: Path where ChromaDB stores data on disk.
-        embedding_model: Name of the sentence-transformers model for embeddings.
+        embedding_model: Name of the embedding model (for logging purposes).
         embedding_function: Optional pre-built embedding function to inject.
-            When provided, ``embedding_model`` is ignored and no lazy import
-            of sentence-transformers occurs. Useful for testing or when a
-            different embedding backend is desired.
+            When provided, the default ONNX embedding is skipped. Useful for
+            testing or when a different embedding backend is desired.
     """
 
     def __init__(
@@ -97,16 +97,17 @@ class VectorStoreManager:
         """Return the embedding function, lazy-loading if needed.
 
         If an embedding function was injected via __init__, returns it directly.
-        Otherwise, imports sentence-transformers on first call.
+        Otherwise, loads ChromaDB's DefaultEmbeddingFunction (ONNX-based,
+        uses all-MiniLM-L6-v2 without requiring torch or sentence-transformers).
         """
         if self._embedding_fn is None:
-            from chromadb.utils.embedding_functions import (
-                SentenceTransformerEmbeddingFunction,
+            from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+            self._embedding_fn = DefaultEmbeddingFunction()
+            logger.info(
+                "ONNX embedding function loaded (model: %s)",
+                self._embedding_model_name,
             )
-            self._embedding_fn = SentenceTransformerEmbeddingFunction(
-                model_name=self._embedding_model_name,
-            )
-            logger.info("Embedding model '%s' loaded", self._embedding_model_name)
         return self._embedding_fn
 
     # ------------------------------------------------------------------

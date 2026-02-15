@@ -24,7 +24,7 @@ from .archivist import (
     QueryType,
     StateCache,
 )
-# Module Keeper requires optional 'rag' dependencies (chromadb, sentence-transformers)
+# Module Keeper requires optional 'rag' dependencies (chromadb)
 try:
     from .module_keeper import (
         ModuleKeeperAgent,

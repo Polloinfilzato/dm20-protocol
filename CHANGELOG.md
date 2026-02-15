@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **RAG: replaced sentence-transformers with ONNX embeddings** — The `[rag]` extra no longer depends on `sentence-transformers` (and transitively `torch`). Embeddings now use ChromaDB's built-in `DefaultEmbeddingFunction` (ONNX-based, same `all-MiniLM-L6-v2` model). This fixes installation failures on Python 3.13+/3.14 and macOS Intel (x86_64) where torch has no compatible wheels, and reduces the RAG install size from ~2GB to ~200MB
+- **Installer: Python fallback chain** — Both user and developer install modes now auto-retry with Python 3.12 (via `uv --python 3.12`) when dependency resolution fails with the default Python. If RAG dependencies specifically fail, the installer gracefully falls back to base install (TF-IDF search) instead of aborting. Upgrade mode also includes the Python 3.12 fallback
+
 ### Fixed
 - **Installer: missing slash commands in User mode** — `do_create_play_dir()` now creates `.claude/commands/dm/` with all 6 `/dm:*` command files and `.claude/dm-persona.md`. Previously these were only available in Developer mode (inside the git clone), causing `/dm:start`, `/dm:action`, etc. to be missing after User installation
 - **Installer: agent templates fallback** — Agent templates are now downloaded from GitHub when the Python package walk-up approach fails (which is always in `uv tool install` mode). Previously fell through to minimal 3-line templates missing all instructions

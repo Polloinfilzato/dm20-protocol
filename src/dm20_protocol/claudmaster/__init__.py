@@ -16,7 +16,7 @@ Public API exports the base Agent class and related types.
 
 from .base import Agent, AgentRequest, AgentResponse, AgentRole
 
-# RAG components require optional 'rag' dependencies (chromadb, sentence-transformers)
+# RAG components require optional 'rag' dependencies (chromadb)
 try:
     from .module_indexer import ChunkConfig, IndexingResult, ModuleIndexer
 
