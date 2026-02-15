@@ -88,6 +88,20 @@ install.sh
 
 ~/dm20/                      <-- the play directory
   .mcp.json                  <-- MCP config for Claude Code
+  .claude/
+    dm-persona.md            <-- DM personality and game loop rules
+    agents/
+      narrator.md            <-- narrative agent template
+      combat-handler.md      <-- combat agent template
+      rules-lookup.md        <-- rules agent template (haiku)
+    commands/
+      dm/
+        start.md             <-- /dm:start command
+        action.md            <-- /dm:action command
+        combat.md            <-- /dm:combat command
+        save.md              <-- /dm:save command
+        profile.md           <-- /dm:profile command
+        help.md              <-- /dm:help command
   data/
     campaigns/               <-- your campaign files live here
     library/
@@ -405,10 +419,36 @@ If `PARENT/dm20-protocol/` already exists:
 ### User mode
 
 ```bash
+# Simplest: cd into your play directory and run
+cd ~/dm20
+bash install.sh --upgrade
+
+# Or specify the path explicitly
+bash install.sh --upgrade ~/dm20
+
+# Or from remote (no local clone needed):
+bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh) --upgrade
+```
+
+The `--upgrade` flag auto-detects your play directory by checking:
+1. The current directory (if it contains `.mcp.json` with dm20-protocol config)
+2. The default `~/dm20` location
+3. The `DM20_STORAGE_DIR` environment variable (parent directory)
+
+If multiple play directories are found, it asks you to choose. If none are found, it tells you how to specify the path.
+
+The upgrade:
+1. Upgrades the Python package via `uv tool upgrade dm20-protocol`
+2. Backs up existing `.claude/` config files (timestamped backup directory)
+3. Downloads latest slash commands (`.claude/commands/dm/`), DM persona, and agent templates from GitHub
+4. Your campaign data in `~/dm20/data/` is untouched
+
+If you only need to update the Python server (no command/persona changes):
+```bash
 uv tool upgrade dm20-protocol
 ```
 
-This fetches the latest version from GitHub, rebuilds the isolated environment, and updates the binary. Your campaign data in `~/dm20/data/` is untouched.
+> **Note:** `uv tool upgrade` alone does NOT update the `/dm:*` slash commands or DM persona file. These live outside the Python package in your play directory's `.claude/` folder. Use `--upgrade` to update everything.
 
 ### Developer mode
 
@@ -417,6 +457,19 @@ cd ~/dm20-protocol
 git pull
 uv sync
 ```
+
+In Developer mode, the `.claude/` files are part of the repository and are updated by `git pull` automatically.
+
+### What gets updated where
+
+| Component | `--upgrade` | `uv tool upgrade` | `git pull` |
+|---|---|---|---|
+| Python server code | Yes | Yes | Yes (dev) |
+| MCP tools (50+) | Yes | Yes | Yes (dev) |
+| Slash commands (`/dm:*`) | Yes | No | Yes (dev) |
+| DM persona | Yes | No | Yes (dev) |
+| Agent templates | Yes | No | Yes (dev) |
+| Campaign data | Never | Never | Never |
 
 ---
 

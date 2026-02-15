@@ -9,11 +9,26 @@ Each adventure module gets its own collection for isolated queries.
 import logging
 from typing import Any
 
-import chromadb
-from chromadb.config import Settings
-from chromadb.errors import NotFoundError as ChromaNotFoundError
-
 logger = logging.getLogger("dm20-protocol")
+
+# Try to import ChromaDB — it's an optional dependency for RAG features.
+# When not installed, the module still loads but VectorStoreManager raises
+# a clear error at instantiation time rather than crashing at import.
+try:
+    import chromadb
+    from chromadb.config import Settings
+    from chromadb.errors import NotFoundError as ChromaNotFoundError
+
+    HAS_CHROMADB = True
+except ImportError:
+    chromadb = None  # type: ignore[assignment]
+    Settings = None  # type: ignore[assignment,misc]
+    ChromaNotFoundError = Exception  # type: ignore[assignment,misc]
+    HAS_CHROMADB = False
+    logger.info(
+        "chromadb not installed — vector store features disabled. "
+        "Install with: pip install chromadb"
+    )
 
 # Default embedding model - good balance of speed and quality for English text
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
@@ -55,6 +70,11 @@ class VectorStoreManager:
         embedding_model: str = DEFAULT_EMBEDDING_MODEL,
         embedding_function: Any = None,
     ) -> None:
+        if not HAS_CHROMADB:
+            raise VectorStoreError(
+                "chromadb is not installed. Install it with: pip install chromadb"
+            )
+
         self._persist_directory = persist_directory
         self._embedding_model_name = embedding_model
 
@@ -294,6 +314,7 @@ class VectorStoreManager:
 
 
 __all__ = [
+    "HAS_CHROMADB",
     "VectorStoreManager",
     "VectorStoreError",
     "CollectionNotFoundError",

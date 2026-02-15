@@ -24,8 +24,14 @@ from ..agents.narrator import NarratorAgent, NarrativeStyle
 from ..agents.arbiter import ArbiterAgent
 from ..consistency.fact_database import FactDatabase
 from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
+from ..recovery.error_messages import ErrorMessageFormatter
+from ..onboarding import detect_new_user, run_onboarding, OnboardingState
+from ..vector_store import HAS_CHROMADB
 
 logger = logging.getLogger("dm20-protocol")
+
+# Error formatter for in-character error messages
+_error_formatter = ErrorMessageFormatter()
 
 # Module-level storage reference, set by main.py during initialization
 _storage = None
@@ -88,6 +94,9 @@ class SessionState(BaseModel):
     party_info: list[CharacterSummary] = Field(description="Party members summary")
     last_events: list[str] = Field(description="Recent game events")
     context_budget: int = Field(description="Remaining context budget for LLM calls")
+    recap: Optional[str] = Field(default=None, description="'Previously on...' narrative recap for resumed sessions")
+    is_onboarding: bool = Field(default=False, description="True if this is a guided onboarding session for a new user")
+    onboarding: Optional[dict] = Field(default=None, description="Onboarding data: character_suggestions, step, onboarding_state")
     error_message: Optional[str] = Field(default=None, description="Error message if status is error")
 
 
@@ -172,7 +181,8 @@ class SessionManager:
         orchestrator.register_agent("arbiter", arbiter)
         logger.info(f"[Dual-Agent] Registered ArbiterAgent (model: {session_config.arbiter_model})")
 
-        # TODO: Register ModuleKeeperAgent once vector store is wired
+        # Register ModuleKeeperAgent if ChromaDB is available and a module is loaded
+        self._try_register_module_keeper(orchestrator, campaign, module_id)
 
         # Start the session
         session = orchestrator.start_session()
@@ -281,6 +291,10 @@ class SessionManager:
         orchestrator.register_agent("arbiter", arbiter)
         logger.info("[Dual-Agent] Registered NarratorAgent + ArbiterAgent for resumed session")
 
+        # Register ModuleKeeper for resumed session
+        module_id = saved_data.get("module_id")
+        self._try_register_module_keeper(orchestrator, campaign, module_id)
+
         # Recreate session with saved state
         session = ClaudmasterSession(
             session_id=session_id,
@@ -332,11 +346,23 @@ class SessionManager:
             f"(turn count: {session.turn_count})"
         )
 
+        # Generate "Previously on..." recap for the resumed session
+        recap_text = await self._generate_session_recap(
+            orchestrator=orchestrator,
+            session=session,
+            campaign=campaign,
+        )
+
+        # Store recap in session metadata to avoid regenerating
+        if recap_text:
+            session.metadata["last_recap"] = recap_text
+
         # Build and return session state
         return self._build_session_state(
             orchestrator=orchestrator,
             session=session,
-            status="active"
+            status="active",
+            recap=recap_text,
         )
 
     def save_session(self, session_id: str) -> bool:
@@ -496,12 +522,175 @@ class SessionManager:
             )
             return narrator_llm, arbiter_llm
 
+    @staticmethod
+    def _try_register_module_keeper(
+        orchestrator: Orchestrator,
+        campaign: Campaign,
+        module_id: Optional[str],
+    ) -> None:
+        """Try to register a ModuleKeeperAgent with the orchestrator.
+
+        Only registers when ChromaDB is available and a module structure
+        can be obtained. Silently skips on any failure so gameplay is
+        never blocked by missing RAG infrastructure.
+
+        Args:
+            orchestrator: The orchestrator to register the agent with.
+            campaign: The campaign being played.
+            module_id: Optional module ID to load structure from.
+        """
+        if not HAS_CHROMADB:
+            logger.info("[ModuleKeeper] ChromaDB not available — skipping registration")
+            return
+
+        try:
+            from ..vector_store import VectorStoreManager
+            from ..agents.module_keeper import ModuleKeeperAgent
+            from ..models.module import ModuleStructure
+
+            # Determine storage path for vector data
+            campaign_path = (
+                Path(_storage.data_dir) / "campaigns" / campaign.id
+                if _storage
+                else Path(f"/tmp/campaigns/{campaign.id}")
+            )
+            vector_dir = str(campaign_path / "claudmaster_sessions" / "vector_store")
+
+            # Initialize vector store
+            vector_store = VectorStoreManager(persist_directory=vector_dir)
+
+            # Build a minimal ModuleStructure from campaign data
+            # In the future this would come from a parsed PDF module
+            module_structure = ModuleStructure(
+                module_id=module_id or campaign.id,
+                title=campaign.name,
+            )
+
+            module_keeper = ModuleKeeperAgent(
+                vector_store=vector_store,
+                module_structure=module_structure,
+                current_location=campaign.game_state.current_location,
+            )
+            orchestrator.register_agent("module_keeper", module_keeper)
+            logger.info(
+                "[ModuleKeeper] Registered for campaign '%s' (vector_dir=%s)",
+                campaign.name, vector_dir,
+            )
+        except Exception as exc:
+            logger.warning("[ModuleKeeper] Registration failed: %s", exc)
+
+    @staticmethod
+    def _extract_recap_data(
+        campaign: Campaign,
+        session: ClaudmasterSession,
+    ) -> dict[str, str]:
+        """
+        Extract factual data from campaign and session for recap generation.
+
+        Gathers location, quests, recent events, and party status from the
+        persisted session data — no hallucination, only verified facts.
+
+        Args:
+            campaign: The campaign with current game state.
+            session: The restored session with conversation history.
+
+        Returns:
+            Dict with keys: location, active_quests, recent_events, party_status.
+        """
+        # Location
+        location = campaign.game_state.current_location or "an unknown location"
+
+        # Active quests
+        quest_lines = []
+        for quest in campaign.quests.values():
+            if quest.status == "active":
+                quest_lines.append(f"- {quest.title} (given by {quest.giver})")
+        active_quests = "\n".join(quest_lines) if quest_lines else "None active"
+
+        # Recent events from conversation history (last 5 assistant messages)
+        event_lines = []
+        for msg in reversed(session.conversation_history):
+            if msg.get("role") == "assistant" and len(event_lines) < 5:
+                content = msg.get("content", "")
+                # Truncate long messages to key info
+                if len(content) > 150:
+                    content = content[:147] + "..."
+                event_lines.append(f"- {content}")
+        recent_events = "\n".join(event_lines) if event_lines else "- No recent events recorded"
+
+        # Party status
+        party_parts = []
+        for char_id, character in campaign.characters.items():
+            hp_info = ""
+            if hasattr(character, "hit_points_current") and hasattr(character, "hit_points_max"):
+                hp_info = f", HP {character.hit_points_current}/{character.hit_points_max}"
+            party_parts.append(
+                f"{character.name} (L{character.character_class.level} "
+                f"{character.character_class.name}{hp_info})"
+            )
+        party_status = "; ".join(party_parts) if party_parts else "Unknown"
+
+        return {
+            "location": location,
+            "active_quests": active_quests,
+            "recent_events": recent_events,
+            "party_status": party_status,
+        }
+
+    async def _generate_session_recap(
+        self,
+        orchestrator: Orchestrator,
+        session: ClaudmasterSession,
+        campaign: Campaign,
+    ) -> Optional[str]:
+        """
+        Generate an atmospheric recap for a resumed session.
+
+        Extracts facts from session data and feeds them to the Narrator
+        agent for atmospheric formatting.
+
+        Args:
+            orchestrator: The orchestrator with registered agents.
+            session: The restored session.
+            campaign: The campaign with current state.
+
+        Returns:
+            Recap text string, or None if generation fails.
+        """
+        try:
+            # Skip if no meaningful history to recap
+            if not session.conversation_history:
+                logger.info(f"[Recap] No conversation history — skipping recap")
+                return None
+
+            # Extract verified facts
+            recap_data = self._extract_recap_data(campaign, session)
+
+            # Get the Narrator agent for atmospheric formatting
+            narrator = orchestrator.agents.get("narrator")
+            if narrator is None:
+                logger.warning("[Recap] Narrator agent not available — skipping recap")
+                return None
+
+            recap_text = await narrator.generate_recap(**recap_data)
+
+            logger.info(
+                f"[Recap] Generated recap for session {session.session_id} "
+                f"({len(recap_text.split())} words)"
+            )
+            return recap_text
+
+        except Exception as e:
+            logger.warning(f"[Recap] Failed to generate recap: {e}")
+            return None
+
     def _build_session_state(
         self,
         orchestrator: Orchestrator,
         session: ClaudmasterSession,
         status: str = "active",
         module_id: Optional[str] = None,
+        recap: Optional[str] = None,
         error_message: Optional[str] = None
     ) -> SessionState:
         """
@@ -512,6 +701,7 @@ class SessionManager:
             session: The session object
             status: Session status (active, paused, error)
             module_id: Optional module ID if a module is loaded
+            recap: Optional recap text for resumed sessions
             error_message: Optional error message if status is error
 
         Returns:
@@ -577,6 +767,7 @@ class SessionManager:
             party_info=party_info,
             last_events=last_events,
             context_budget=context_budget,
+            recap=recap,
             error_message=error_message
         )
 
@@ -642,14 +833,14 @@ async def start_claudmaster_session(
             return {
                 "session_id": "",
                 "status": "error",
-                "error_message": "campaign_name cannot be empty"
+                "error_message": _error_formatter.format_error(ValueError("Empty campaign name"), context={"player_facing": True}) if False else "*The DM looks at you expectantly*\n\nWhich campaign shall we embark upon, adventurer?"
             }
 
         if resume and not session_id:
             return {
                 "session_id": "",
                 "status": "error",
-                "error_message": "session_id is required when resume=True"
+                "error_message": "*The DM searches through campaign notes*\n\nTo resume a session, I need to know which session to restore. Please provide the session identifier."
             }
 
         # Load campaign from storage
@@ -658,18 +849,23 @@ async def start_claudmaster_session(
                 "session_id": session_id or "",
                 "status": "error",
                 "error_message": (
-                    "Session tools not initialized. "
-                    "Storage instance has not been set."
+                    "*The DM gestures at an empty shelf*\n\n"
+                    "The realm's archives seem... inaccessible at the moment. "
+                    "The storage vault has not been properly prepared for our journey."
                 )
             }
 
         try:
             campaign = _storage.load_campaign(campaign_name)
-        except (FileNotFoundError, ValueError) as e:
+        except (FileNotFoundError, ValueError):
+            # Check if this is a new user — trigger onboarding
+            if not resume and detect_new_user(_storage):
+                return await _handle_onboarding(campaign_name)
+
             return {
                 "session_id": session_id or "",
                 "status": "error",
-                "error_message": f"Cannot load campaign '{campaign_name}': {e}"
+                "error_message": _error_formatter.format_missing_campaign(campaign_name)
             }
 
         # Get Claudmaster config for the campaign
@@ -678,27 +874,112 @@ async def start_claudmaster_session(
         except ValueError:
             config = None  # Will use default config
 
+        # Check for in-progress onboarding (session resumed after interruption)
+        onboarding_data = None
+        is_onboarding = False
+
         # Start or resume the session
         if resume:
             state = await _session_manager.resume_session(session_id, campaign)
         else:
             state = await _session_manager.start_session(campaign, config, module_id)
+            # Check if this session has onboarding metadata (resumed onboarding)
+            if session_id and session_id in _session_manager._active_sessions:
+                _, sess = _session_manager._active_sessions[state.session_id]
+                if sess.metadata.get("onboarding_state"):
+                    ob_state = OnboardingState.from_dict(sess.metadata["onboarding_state"])
+                    if ob_state.step != "complete":
+                        is_onboarding = True
+                        onboarding_data = {
+                            "step": ob_state.step,
+                            "character_suggestions": sess.metadata.get("character_suggestions", ""),
+                            "onboarding_state": ob_state.to_dict(),
+                        }
 
-        return state.model_dump()
+        result = state.model_dump()
+        if is_onboarding:
+            result["is_onboarding"] = True
+            result["onboarding"] = onboarding_data
+        return result
 
     except ValueError as e:
         logger.error(f"Validation error in start_claudmaster_session: {e}")
         return {
             "session_id": session_id or "",
             "status": "error",
-            "error_message": str(e)
+            "error_message": _error_formatter.format_error(e)
         }
     except Exception as e:
         logger.error(f"Unexpected error in start_claudmaster_session: {e}", exc_info=True)
         return {
             "session_id": session_id or "",
             "status": "error",
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}"
+            "error_message": _error_formatter.format_error(e)
+        }
+
+
+async def _handle_onboarding(campaign_name: str) -> dict:
+    """Handle the onboarding flow for a brand-new user.
+
+    Called when no campaigns exist and the user tries to start a session.
+    Creates a campaign with defaults, starts a session, and returns
+    character suggestions from the Narrator.
+
+    Args:
+        campaign_name: The campaign name provided by the user.
+
+    Returns:
+        Dict with session state + onboarding data.
+    """
+    try:
+        # Create a temporary config to get LLM clients for the Narrator
+        config = ClaudmasterConfig()
+        try:
+            config = _storage.get_claudmaster_config()
+        except (ValueError, AttributeError):
+            pass  # Use defaults
+
+        narrator_llm, _ = SessionManager._create_llm_clients(config)
+
+        # Run the onboarding flow
+        onboarding_result = await run_onboarding(
+            storage=_storage,
+            campaign_name=campaign_name,
+            narrator=narrator_llm,
+        )
+
+        # Load the newly created campaign
+        campaign = _storage.load_campaign(onboarding_result.campaign_name)
+
+        # Start a session with the new campaign
+        state = await _session_manager.start_session(campaign, config)
+
+        # Store onboarding state in session metadata
+        _, session = _session_manager._active_sessions[state.session_id]
+        session.metadata["onboarding_state"] = onboarding_result.onboarding_state.to_dict()
+        session.metadata["character_suggestions"] = onboarding_result.character_suggestions
+
+        # Build response with onboarding data
+        result = state.model_dump()
+        result["is_onboarding"] = True
+        result["onboarding"] = {
+            "step": "character_creation",
+            "character_suggestions": onboarding_result.character_suggestions,
+            "onboarding_state": onboarding_result.onboarding_state.to_dict(),
+        }
+
+        logger.info(
+            f"[Onboarding] Started onboarding session {state.session_id} "
+            f"for campaign '{onboarding_result.campaign_name}'"
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"[Onboarding] Failed: {e}", exc_info=True)
+        return {
+            "session_id": "",
+            "status": "error",
+            "error_message": _error_formatter.format_error(e),
         }
 
 
@@ -756,7 +1037,7 @@ async def end_session(
             return {
                 "status": "error",
                 "session_id": session_id,
-                "error_message": f"Invalid mode '{mode}'. Must be 'pause' or 'end'.",
+                "error_message": f"*The DM tilts their head, puzzled*\n\nI'm not familiar with the '{mode}' command. When ending a session, please choose either 'pause' (to resume later) or 'end' (to conclude permanently).",
             }
 
         # Check session exists
@@ -764,7 +1045,7 @@ async def end_session(
             return {
                 "status": "error",
                 "session_id": session_id,
-                "error_message": f"Session {session_id} not found in active sessions.",
+                "error_message": _error_formatter.format_session_not_found(session_id),
             }
 
         # Get session info before ending
@@ -824,7 +1105,7 @@ async def end_session(
         return {
             "status": "error",
             "session_id": session_id,
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}",
+            "error_message": _error_formatter.format_error(e),
         }
 
 
@@ -883,8 +1164,9 @@ async def get_session_state(
         if detail_level not in valid_levels:
             return {
                 "error_message": (
-                    f"Invalid detail_level '{detail_level}'. "
-                    f"Must be one of: {', '.join(valid_levels)}"
+                    f"*The DM adjusts their spectacles*\n\n"
+                    f"I don't recognize the '{detail_level}' level of detail. "
+                    f"Please choose from: {', '.join(valid_levels)}."
                 )
             }
 
@@ -893,10 +1175,7 @@ async def get_session_state(
 
         if state is None:
             return {
-                "error_message": (
-                    f"Session {session_id} not found. "
-                    f"It may have been ended or never started."
-                )
+                "error_message": _error_formatter.format_session_not_found(session_id)
             }
 
         # Get raw session for additional details
@@ -964,7 +1243,7 @@ async def get_session_state(
     except Exception as e:
         logger.error(f"Error in get_session_state for {session_id}: {e}", exc_info=True)
         return {
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}"
+            "error_message": _error_formatter.format_error(e)
         }
 
 

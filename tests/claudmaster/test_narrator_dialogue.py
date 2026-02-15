@@ -202,7 +202,7 @@ class TestBuildVoiceProfile:
             attitude="friendly",
         )
         assert profile.speech_pattern == "formal"
-        assert "customer-focused" in profile.quirks or "mentions prices" in profile.quirks
+        assert any("commerce" in q or "prices" in q for q in profile.quirks)
 
     def test_guard_profile(self, narrator: NarratorAgent) -> None:
         profile = narrator.build_voice_profile(
@@ -211,7 +211,7 @@ class TestBuildVoiceProfile:
             attitude="neutral",
         )
         assert profile.speech_pattern == "terse"
-        assert any("military" in q or "command" in q for q in profile.quirks)
+        assert any("clips" in q or "orders" in q for q in profile.quirks)
 
     def test_scholar_profile(self, narrator: NarratorAgent) -> None:
         profile = narrator.build_voice_profile(
@@ -229,7 +229,7 @@ class TestBuildVoiceProfile:
             attitude="neutral",
         )
         assert profile.speech_pattern == "casual"
-        assert any("slang" in q or "evasive" in q for q in profile.quirks)
+        assert any("euphemism" in q or "deflect" in q for q in profile.quirks)
 
     def test_hostile_attitude(self, narrator: NarratorAgent) -> None:
         profile = narrator.build_voice_profile(

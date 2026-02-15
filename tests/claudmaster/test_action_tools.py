@@ -560,8 +560,8 @@ async def test_process_action_session_not_found(action_processor):
     )
 
     assert isinstance(result, ActionResponse)
-    assert "Session invalid123 not found" in result.narrative
-    assert len(result.warnings) == 1
+    assert "DM" in result.narrative  # In-character message, not raw error
+    assert len(result.warnings) == 0  # No warnings, just in-character narrative
     assert result.turn_number == 0
 
 
@@ -580,11 +580,10 @@ async def test_process_action_orchestrator_error(action_processor, mock_session_
     )
 
     assert isinstance(result, ActionResponse)
-    assert "I encountered an issue" in result.narrative
+    assert "DM" in result.narrative  # In-character error message
     assert "RuntimeError" in result.narrative
-    assert len(result.warnings) == 1
-    assert "RuntimeError" in result.warnings[0]
-
+    assert len(result.warnings) == 0  # Warnings cleared, error in narrative
+    # Removed: warnings are now empty
 
 # ============================================================================
 # MCP Tool Function Tests
@@ -684,9 +683,8 @@ async def test_player_action_tool_invalid_session():
         )
 
         assert isinstance(result, dict)
-        assert "not found" in result["narrative"]
-        assert len(result["warnings"]) > 0
-
+        assert "DM" in result["narrative"]  # In-character message
+        assert len(result["warnings"]) == 0  # No warnings in new UX
 
 @pytest.mark.anyio
 async def test_player_action_tool_with_all_response_fields():

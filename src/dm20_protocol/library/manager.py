@@ -23,6 +23,15 @@ from .search import LibrarySearch
 
 logger = logging.getLogger("dm20-protocol")
 
+# Try to import vector search backend
+try:
+    from ..claudmaster.vector_store import HAS_CHROMADB, VectorStoreManager
+    from .vector_search import VectorLibrarySearch
+except ImportError:
+    HAS_CHROMADB = False
+    VectorStoreManager = None  # type: ignore[assignment,misc]
+    VectorLibrarySearch = None  # type: ignore[assignment,misc]
+
 
 def generate_source_id(filename: str) -> str:
     """Generate a source ID from a filename.
@@ -83,6 +92,10 @@ class LibraryManager:
     def __init__(self, library_dir: Path):
         """Initialize the LibraryManager.
 
+        Automatically selects the best available search backend:
+        ChromaDB vector search when chromadb is installed, otherwise
+        falls back to TF-IDF keyword search.
+
         Args:
             library_dir: Root directory for the library (e.g., dnd_data/library)
         """
@@ -94,10 +107,32 @@ class LibraryManager:
         # Cache of loaded indexes
         self._index_cache: dict[str, IndexEntry] = {}
 
-        # Natural language search instance
-        self.semantic_search = LibrarySearch(self)
+        # Select search backend based on available dependencies
+        self._vector_store = None
+        self._vector_search = None
 
-        logger.debug(f"📚 LibraryManager initialized at {self.library_dir}")
+        if HAS_CHROMADB and VectorLibrarySearch is not None:
+            try:
+                vector_dir = str(self.library_dir / "vector_store")
+                self._vector_store = VectorStoreManager(
+                    persist_directory=vector_dir,
+                )
+                self._vector_search = VectorLibrarySearch(self, self._vector_store)
+                self.semantic_search = self._vector_search
+                logger.info(
+                    "LibraryManager using vector search backend (ChromaDB at %s)",
+                    vector_dir,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to initialize vector search backend (%s). "
+                    "Falling back to TF-IDF search.",
+                    exc,
+                )
+                self.semantic_search = LibrarySearch(self)
+        else:
+            self.semantic_search = LibrarySearch(self)
+            logger.info("LibraryManager using TF-IDF search backend (chromadb not available)")
 
     def ensure_directories(self) -> None:
         """Create the library directory structure if it doesn't exist."""
@@ -205,6 +240,9 @@ class LibraryManager:
     def save_index(self, index_entry: IndexEntry) -> None:
         """Save an index entry to disk.
 
+        Also triggers vector indexing of the TOC entries when the
+        vector search backend is active.
+
         Args:
             index_entry: The index entry to save
         """
@@ -217,6 +255,25 @@ class LibraryManager:
         # Update cache
         self._index_cache[index_entry.source_id] = index_entry
         logger.debug(f"💾 Saved index for {index_entry.source_id}")
+
+        # Index into vector store if available
+        if self._vector_search is not None:
+            try:
+                flat_entries = self._flatten_toc(index_entry.toc)
+                count = self._vector_search.index_source(
+                    source_id=index_entry.source_id,
+                    toc_entries=flat_entries,
+                    source_filename=index_entry.filename,
+                )
+                logger.info(
+                    "Vector indexed %d entries for '%s'",
+                    count, index_entry.source_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Vector indexing failed for '%s': %s",
+                    index_entry.source_id, exc,
+                )
 
     def needs_reindex(self, source_id: str) -> bool:
         """Check if a source needs to be re-indexed.
@@ -314,7 +371,8 @@ class LibraryManager:
         """Load all existing index files into cache.
 
         This should be called at startup to populate the cache
-        with all previously indexed sources.
+        with all previously indexed sources. Also triggers vector
+        indexing for sources not yet in the vector store.
 
         Returns:
             Number of indexes loaded
@@ -328,6 +386,23 @@ class LibraryManager:
             index_entry = self._load_index(source_id)
             if index_entry:
                 count += 1
+                # Ensure vector index exists for this source
+                if (
+                    self._vector_search is not None
+                    and not self._vector_search.is_source_indexed(source_id)
+                ):
+                    try:
+                        flat_entries = self._flatten_toc(index_entry.toc)
+                        self._vector_search.index_source(
+                            source_id=source_id,
+                            toc_entries=flat_entries,
+                            source_filename=index_entry.filename,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Vector indexing failed for '%s': %s",
+                            source_id, exc,
+                        )
 
         logger.debug(f"📚 Loaded {count} existing indexes")
         return count
