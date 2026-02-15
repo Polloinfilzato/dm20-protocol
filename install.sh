@@ -108,25 +108,117 @@ validate_install_path() {
 
 # ─── Banner ────────────────────────────────────────────────────────────────────
 
+# ─── Terminal Background Detection ────────────────────────────────────────────
+
+detect_terminal_background() {
+    # Returns: "dark", "light", or "unknown"
+
+    # Method 1: COLORFGBG variable (set by iTerm2, rxvt, many terminals)
+    # Format: "fg;bg" — values 0-7 are dark colors, 8-15 are bright
+    if [[ -n "${COLORFGBG:-}" ]]; then
+        local bg_value="${COLORFGBG##*;}"
+        if [[ "$bg_value" =~ ^[0-9]+$ ]]; then
+            if [[ "$bg_value" -lt 8 ]]; then
+                echo "dark"; return
+            else
+                echo "light"; return
+            fi
+        fi
+    fi
+
+    # Method 2: OSC 11 query (asks terminal for background RGB)
+    if [ -t 0 ] && [ -t 1 ]; then
+        local old_settings response
+        old_settings=$(stty -g 2>/dev/null) || true
+        stty raw -echo min 0 time 3 2>/dev/null || true
+        printf '\033]11;?\033\\' > /dev/tty 2>/dev/null
+        response=$(dd bs=1 count=50 2>/dev/null < /dev/tty) || true
+        stty "$old_settings" 2>/dev/null || true
+
+        # Parse rgb:RRRR/GGGG/BBBB response
+        if [[ "$response" =~ rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+) ]]; then
+            local r g b luminance
+            r=$(( 16#${BASH_REMATCH[1]:0:2} ))
+            g=$(( 16#${BASH_REMATCH[2]:0:2} ))
+            b=$(( 16#${BASH_REMATCH[3]:0:2} ))
+            # Perceived luminance (ITU-R BT.601)
+            luminance=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
+            if [[ "$luminance" -gt 128 ]]; then
+                echo "light"; return
+            else
+                echo "dark"; return
+            fi
+        fi
+    fi
+
+    echo "unknown"
+}
+
+setup_banner_colors() {
+    local theme="$1"
+    # Use $'...' syntax so variables hold actual ANSI escape bytes.
+    # This avoids conflicts between art backslashes and echo -e interpretation.
+    B_NC=$'\033[0m'
+    B_BOLD=$'\033[1m'
+    B_DIM=$'\033[2m'
+
+    case "$theme" in
+        dark)
+            # 256-color palette: vivid colors for dark backgrounds
+            B_C1=$'\033[1;31m'        # bold red
+            B_C2=$'\033[38;5;196m'    # bright red
+            B_C3=$'\033[38;5;160m'    # red
+            B_C4=$'\033[38;5;202m'    # red-orange
+            B_C5=$'\033[38;5;202m'    # red-orange
+            B_C6=$'\033[38;5;208m'    # orange
+            B_C7=$'\033[38;5;214m'    # light orange
+            B_SWORD=$'\033[1;31m'     # bold red
+            B_TITLE=$'\033[1;37m'     # bold white
+            ;;
+        light)
+            # 256-color palette: darker, saturated for light backgrounds
+            B_C1=$'\033[38;5;124m'    # dark red
+            B_C2=$'\033[38;5;160m'    # medium red
+            B_C3=$'\033[38;5;160m'    # medium red
+            B_C4=$'\033[38;5;166m'    # dark red-orange
+            B_C5=$'\033[38;5;166m'    # dark red-orange
+            B_C6=$'\033[38;5;172m'    # dark orange
+            B_C7=$'\033[38;5;130m'    # brown-orange
+            B_SWORD=$'\033[38;5;124m' # dark red
+            B_TITLE=$'\033[1;30m'     # bold black
+            ;;
+        *)
+            # ANSI-only fallback: standard colors adapt to any terminal theme
+            B_C1=$'\033[1;31m'        # bold red
+            B_C2=$'\033[0;31m'        # red
+            B_C3=$'\033[0;31m'        # red
+            B_C4=$'\033[1;33m'        # bold yellow (≈ orange)
+            B_C5=$'\033[1;33m'        # bold yellow
+            B_C6=$'\033[0;33m'        # yellow/orange
+            B_C7=$'\033[0;33m'        # yellow/orange
+            B_SWORD=$'\033[1;31m'     # bold red
+            B_TITLE=$'\033[1m'        # bold (default fg)
+            ;;
+    esac
+}
+
 banner() {
-    echo -e "${CYAN}"
-    cat << 'BANNER'
+    local bg_theme
+    bg_theme=$(detect_terminal_background)
+    setup_banner_colors "$bg_theme"
 
-  ____  __  __ ____   ___
- |  _ \|  \/  |___ \ / _ \
- | | | | |\/| | __) | | | |
- | |_| | |  | |/ __/| |_| |
- |____/|_|  |_|_____|\___/
-   ____            _                  _
-  |  _ \ _ __ ___ | |_ ___   ___ ___|_|
-  | |_) | '__/ _ \| __/ _ \ / __/ _ \| |
-  |  __/| | | (_) | || (_) | (_| (_) | |
-  |_|   |_|  \___/ \__\___/ \___\___/|_|
-
-BANNER
-    echo -e "${NC}"
-    echo -e "  ${BOLD}DM20 Protocol${NC} v${VERSION} — Interactive Installer"
-    echo -e "  ${DIM}AI-powered D&D campaign management via MCP${NC}"
+    echo ""
+    echo "${B_SWORD}  ⚔═══════════════════════════════════════════════════════⚔${B_NC}"
+    echo "${B_C1}oooooooooo.   ooo        ooooo   .oooo.     .oooo.${B_NC}"
+    echo "${B_C2}\`888'   \`Y8b  \`88.       .888' .dP\"\"Y88b   d8P'\`Y8b${B_NC}"
+    echo "${B_C3} 888      888  888b     d'888        ]8P' 888    888${B_NC}"
+    echo "${B_C4} 888      888  8 Y88. .P  888      .d8P'  888    888${B_NC}"
+    echo "${B_C5} 888      888  8  \`888'   888    .dP'     888    888${B_NC}"
+    echo "${B_C6} 888     d88'  8    Y     888  .oP     .o \`88b  d88'${B_NC}"
+    echo "${B_C7}o888bood8P'   o8o        o888o 8888888888  \`Y8bd8P'${B_NC}"
+    echo "${B_SWORD}  ⚔═══════════════════════════════════════════════════════⚔${B_NC}"
+    echo "  ${B_BOLD}${B_TITLE}DM20 Protocol${B_NC} v${VERSION} — ${B_DIM}Installation Wizard${B_NC}"
+    echo "  ${B_DIM}AI-powered D&D campaign management via MCP${B_NC}"
     echo ""
 }
 
