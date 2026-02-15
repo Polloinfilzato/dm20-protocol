@@ -147,7 +147,7 @@ async def test_start_session_handles_missing_campaign(monkeypatch):
 
     result = await start_claudmaster_session(campaign_name="Ghost Campaign")
     assert result["status"] == "error"
-    assert "Cannot load campaign" in result["error_message"]
+    # Error message is now in-character but still references the campaign name
     assert "Ghost Campaign" in result["error_message"]
 
 
@@ -161,7 +161,9 @@ async def test_start_session_handles_no_storage(monkeypatch):
 
     result = await start_claudmaster_session(campaign_name="Some Campaign")
     assert result["status"] == "error"
-    assert "not initialized" in result["error_message"].lower()
+    # Error message is now in-character but still conveys storage issue
+    assert len(result["error_message"]) > 0
+    assert "archives" in result["error_message"].lower() or "storage" in result["error_message"].lower()
 
 
 # ============================================================================
