@@ -26,6 +26,7 @@ from ..consistency.fact_database import FactDatabase
 from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
 from ..recovery.error_messages import ErrorMessageFormatter
 from ..onboarding import detect_new_user, run_onboarding, OnboardingState
+from ..vector_store import HAS_CHROMADB
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -180,7 +181,8 @@ class SessionManager:
         orchestrator.register_agent("arbiter", arbiter)
         logger.info(f"[Dual-Agent] Registered ArbiterAgent (model: {session_config.arbiter_model})")
 
-        # TODO: Register ModuleKeeperAgent once vector store is wired
+        # Register ModuleKeeperAgent if ChromaDB is available and a module is loaded
+        self._try_register_module_keeper(orchestrator, campaign, module_id)
 
         # Start the session
         session = orchestrator.start_session()
@@ -288,6 +290,10 @@ class SessionManager:
         )
         orchestrator.register_agent("arbiter", arbiter)
         logger.info("[Dual-Agent] Registered NarratorAgent + ArbiterAgent for resumed session")
+
+        # Register ModuleKeeper for resumed session
+        module_id = saved_data.get("module_id")
+        self._try_register_module_keeper(orchestrator, campaign, module_id)
 
         # Recreate session with saved state
         session = ClaudmasterSession(
@@ -515,6 +521,63 @@ class SessionManager:
                 '"reasoning": "Mock resolution."}'
             )
             return narrator_llm, arbiter_llm
+
+    @staticmethod
+    def _try_register_module_keeper(
+        orchestrator: Orchestrator,
+        campaign: Campaign,
+        module_id: Optional[str],
+    ) -> None:
+        """Try to register a ModuleKeeperAgent with the orchestrator.
+
+        Only registers when ChromaDB is available and a module structure
+        can be obtained. Silently skips on any failure so gameplay is
+        never blocked by missing RAG infrastructure.
+
+        Args:
+            orchestrator: The orchestrator to register the agent with.
+            campaign: The campaign being played.
+            module_id: Optional module ID to load structure from.
+        """
+        if not HAS_CHROMADB:
+            logger.info("[ModuleKeeper] ChromaDB not available — skipping registration")
+            return
+
+        try:
+            from ..vector_store import VectorStoreManager
+            from ..agents.module_keeper import ModuleKeeperAgent
+            from ..models.module import ModuleStructure
+
+            # Determine storage path for vector data
+            campaign_path = (
+                Path(_storage.data_dir) / "campaigns" / campaign.id
+                if _storage
+                else Path(f"/tmp/campaigns/{campaign.id}")
+            )
+            vector_dir = str(campaign_path / "claudmaster_sessions" / "vector_store")
+
+            # Initialize vector store
+            vector_store = VectorStoreManager(persist_directory=vector_dir)
+
+            # Build a minimal ModuleStructure from campaign data
+            # In the future this would come from a parsed PDF module
+            module_structure = ModuleStructure(
+                module_id=module_id or campaign.id,
+                title=campaign.name,
+            )
+
+            module_keeper = ModuleKeeperAgent(
+                vector_store=vector_store,
+                module_structure=module_structure,
+                current_location=campaign.game_state.current_location,
+            )
+            orchestrator.register_agent("module_keeper", module_keeper)
+            logger.info(
+                "[ModuleKeeper] Registered for campaign '%s' (vector_dir=%s)",
+                campaign.name, vector_dir,
+            )
+        except Exception as exc:
+            logger.warning("[ModuleKeeper] Registration failed: %s", exc)
 
     @staticmethod
     def _extract_recap_data(
