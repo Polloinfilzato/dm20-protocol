@@ -48,7 +48,7 @@ prompt_default() {
     local varname="$3"
     echo -en "${prompt} ${DIM}[${default}]${NC}: "
     read -r input
-    eval "$varname=\"${input:-$default}\""
+    printf -v "$varname" '%s' "${input:-$default}"
 }
 
 prompt_yn() {
@@ -135,8 +135,8 @@ detect_platform() {
 
     if [[ "$OS" == "Darwin" && "$ARCH" == "x86_64" ]]; then
         PLATFORM="macos-intel"
-        RAG_SUPPORTED=false
-        RAG_WARNING="chromadb/onnxruntime are not available for macOS Intel (x86_64)"
+        RAG_SUPPORTED=true
+        RAG_WARNING=""
     elif [[ "$OS" == "Darwin" && "$ARCH" == "arm64" ]]; then
         PLATFORM="macos-arm"
         RAG_SUPPORTED=true
@@ -524,6 +524,18 @@ gather_options_user() {
     echo -e "  ${DIM}This is where config and campaign data will live${NC}"
     prompt_default "Play directory" "$HOME/dm20" PLAY_DIR
     PLAY_DIR="${PLAY_DIR/#\~/$HOME}"
+
+    # Ensure PLAY_DIR is an absolute path
+    if [[ ! "$PLAY_DIR" == /* ]]; then
+        PLAY_DIR="$(pwd)/${PLAY_DIR}"
+    fi
+
+    # Validate the path is reasonable
+    if [[ -z "$PLAY_DIR" || ${#PLAY_DIR} -lt 3 ]]; then
+        error "Invalid play directory: '${PLAY_DIR}'"
+        exit 1
+    fi
+
     DATA_DIR="${PLAY_DIR}/data"
 
     # ── MCP Client ────────────────────────────────────────────────────────
@@ -559,12 +571,12 @@ gather_options_user() {
     echo ""
     if [[ "$RAG_SUPPORTED" == false ]]; then
         warn "RAG dependencies skipped: ${RAG_WARNING}"
-        echo "  The server works fine without RAG. Only the 'ask_books' semantic search"
-        echo "  tool requires it — all other library tools use keyword search."
+        echo "  The server works fine without RAG. The Claudmaster AI DM uses it for"
+        echo "  module indexing — all other tools (including ask_books) work without it."
     else
         echo -e "${BOLD}Install RAG dependencies?${NC}"
-        echo "  Enables semantic search via 'ask_books' (~2GB download)"
-        echo "  Not required — all other library tools work without it"
+        echo "  Enables vector search for Claudmaster AI DM module indexing (~2GB download)"
+        echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
 }
@@ -658,12 +670,12 @@ gather_options_developer() {
     echo ""
     if [[ "$RAG_SUPPORTED" == false ]]; then
         warn "RAG dependencies skipped: ${RAG_WARNING}"
-        echo "  The server works fine without RAG. Only the 'ask_books' semantic search"
-        echo "  tool requires it — all other library tools use keyword search."
+        echo "  The server works fine without RAG. The Claudmaster AI DM uses it for"
+        echo "  module indexing — all other tools (including ask_books) work without it."
     else
         echo -e "${BOLD}Install RAG dependencies?${NC}"
-        echo "  Enables semantic search via 'ask_books' (~2GB download)"
-        echo "  Not required — all other library tools work without it"
+        echo "  Enables vector search for Claudmaster AI DM module indexing (~2GB download)"
+        echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
 }
@@ -686,17 +698,13 @@ do_tool_install() {
         exit 1
     fi
 
-    # Verify the binary is available
+    # Resolve the binary path (needed for MCP config)
     if command -v dm20-protocol &>/dev/null; then
         DM20_BINARY_PATH=$(command -v dm20-protocol)
-        success "Binary available at: ${DM20_BINARY_PATH}"
     elif [[ -x "$HOME/.local/bin/dm20-protocol" ]]; then
         DM20_BINARY_PATH="$HOME/.local/bin/dm20-protocol"
-        warn "dm20-protocol installed but not in PATH"
-        echo ""
-        echo -e "  Add this to your shell profile (${BOLD}~/.zshrc${NC} or ${BOLD}~/.bashrc${NC}):"
-        echo -e "    ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
-        echo ""
+        warn "dm20-protocol not in PATH — adding \$HOME/.local/bin to your shell profile"
+        warn "is recommended but not required (MCP config uses the absolute path)."
     else
         error "dm20-protocol binary not found after installation"
         exit 1
@@ -704,7 +712,15 @@ do_tool_install() {
 }
 
 do_create_play_dir() {
-    step "Setting up play directory"
+    step "Setting up play directory at ${PLAY_DIR}"
+
+    # Create the base directory first with explicit error handling
+    if ! mkdir -p "${PLAY_DIR}" 2>/dev/null; then
+        error "Cannot create play directory: ${PLAY_DIR}"
+        error "Check that the parent directory exists and is writable."
+        exit 1
+    fi
+
     mkdir -p "${PLAY_DIR}/data/campaigns"
     mkdir -p "${PLAY_DIR}/data/library/pdfs"
     mkdir -p "${PLAY_DIR}/data/library/index"
@@ -969,12 +985,10 @@ do_verify() {
     step "Verifying installation"
 
     if [[ "$INSTALL_MODE" == "user" ]]; then
-        if command -v dm20-protocol &>/dev/null; then
-            success "dm20-protocol command is available"
-        elif [[ -x "${DM20_BINARY_PATH}" ]]; then
-            success "dm20-protocol binary exists at ${DM20_BINARY_PATH}"
+        if command -v dm20-protocol &>/dev/null || [[ -x "${DM20_BINARY_PATH}" ]]; then
+            success "MCP server ready"
         else
-            warn "dm20-protocol command not found in PATH"
+            warn "dm20-protocol binary not found — MCP config may not work"
         fi
     else
         cd "$INSTALL_DIR"
