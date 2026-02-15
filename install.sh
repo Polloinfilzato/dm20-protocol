@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # DM20 Protocol — Interactive Installer
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh)
-# Or:    bash install.sh  (from the repo root)
+# Or:    bash install.sh           (from the repo root)
+# Or:    bash install.sh --upgrade [play_dir]   (update existing install — auto-detects play dir)
 
 set -euo pipefail
 
 VERSION="0.3.0"
 REPO_URL="https://github.com/Polloinfilzato/dm20-protocol.git"
+RAW_BASE="https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main"
+UPGRADE_MODE=false       # true when running with --upgrade flag
 
 # ─── Global State ─────────────────────────────────────────────────────────────
 
@@ -752,24 +755,95 @@ except Exception:
 
     if [[ -n "$agents_src" && -d "$agents_src" ]]; then
         cp -n "$agents_src"/*.md "${PLAY_DIR}/.claude/agents/" 2>/dev/null || true
-        success "Agent templates copied to ${PLAY_DIR}/.claude/agents/"
+        success "Agent templates copied from installed package"
+    elif [[ "$INSIDE_CLONE" == true ]]; then
+        # Copy from local clone
+        local script_dir_agents
+        script_dir_agents="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ -d "${script_dir_agents}/.claude/agents" ]]; then
+            cp -n "${script_dir_agents}/.claude/agents"/*.md "${PLAY_DIR}/.claude/agents/" 2>/dev/null || true
+            success "Agent templates copied from local clone"
+        fi
     else
-        # Fallback: create minimal agent files from scratch
+        # Download from GitHub (uv tool install doesn't include .claude/ files)
+        info "Downloading agent templates from GitHub..."
+        local agents_ok=true
         for agent_file in narrator.md combat-handler.md rules-lookup.md; do
             local target="${PLAY_DIR}/.claude/agents/${agent_file}"
             if [[ ! -f "$target" ]]; then
-                local agent_name="${agent_file%.md}"
-                local model="sonnet"
-                [[ "$agent_name" == "rules-lookup" ]] && model="haiku"
-                cat > "$target" << AGENTEOF
+                if ! curl -fsSL "${RAW_BASE}/.claude/agents/${agent_file}" -o "$target" 2>/dev/null; then
+                    agents_ok=false
+                    # Fallback: create minimal template
+                    local agent_name="${agent_file%.md}"
+                    local model="sonnet"
+                    [[ "$agent_name" == "rules-lookup" ]] && model="haiku"
+                    cat > "$target" << AGENTEOF
 ---
 name: ${agent_name}
 model: ${model}
 ---
 AGENTEOF
+                fi
             fi
         done
-        success "Minimal agent templates created in ${PLAY_DIR}/.claude/agents/"
+        if [[ "$agents_ok" == true ]]; then
+            success "Agent templates downloaded from GitHub"
+        else
+            warn "Some agent templates could not be downloaded — minimal templates created instead."
+        fi
+    fi
+
+    # ── Slash commands (/dm:*) and DM persona ──────────────────────────────────
+    # These files live at repo root (.claude/), not inside the Python package,
+    # so they are NOT included in uv tool install. We must fetch them separately.
+
+    mkdir -p "${PLAY_DIR}/.claude/commands/dm"
+
+    local commands_src=""
+
+    # Try 1: copy from local clone (if running from repo)
+    if [[ "$INSIDE_CLONE" == true ]]; then
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ -d "${script_dir}/.claude/commands/dm" ]]; then
+            commands_src="${script_dir}/.claude"
+        fi
+    fi
+
+    if [[ -n "$commands_src" ]]; then
+        info "Copying slash commands from local clone..."
+        cp -n "$commands_src"/commands/dm/*.md "${PLAY_DIR}/.claude/commands/dm/" 2>/dev/null || true
+        [[ -f "$commands_src/dm-persona.md" ]] && cp -n "$commands_src/dm-persona.md" "${PLAY_DIR}/.claude/" 2>/dev/null || true
+        success "Slash commands and DM persona copied from local clone"
+    else
+        # Try 2: download from GitHub
+        info "Downloading slash commands from GitHub..."
+        local dm_commands=(start action combat save profile help)
+        local download_ok=true
+
+        for cmd in "${dm_commands[@]}"; do
+            local target="${PLAY_DIR}/.claude/commands/dm/${cmd}.md"
+            if [[ ! -f "$target" ]]; then
+                if ! curl -fsSL "${RAW_BASE}/.claude/commands/dm/${cmd}.md" -o "$target" 2>/dev/null; then
+                    download_ok=false
+                fi
+            fi
+        done
+
+        # DM persona file (referenced by all commands via: !`cat .claude/dm-persona.md`)
+        local persona_target="${PLAY_DIR}/.claude/dm-persona.md"
+        if [[ ! -f "$persona_target" ]]; then
+            if ! curl -fsSL "${RAW_BASE}/.claude/dm-persona.md" -o "$persona_target" 2>/dev/null; then
+                download_ok=false
+            fi
+        fi
+
+        if [[ "$download_ok" == true ]]; then
+            success "Slash commands and DM persona downloaded from GitHub"
+        else
+            warn "Some files could not be downloaded. /dm: commands may not work."
+            warn "You can copy them manually from the repo: .claude/commands/dm/ and .claude/dm-persona.md"
+        fi
     fi
 }
 
@@ -1085,9 +1159,201 @@ print_summary_developer() {
     echo ""
 }
 
+# ─── Upgrade Mode ─────────────────────────────────────────────────────────────
+# Usage: bash install.sh --upgrade [play_dir]
+# Updates Python package + .claude/ config files in an existing play directory.
+
+is_dm20_play_dir() {
+    # A valid DM20 play directory has .mcp.json or .claude/ with dm20 indicators
+    local dir="$1"
+    [[ -f "$dir/.mcp.json" ]] && grep -q "dm20-protocol" "$dir/.mcp.json" 2>/dev/null && return 0
+    [[ -d "$dir/.claude/commands/dm" ]] && return 0
+    [[ -d "$dir/.claude/agents" ]] && [[ -d "$dir/data/campaigns" ]] && return 0
+    return 1
+}
+
+do_upgrade() {
+    local play_dir="${1:-}"
+
+    echo ""
+    echo -e "${BOLD}DM20 Protocol — Upgrade${NC}"
+    echo ""
+
+    # ── Auto-detect play directory ────────────────────────────────────────
+    if [[ -n "$play_dir" ]]; then
+        # Explicit path provided as argument
+        play_dir="${play_dir/#\~/$HOME}"
+        [[ ! "$play_dir" == /* ]] && play_dir="$(pwd)/${play_dir}"
+    else
+        # Try to auto-detect
+        local candidates=()
+
+        # 1. Current directory
+        if is_dm20_play_dir "$(pwd)"; then
+            candidates+=("$(pwd)")
+        fi
+
+        # 2. Default location ~/dm20
+        if [[ "$(pwd)" != "$HOME/dm20" ]] && is_dm20_play_dir "$HOME/dm20"; then
+            candidates+=("$HOME/dm20")
+        fi
+
+        # 3. DM20_STORAGE_DIR env var (play dir is its parent)
+        if [[ -n "${DM20_STORAGE_DIR:-}" ]]; then
+            local env_parent
+            env_parent="$(dirname "$DM20_STORAGE_DIR")"
+            if is_dm20_play_dir "$env_parent"; then
+                local already_found=false
+                for c in "${candidates[@]}"; do
+                    [[ "$c" == "$env_parent" ]] && already_found=true
+                done
+                [[ "$already_found" == false ]] && candidates+=("$env_parent")
+            fi
+        fi
+
+        if [[ ${#candidates[@]} -eq 1 ]]; then
+            play_dir="${candidates[0]}"
+            info "Found play directory: ${play_dir}"
+        elif [[ ${#candidates[@]} -gt 1 ]]; then
+            echo -e "${BOLD}Multiple DM20 play directories found:${NC}"
+            local i=1
+            for c in "${candidates[@]}"; do
+                echo "  ${i}) ${c}"
+                ((i++))
+            done
+            echo ""
+            local choice
+            read -rp "Which one? [1]: " choice
+            choice="${choice:-1}"
+            play_dir="${candidates[$((choice - 1))]}"
+        else
+            # Nothing found — ask the user to cd into it
+            error "Could not find a DM20 play directory."
+            echo ""
+            echo -e "  ${BOLD}Option 1:${NC} cd into your play directory and run:"
+            echo -e "    ${DIM}cd ~/dm20 && bash install.sh --upgrade${NC}"
+            echo ""
+            echo -e "  ${BOLD}Option 2:${NC} specify the path explicitly:"
+            echo -e "    ${DIM}bash install.sh --upgrade /path/to/your/dm20${NC}"
+            echo ""
+            exit 1
+        fi
+    fi
+
+    # Validate
+    if [[ ! -d "$play_dir" ]]; then
+        error "Play directory not found: ${play_dir}"
+        error "Run the full installer first, or check the path."
+        exit 1
+    fi
+
+    if ! is_dm20_play_dir "$play_dir"; then
+        error "Not a valid DM20 play directory: ${play_dir}"
+        error "Expected .mcp.json with dm20-protocol config, or .claude/commands/dm/"
+        exit 1
+    fi
+
+    # ── Step 1: Upgrade Python package ────────────────────────────────────
+    step "Upgrading Python package..."
+    if command -v uv &>/dev/null; then
+        if uv tool upgrade dm20-protocol 2>/dev/null; then
+            success "Python package upgraded"
+        else
+            warn "uv tool upgrade failed — trying reinstall..."
+            uv tool install "dm20-protocol @ git+${REPO_URL}" --force 2>/dev/null && \
+                success "Python package reinstalled" || \
+                warn "Package upgrade failed. Continuing with config update..."
+        fi
+    else
+        warn "uv not found — skipping Python package upgrade"
+        warn "Install uv (https://docs.astral.sh/uv/) or upgrade manually"
+    fi
+
+    # ── Step 2: Backup existing .claude/ files ────────────────────────────
+    local backup_dir="${play_dir}/.claude/backup-$(date +%Y%m%d-%H%M%S)"
+    step "Backing up current config to ${backup_dir}..."
+    mkdir -p "$backup_dir"
+
+    # Backup commands, persona, and agents
+    [[ -d "${play_dir}/.claude/commands" ]] && cp -r "${play_dir}/.claude/commands" "$backup_dir/" 2>/dev/null || true
+    [[ -f "${play_dir}/.claude/dm-persona.md" ]] && cp "${play_dir}/.claude/dm-persona.md" "$backup_dir/" 2>/dev/null || true
+    [[ -d "${play_dir}/.claude/agents" ]] && cp -r "${play_dir}/.claude/agents" "$backup_dir/" 2>/dev/null || true
+    success "Backup created"
+
+    # ── Step 3: Download latest .claude/ files ────────────────────────────
+    local src_dir=""
+
+    # Try local clone first
+    if [[ -f "pyproject.toml" ]] && grep -q 'name = "dm20-protocol"' pyproject.toml 2>/dev/null; then
+        src_dir="$(pwd)/.claude"
+    fi
+
+    # Commands
+    mkdir -p "${play_dir}/.claude/commands/dm"
+
+    if [[ -n "$src_dir" && -d "$src_dir/commands/dm" ]]; then
+        step "Updating slash commands from local clone..."
+        cp "$src_dir"/commands/dm/*.md "${play_dir}/.claude/commands/dm/" 2>/dev/null || true
+        [[ -f "$src_dir/dm-persona.md" ]] && cp "$src_dir/dm-persona.md" "${play_dir}/.claude/" 2>/dev/null || true
+        cp "$src_dir"/agents/*.md "${play_dir}/.claude/agents/" 2>/dev/null || true
+        success "Config files updated from local clone"
+    else
+        step "Downloading latest config from GitHub..."
+        local update_ok=true
+
+        # Slash commands
+        local dm_commands=(start action combat save profile help)
+        for cmd in "${dm_commands[@]}"; do
+            if ! curl -fsSL "${RAW_BASE}/.claude/commands/dm/${cmd}.md" -o "${play_dir}/.claude/commands/dm/${cmd}.md" 2>/dev/null; then
+                update_ok=false
+            fi
+        done
+
+        # DM persona
+        if ! curl -fsSL "${RAW_BASE}/.claude/dm-persona.md" -o "${play_dir}/.claude/dm-persona.md" 2>/dev/null; then
+            update_ok=false
+        fi
+
+        # Agent templates
+        mkdir -p "${play_dir}/.claude/agents"
+        for agent_file in narrator.md combat-handler.md rules-lookup.md; do
+            if ! curl -fsSL "${RAW_BASE}/.claude/agents/${agent_file}" -o "${play_dir}/.claude/agents/${agent_file}" 2>/dev/null; then
+                update_ok=false
+            fi
+        done
+
+        if [[ "$update_ok" == true ]]; then
+            success "All config files downloaded from GitHub"
+        else
+            warn "Some files could not be downloaded."
+            warn "Backup preserved at: ${backup_dir}"
+        fi
+    fi
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    echo ""
+    echo -e "${BOLD}${GREEN}✅ Upgrade complete!${NC}"
+    echo ""
+    echo -e "  ${BOLD}Play directory:${NC} ${play_dir}"
+    echo -e "  ${BOLD}Backup:${NC} ${backup_dir}"
+    echo ""
+    echo -e "  ${DIM}If something broke, restore from backup:${NC}"
+    echo -e "  ${DIM}  cp -r ${backup_dir}/* ${play_dir}/.claude/${NC}"
+    echo ""
+}
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
+    # Parse --upgrade flag before anything else
+    if [[ "${1:-}" == "--upgrade" ]]; then
+        UPGRADE_MODE=true
+        banner
+        detect_platform
+        do_upgrade "${2:-}"
+        exit 0
+    fi
+
     banner
     detect_platform
     detect_mode

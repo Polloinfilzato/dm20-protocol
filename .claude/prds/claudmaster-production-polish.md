@@ -1,8 +1,9 @@
 ---
 name: claudmaster-production-polish
-description: End-to-end integration hardening, onboarding experience, session continuity, and UX polish to make Claudmaster a production-ready "wow" product
+description: End-to-end integration hardening, onboarding experience, session continuity, RAG activation with ChromaDB, and UX polish to make Claudmaster a production-ready "wow" product
 status: backlog
 created: 2026-02-15T12:00:00Z
+updated: 2026-02-15T01:28:47Z
 ---
 
 # PRD: Claudmaster Production Polish
@@ -21,8 +22,9 @@ This PRD bridges the gap between "code complete" and "product ready" — the las
 4. **Agent Prompt Tuning** — Calibrated prompts for narrative quality, tone consistency, and response format
 5. **Error UX** — User-facing error messages that maintain immersion instead of breaking it
 6. **Robustness Hardening** — Edge case handling, timeout resilience, and graceful degradation under real conditions
+7. **RAG Activation & ChromaDB Integration** — Wire the existing ModuleKeeper agent into the game loop and upgrade Library search from TF-IDF to vector embeddings for semantic rulebook retrieval
 
-**Value proposition:** A new user installs dm20-protocol, runs `/dm:start`, and within 5 minutes is immersed in a D&D session with rich narration, responsive mechanics, and seamless state management — without reading documentation or debugging errors.
+**Value proposition:** A new user installs dm20-protocol, runs `/dm:start`, and within 5 minutes is immersed in a D&D session with rich narration, responsive mechanics, semantic rulebook knowledge, and seamless state management — without reading documentation or debugging errors.
 
 ## Problem Statement
 
@@ -39,7 +41,9 @@ Known unknowns:
 ├── Is the narrative quality consistent across different models? (Opus vs Sonnet vs Haiku)
 ├── How does a brand-new user experience the first 5 minutes? (onboarding)
 ├── What does the error experience look like in practice? (not in tests)
-└── Does session resume actually preserve narrative context? (not just data)
+├── Does session resume actually preserve narrative context? (not just data)
+├── ModuleKeeper agent is fully implemented but never wired into sessions (dead code)
+└── Library search uses TF-IDF keywords — does it find what players actually need? (semantic gap)
 ```
 
 ### Why Now?
@@ -59,12 +63,12 @@ First-time dm20-protocol user who:
 
 ## Architecture Overview
 
-This PRD does not introduce new architecture. It hardens and polishes the existing stack:
+This PRD primarily hardens and polishes the existing stack, with one key activation: wiring the already-implemented ChromaDB/RAG infrastructure into the live system.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EXISTING ARCHITECTURE                         │
-│                    (no structural changes)                       │
+│              (activation + hardening, minimal new code)          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  /dm:start ──► start_claudmaster_session ──► Orchestrator       │
@@ -77,6 +81,19 @@ This PRD does not introduce new architecture. It hardens and polishes the existi
 │  │ Integration  │ │  Onboarding  │ │  Prompt Tuning     │      │
 │  │ Testing      │ │  Flow        │ │  & Error UX        │      │
 │  └──────────────┘ └──────────────┘ └────────────────────┘      │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ RAG Activation: ModuleKeeper wiring + Library        │      │
+│  │ vector search upgrade (ChromaDB + embeddings)        │      │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  ALREADY IMPLEMENTED (needs wiring):                            │
+│  VectorStoreManager ─► ChromaDB persistent storage              │
+│  ModuleIndexer ──────► Intelligent text chunking                │
+│  ModuleKeeperAgent ──► RAG retrieval (NPC, location, plot)      │
+│                                                                 │
+│  NEEDS UPGRADE:                                                 │
+│  LibrarySearch ──────► TF-IDF → Vector embeddings               │
+│  ask_books() ────────► Keyword matching → Semantic search       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -127,7 +144,19 @@ This PRD does not introduce new architecture. It hardens and polishes the existi
 - Combat narration is dramatic and varied (not "you hit for 8 damage" every time)
 - Quality is acceptable across all three model profiles (quality/balanced/economy)
 
-### US-5: Multi-Turn Session Stability
+### US-5: Semantic Rulebook Knowledge
+**As a** player who has provided their own D&D rulebooks (PDFs/Markdown)
+**I want** the DM to understand and retrieve relevant rules semantically
+**So that** when I ask about a class feature, spell interaction, or obscure rule, the DM finds the right answer even if I don't use the exact wording from the book
+
+**Acceptance Criteria:**
+- Library search uses vector embeddings (ChromaDB) instead of keyword matching
+- Searching "tanky frontline build" finds Fighter, Barbarian, and Paladin sections even without those exact words
+- ModuleKeeper agent is active during gameplay and provides contextual lore/NPC/location info from loaded adventure modules
+- RAG dependencies (chromadb, sentence-transformers) are optional — system degrades gracefully to TF-IDF if not installed
+- First-time indexing of a new rulebook completes in reasonable time (< 60s per PDF)
+
+### US-6: Multi-Turn Session Stability
 **As a** player in a long session
 **I want** the game to remain stable and responsive
 **So that** I can play for an hour+ without issues
@@ -152,6 +181,10 @@ This PRD does not introduce new architecture. It hardens and polishes the existi
 | FR-8 | Agent timeout fallback responses | Should | Degraded but functional when agent is slow |
 | FR-9 | Edge case handling for ambiguous player input | Should | "I do something" → clarification request |
 | FR-10 | Starter adventure content (1 location, 2 NPCs, 1 encounter) | Could | Built-in "tutorial dungeon" for onboarding |
+| FR-11 | Wire ModuleKeeper agent into Claudmaster session initialization | Must | Register in orchestrator, route EXPLORATION/QUESTION intents to it |
+| FR-12 | Upgrade LibrarySearch to vector embeddings via ChromaDB | Must | Replace TF-IDF with semantic search for `ask_books()` and `search_library()` |
+| FR-13 | Auto-index rulebooks into ChromaDB on first `scan_library()` | Should | Generate embeddings during scan, cache in persistent ChromaDB store |
+| FR-14 | Graceful RAG degradation when chromadb is not installed | Must | Fall back to existing TF-IDF search; warn user once about optional deps |
 
 ## Non-Functional Requirements
 
@@ -162,6 +195,9 @@ This PRD does not introduce new architecture. It hardens and polishes the existi
 | NFR-3 | Onboarding completion time | < 5 minutes |
 | NFR-4 | Zero raw Python errors in player output | 100% |
 | NFR-5 | Session stability (no crashes) | 20+ turns |
+| NFR-6 | Rulebook indexing time (per PDF) | < 60s |
+| NFR-7 | Semantic search query time | < 2s |
+| NFR-8 | ChromaDB storage overhead per rulebook | < 50MB |
 
 ## Dependencies
 
@@ -173,6 +209,10 @@ This PRD does not introduce new architecture. It hardens and polishes the existi
 | Session persistence | Complete | Resume capability |
 | Consistency engine | Complete | Narrative coherence |
 | Installer (user mode) | Complete | New user path |
+| VectorStoreManager (ChromaDB wrapper) | Complete | Persistent vector storage, embedding generation |
+| ModuleIndexer (text chunking) | Complete | Intelligent chunking with metadata extraction |
+| ModuleKeeperAgent (RAG retrieval) | Complete | NPC knowledge, locations, encounters, plot — needs wiring |
+| chromadb + sentence-transformers (optional deps) | Declared | `pip install dm20-protocol[rag]` — optional install |
 
 ## Implementation Order
 
@@ -192,7 +232,13 @@ Phase 3: Onboarding & Continuity (first impression + returning player)
     ├── Session recap generator
     └── Starter adventure content (optional)
 
-Phase 4: Prompt Tuning & Quality (the "wow")
+Phase 4: RAG Activation (connect the knowledge layer)
+    ├── Wire ModuleKeeper into Claudmaster session + orchestrator
+    ├── Upgrade LibrarySearch to ChromaDB vector embeddings
+    ├── Auto-index rulebooks on scan_library()
+    └── Graceful degradation when RAG deps not installed
+
+Phase 5: Prompt Tuning & Quality (the "wow")
     ├── Narrator prompt calibration
     ├── NPC dialogue differentiation
     ├── Combat narration variety
@@ -208,9 +254,13 @@ Phase 4: Prompt Tuning & Quality (the "wow")
 | Narrative quality rated "good+" on all profiles | Subjective playtest |
 | Session resume preserves full context | Verified by recap accuracy |
 | Zero Python errors in player output | 100% |
+| Semantic search finds relevant results for conceptual queries | Manual validation |
+| ModuleKeeper provides contextual lore during gameplay | Verified in integration test |
 
 ## Open Questions
 
 1. Should the starter adventure be a mini-module (structured content) or a procedurally generated scenario?
 2. Should the onboarding create a pre-built character or walk the player through full creation?
 3. What level of narrator prompt customization should be exposed to users (beyond model profile)?
+4. Should vector indexing happen eagerly (on `scan_library()`) or lazily (on first search query)?
+5. Should the ModuleKeeper share the same ChromaDB instance as LibrarySearch or use separate collections?
