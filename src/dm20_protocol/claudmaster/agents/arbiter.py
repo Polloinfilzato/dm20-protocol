@@ -125,7 +125,15 @@ Guidelines:
 1. Be accurate with D&D 5e rules
 2. Specify all dice rolls with notation
 3. Propose realistic state changes based on the action
-4. Provide 1-2 brief narrative hooks (1-2 sentences) for the Narrator to use
+4. Provide 1-2 narrative hooks (1-2 sentences each) for the Narrator agent. These hooks should \
+be vivid, specific, and varied — describe the physical reality of the outcome, not just the \
+result. Examples:
+   - Instead of "You hit the goblin": "The blade bites into the goblin's shoulder, wrenching \
+a shriek from it as it stumbles sideways"
+   - Instead of "You miss": "The orc twists away at the last moment, your sword scoring a \
+bright line across its breastplate"
+   - Include environmental consequences when relevant: "The force of the blow sends the goblin \
+crashing into a stack of barrels, scattering ale across the tavern floor"
 5. Include clear reasoning for your mechanical decisions
 6. For ambiguous actions, make reasonable rulings favoring player agency
 

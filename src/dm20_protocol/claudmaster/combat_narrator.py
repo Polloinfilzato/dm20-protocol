@@ -183,11 +183,20 @@ You are narrating the start of combat round {round_number} in a D&D battle.
 Initiative order:
 {initiative_list}
 
-Generate a brief, energetic transition to the new round. Set the scene and build tension.
-Keep it to 1-2 sentences. Vary your approach - sometimes focus on the combatants,
-sometimes on the environment, sometimes on the stakes.
+Generate a brief, dynamic transition to round {round_number}. Keep it to 1-2 sentences.
 
-Do NOT simply list the initiative order - weave it into the narrative naturally.
+Adapt the tone to the combat's phase:
+- Early rounds (1-2): tension, sizing each other up, first blood
+- Mid rounds (3-5): fatigue, desperation, the battle's rhythm
+- Late rounds (6+): exhaustion, last stands, do-or-die moments
+
+Vary your narrative lens each round — cycle unpredictably between these approaches:
+- The combatants: a bead of sweat, a snarl, a prayer whispered between breaths
+- The environment: crumbling terrain, shifting shadows, blood-slicked floors
+- The stakes: what happens if they fail, what drives them to fight on
+- The tempo: sudden stillness, a collective inhale, the clash resuming
+
+Do NOT list initiative order. Do NOT repeat your opening structure from previous rounds.
 """
 
 ATTACK_TEMPLATE = """\
@@ -199,14 +208,20 @@ Weapon/Method: {weapon}
 Attack Roll: {roll}
 Result: {result}
 
-Generate a vivid description of the attack. Match the energy to the result:
-- Critical hit: dramatic, devastating, game-changing
-- Hit: solid, effective, visceral
-- Miss: near miss, deflection, or dodge
-- Fumble: comedic or dangerous mishap
+Generate a visceral, specific description of the attack. Match the energy to the result:
+- A perfect critical: describe the exact anatomy of the devastating blow. \
+Time slows. The hit reshapes the fight.
+- A solid hit: effective — describe the weapon's path, the point of impact, the defender's \
+reaction. Each hit should feel different: a clean slash, a bruising chop, a piercing thrust.
+- A miss: the near-miss is as important as the hit — was it a dodge, a parry, armor deflection, \
+or the attacker overextending? Show the defender's skill or the attacker's frustration.
+- A fumble: dangerous, specific, consequential — a weapon slips, a foot catches, balance fails. \
+Not slapstick; this is a real fight where mistakes cost.
 
-Keep it to 1-2 sentences. Focus on action and impact, not mechanics.
-Vary your sentence structure and opening.
+Keep it to 1-2 sentences. NEVER repeat a description structure you just used. Vary everything:
+- Start with the attacker, the defender, the weapon, the environment, or the result
+- Use different verbs (lunges/drives/arcs/whips/hammers, not just "swings")
+- Include physical detail: the sound, the smell of blood, sparks on armor
 """
 
 DAMAGE_TEMPLATE = """\
@@ -217,14 +232,25 @@ Damage: {damage} {damage_type} damage
 Severity: {severity}
 Current Status: {hp_current}/{hp_max} HP
 
-Generate a description of the impact and the target's reaction. Scale the drama to the severity:
-- Scratch: barely noticeable, superficial
-- Light: noticeable but manageable
-- Moderate: serious, concerning
-- Heavy: grave, dire consequences
-- Devastating: life-threatening, catastrophic
+Describe the wound and the target's reaction. Be anatomically specific — where on the body? \
+What does the wound look like? How does the target move differently now?
 
-Keep it to 1-2 sentences. Show the physical and emotional impact.
+Scale the drama to the severity:
+- Scratch: a red line, a torn sleeve, a grunt of annoyance — the fight goes on
+- Light: a flesh wound that bleeds freely — painful but manageable, gritted teeth
+- Moderate: a wound that changes the fight — favoring one side, blood flowing, vision blurring
+- Heavy: a wound that threatens to end it — staggering, gasping, fighting through agony
+- Devastating: the body failing — knees buckling, consciousness slipping, last reserves burning
+
+Match the damage type to the physical description:
+- Slashing: cuts, gashes, severed straps, parted flesh
+- Piercing: punctures, blood welling from a single point, the shock of impalement
+- Bludgeoning: crunching bone, bruised organs, the dull impact that steals breath
+- Fire: searing flesh, smoking cloth, the scream before thought
+- Cold: numbing limbs, frost-rimed skin, sluggish movements
+- Other: match the element to its physical reality
+
+Keep it to 1-2 sentences. Show, don't tell — the severity should be felt, not stated.
 """
 
 SPELL_TEMPLATE = """\
@@ -236,17 +262,26 @@ Targets: {targets}
 Effects:
 {effects_list}
 
-Generate an evocative description of the spell's casting and effects. Match the tone to the school:
-- Abjuration: protective, shielding, warding
-- Conjuration: summoning, materializing, appearing
-- Divination: revealing, perceiving, knowing
-- Enchantment: beguiling, charming, compelling
-- Evocation: explosive, elemental, forceful
-- Illusion: deceptive, illusory, misleading
-- Necromancy: dark, draining, deathly
-- Transmutation: transforming, altering, changing
+Describe the spell in three beats: the casting (gesture, incantation, focus), the manifestation \
+(what appears in the world), and the impact (what it does to the targets).
 
-Keep it to 2-3 sentences. Capture both the visual spectacle and the mechanical effects.
+Match the magical aesthetic to the school:
+- Abjuration: geometric wards, humming barriers, light that solidifies into shields
+- Conjuration: reality tearing open, things stepping through from elsewhere, sudden materialization
+- Divination: eyes glowing, whispered knowledge, the veil between seen and unseen thinning
+- Enchantment: honeyed words, eyes glazing, willpower crumbling like sand
+- Evocation: raw elemental fury, blinding light, the roar of unleashed energy
+- Illusion: shimmering air, images that flicker at the edges, doubt made manifest
+- Necromancy: cold that seeps into bone, shadows lengthening, the boundary between life and death bending
+- Transmutation: flesh rippling, matter flowing like water, the laws of nature rewritten
+
+Scale the spectacle to the spell level: a cantrip is a flick of the wrist; a 5th+ level spell \
+reshapes the battlefield and demands awe.
+
+For healing spells: warmth, light closing wounds, the relief of pain receding — but also the cost. \
+Magic is not free; show the caster's focus and effort.
+
+Keep it to 2-3 sentences. The spell should feel like the caster's personality expressed through magic.
 """
 
 DEATH_TEMPLATE = """\
@@ -256,12 +291,21 @@ Character: {character}
 Killing Blow: {killing_blow}
 Character Type: {character_type}
 
-Generate a dramatic death scene. For player characters, this is a pivotal moment -
-make it memorable, heroic, and meaningful. For enemies, match the tone to their role
-(major villain vs. minor monster).
-
-Keep it to 2-3 sentences. This is a moment that will be remembered.
 {player_note}
+
+For a Player Character death:
+This is the most dramatic moment in the game. Time slows. Describe the killing blow in \
+cinematic detail, then the character's final moment — a last word, a defiant gesture, eyes \
+finding an ally. The world should feel the loss: the battle pauses, light changes, sound \
+dims. This death must mean something. It must haunt the survivors.
+
+For an Enemy/NPC death:
+Match the drama to their importance. A minor monster dies quickly — a wet crunch, a final \
+twitch, done. A lieutenant falls with some weight — the other enemies falter. A villain's \
+death is an event — they don't go quietly, they rage, curse, or whisper a terrible secret \
+with their last breath.
+
+Keep it to 2-3 sentences. The player will remember this moment — make it worth remembering.
 """
 
 UNCONSCIOUS_TEMPLATE = """\
@@ -270,10 +314,14 @@ You are narrating a character falling unconscious in a D&D battle.
 Character: {character}
 Cause: {cause}
 
-Generate a tense description of the character collapsing. This is a critical moment -
-allies will need to stabilize them or risk losing them. Build urgency and concern.
+Describe the exact moment consciousness leaves — the weapon clattering from loosened fingers, \
+knees folding, the body crumpling in a way that makes allies' stomachs drop. The sound of \
+armor hitting stone. The sudden absence where a fighter stood.
 
-Keep it to 1-2 sentences. Emphasize the danger and the need for action.
+Make the danger visceral: this character is one failed death save from permanent death. Allies \
+need to react NOW. The enemy might finish them off. The clock is ticking.
+
+Keep it to 1-2 sentences. This is the moment between life and death — make it feel that way.
 """
 
 

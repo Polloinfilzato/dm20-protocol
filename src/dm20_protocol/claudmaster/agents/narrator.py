@@ -96,6 +96,46 @@ class NarrativeStyle(str, Enum):
 
 
 # ------------------------------------------------------------------
+# Style-specific narrative guidance
+# ------------------------------------------------------------------
+# Rationale: Instead of just passing the style name to the LLM,
+# each style gets concrete instructions on tone, sentence structure,
+# sensory focus, and pacing. This ensures the LLM produces
+# noticeably different output per style, not just "more or less words."
+
+STYLE_GUIDES: dict[str, str] = {
+    NarrativeStyle.DESCRIPTIVE: (
+        "Write in rich, layered prose. Engage at least three senses per scene — sight, sound, "
+        "smell, touch, or taste. Build depth through specific, concrete details: the particular "
+        "shade of moss on a wall, the exact timbre of a merchant's voice, the weight of humid "
+        "air. Use varied sentence lengths — long flowing descriptions punctuated by short, "
+        "punchy observations. You have space; use it to paint a world that rewards curiosity."
+    ),
+    NarrativeStyle.TERSE: (
+        "Be sharp, direct, and economical. Every word must earn its place. Favor short "
+        "declarative sentences and active voice. Focus on what matters right now: threats, "
+        "exits, objects of interest. No adjective chains, no poetic flourishes. Think field "
+        "report, not novel. One strong sensory detail per scene is enough. Leave whitespace "
+        "for the player's imagination."
+    ),
+    NarrativeStyle.DRAMATIC: (
+        "Write with theatrical intensity. Build tension through contrast — silence before "
+        "thunder, stillness before violence, beauty beside decay. Use rhetorical devices: "
+        "foreshadowing, dramatic irony, callback to earlier events. Lean into emotional "
+        "extremes — dread, exhilaration, awe, grief. Pace your reveals; the most important "
+        "detail comes last. Make the player feel the weight of the moment."
+    ),
+    NarrativeStyle.MYSTERIOUS: (
+        "Suggest more than you reveal. Describe what is absent or wrong — the silence where "
+        "there should be sound, the shadow that moved against the light, the door that was "
+        "open yesterday but stands locked today. Use questions and half-answers. Favor "
+        "ambiguity and implication over certainty. The player should finish each description "
+        "with more questions than answers. Let unease seep through the cracks."
+    ),
+}
+
+
+# ------------------------------------------------------------------
 # LLM Client protocol
 # ------------------------------------------------------------------
 
@@ -122,13 +162,11 @@ class LLMClient(Protocol):
 SCENE_DESCRIPTION_TEMPLATE = """\
 You are the Narrator of a D&D campaign. Your task: {reasoning}
 
-Narration style: {style}
+{style_guide}
 
 {style_hint}
 
-Bring every scene alive through layered sensory detail — sounds echoing off stone, the bite of \
-cold air, the stench of rot or the warmth of hearth-smoke. When describing a new place, character, \
-or situation for the first time, paint a rich and evocative picture that gives players multiple \
+When describing a new place, character, or situation for the first time, give the players multiple \
 threads to pull on: curious details, half-noticed oddities, things that beg questions. On follow-up \
 requests for more detail, narrow your focus precisely to what was asked, and calibrate the depth of \
 revealed information to the difficulty of any check involved — not every secret is freely given.
@@ -137,13 +175,8 @@ Occasionally, without forcing it, weave in fragments of history or culture — a
 wall, a local superstition muttered by a passerby, the architectural echo of a fallen empire — so \
 the world feels lived-in and layered beyond the immediate scene.
 
-Adapt your emotional register to match the moment. Let mystery seep in when the unknown stretches \
-ahead and adventure hangs in the air. Let excitement and breathless anticipation build when hidden \
-riches or discoveries feel tantalizingly close. Let dread and creeping tension take hold in dark, \
-threatening places where danger could erupt without warning. And when the heroes have triumphed — \
-whether the feat concluded moments ago or began sessions past — rise to meet the occasion: recount \
-their deeds with the weight and sweep they deserve, reminding everyone at the table why these \
-moments matter.
+Adapt your emotional register to the situation. Match the tone to what the scene demands — mystery \
+when the unknown stretches ahead, dread in dark threatening places, triumph when heroes prevail.
 
 Never follow a predictable pattern. Vary your sentence structure, your openings, your rhythm. \
 Sometimes begin mid-action, sometimes with a single sensory detail, sometimes with dialogue or \
@@ -174,17 +207,31 @@ Scene Context:
 
 Current tone: {tone}
 
-Generate a single line of dialogue for {npc_name}. The dialogue should:
-1. Match their voice profile and personality
-2. Reflect their current attitude and emotional state
-3. Be contextually appropriate to the scene
-4. Sound natural and character-specific
+Generate a single line of dialogue for {npc_name}. CRITICAL voice differentiation rules:
+
+1. **Speech pattern is law.** A terse guard speaks in clipped fragments. A scholarly wizard uses \
+subordinate clauses and precise terminology. A crude bandit drops articles and swears. The pattern \
+must be audible in every line — if you remove the speaker name, the reader should still know who \
+is talking.
+
+2. **Vocabulary defines social class.** "Simple" speakers use short, common words and concrete \
+metaphors ("strong as an ox"). "Educated" speakers use abstractions and formal structures. \
+"Scholarly" speakers cite, qualify, and hedge. "Street" speakers use slang and abbreviations.
+
+3. **Quirks are mandatory.** If the NPC has quirks listed, at least one must appear in every line. \
+A character who "stammers when nervous" MUST stammer. A character who "quotes proverbs" MUST \
+quote one. These are the hooks that make NPCs memorable.
+
+4. **Body language is character.** The stage direction reveals personality: a nervous character \
+fidgets; a confident one takes up space; a deceptive one avoids eye contact. Always include a \
+stage direction that reinforces who this person IS.
+
+5. **Subtext over text.** What the NPC means may differ from what they say. A "hostile" NPC can \
+be coldly polite. A "friendly" NPC can be overwhelmingly pushy. Attitude colors the HOW, not \
+the WHAT.
 
 Format your response as:
-{npc_name}: "The dialogue text here" [optional stage direction in brackets]
-
-Example:
-Grumpy Innkeeper: "Ain't got no rooms left, stranger." [wipes a glass without looking up]
+{npc_name}: "The dialogue text here" [stage direction showing body language/action]
 """
 
 CONVERSATION_TEMPLATE = """\
@@ -385,9 +432,12 @@ class NarratorAgent(Agent):
         if style_hint:
             style_hint = f"\n{style_hint}\n"  # Add spacing
 
+        # Get style-specific guidance (falls back to descriptive)
+        style_guide = STYLE_GUIDES.get(self.style, STYLE_GUIDES[NarrativeStyle.DESCRIPTIVE])
+
         return SCENE_DESCRIPTION_TEMPLATE.format(
             reasoning=reasoning,
-            style=self.style.value,
+            style_guide=style_guide,
             style_hint=style_hint,
         )
 
@@ -430,39 +480,75 @@ class NarratorAgent(Agent):
         occupation_lower = (occupation or "").lower()
         attitude_lower = (attitude or "neutral").lower()
 
-        # Derive from occupation
+        # Derive from occupation — extended archetypes for rich NPC differentiation
         if any(word in occupation_lower for word in ["merchant", "trader", "shopkeeper"]):
             speech_pattern = "formal"
             vocabulary_level = "common"
-            quirks = ["customer-focused", "mentions prices"]
+            quirks = ["steers every topic toward commerce", "names exact prices"]
         elif any(word in occupation_lower for word in ["guard", "soldier", "captain"]):
             speech_pattern = "terse"
             vocabulary_level = "common"
-            quirks = ["military precision", "commands"]
+            quirks = ["clips sentences short", "gives orders not requests"]
         elif any(word in occupation_lower for word in ["scholar", "wizard", "sage", "librarian"]):
             speech_pattern = "formal"
             vocabulary_level = "scholarly"
-            quirks = ["pedantic", "cites sources"]
-        elif any(word in occupation_lower for word in ["thief", "rogue", "pickpocket"]):
+            quirks = ["corrects others' terminology", "cites obscure references"]
+        elif any(word in occupation_lower for word in ["thief", "rogue", "pickpocket", "smuggler"]):
             speech_pattern = "casual"
             vocabulary_level = "common"
-            quirks = ["street slang", "evasive"]
-        elif any(word in occupation_lower for word in ["noble", "lord", "lady", "baron"]):
+            quirks = ["speaks in coded euphemisms", "deflects direct questions"]
+        elif any(word in occupation_lower for word in ["noble", "lord", "lady", "baron", "duke", "count"]):
             speech_pattern = "formal"
             vocabulary_level = "educated"
-            quirks = ["mentions titles", "proper etiquette"]
+            quirks = ["refers to others by full title", "never asks—implies or commands"]
         elif any(word in occupation_lower for word in ["innkeeper", "bartender", "tavern"]):
             speech_pattern = "casual"
             vocabulary_level = "common"
-            quirks = ["hospitable", "local gossip"]
-        elif any(word in occupation_lower for word in ["priest", "cleric", "monk"]):
+            quirks = ["calls everyone 'friend' or a nickname", "shares unsolicited local gossip"]
+        elif any(word in occupation_lower for word in ["priest", "cleric", "monk", "acolyte"]):
             speech_pattern = "formal"
             vocabulary_level = "educated"
-            quirks = ["religious references", "blessings"]
-        elif any(word in occupation_lower for word in ["peasant", "farmer", "laborer"]):
+            quirks = ["weaves deity references into conversation", "blesses or invokes divine will"]
+        elif any(word in occupation_lower for word in ["peasant", "farmer", "laborer", "miner"]):
             speech_pattern = "casual"
             vocabulary_level = "simple"
-            quirks = ["rural dialect", "practical concerns"]
+            quirks = ["uses weather and harvest metaphors", "distrusts anything complicated"]
+        elif any(word in occupation_lower for word in ["bard", "minstrel", "performer", "entertainer"]):
+            speech_pattern = "theatrical"
+            vocabulary_level = "educated"
+            quirks = ["quotes songs and poems mid-conversation", "gestures dramatically"]
+        elif any(word in occupation_lower for word in ["blacksmith", "smith", "armorer", "forge"]):
+            speech_pattern = "blunt"
+            vocabulary_level = "common"
+            quirks = ["judges everything by craftsmanship", "speaks with quiet pride"]
+        elif any(word in occupation_lower for word in ["healer", "herbalist", "apothecary", "doctor"]):
+            speech_pattern = "measured"
+            vocabulary_level = "educated"
+            quirks = ["diagnoses everything including moods", "prescribes remedies unprompted"]
+        elif any(word in occupation_lower for word in ["beggar", "orphan", "urchin", "homeless"]):
+            speech_pattern = "pleading"
+            vocabulary_level = "simple"
+            quirks = ["speaks in half-finished sentences", "flinches at sudden movements"]
+        elif any(word in occupation_lower for word in ["pirate", "sailor", "captain", "corsair"]):
+            speech_pattern = "boisterous"
+            vocabulary_level = "common"
+            quirks = ["uses nautical metaphors for everything", "laughs too loud"]
+        elif any(word in occupation_lower for word in ["assassin", "spy", "agent", "informant"]):
+            speech_pattern = "controlled"
+            vocabulary_level = "educated"
+            quirks = ["never reveals more than necessary", "watches the room while talking"]
+        elif any(word in occupation_lower for word in ["druid", "ranger", "woodsman", "hunter"]):
+            speech_pattern = "sparse"
+            vocabulary_level = "common"
+            quirks = ["uses animal and nature comparisons", "uncomfortable with crowds"]
+        elif any(word in occupation_lower for word in ["child", "kid", "boy", "girl", "youth"]):
+            speech_pattern = "excitable"
+            vocabulary_level = "simple"
+            quirks = ["asks too many questions", "changes subject abruptly"]
+        elif any(word in occupation_lower for word in ["elder", "crone", "ancient", "old"]):
+            speech_pattern = "deliberate"
+            vocabulary_level = "educated"
+            quirks = ["trails off into memories", "speaks in proverbs and warnings"]
 
         # Adjust for attitude
         if "hostile" in attitude_lower or "aggressive" in attitude_lower:
@@ -765,6 +851,7 @@ __all__ = [
     "NarrativeStyle",
     "LLMClient",
     "SCENE_DESCRIPTION_TEMPLATE",
+    "STYLE_GUIDES",
     "DIALOGUE_TEMPLATE",
     "CONVERSATION_TEMPLATE",
     "VoiceProfile",
