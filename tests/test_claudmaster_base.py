@@ -33,7 +33,7 @@ class TestAgentRole:
 
     def test_agent_role_enum_members(self) -> None:
         """Test that AgentRole has exactly the expected members."""
-        expected_roles = {"NARRATOR", "ARCHIVIST", "MODULE_KEEPER", "CONSISTENCY"}
+        expected_roles = {"NARRATOR", "ARCHIVIST", "MODULE_KEEPER", "CONSISTENCY", "ARBITER"}
         actual_roles = {role.name for role in AgentRole}
         assert actual_roles == expected_roles
 

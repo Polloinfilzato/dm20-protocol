@@ -9,15 +9,20 @@ free of heavy ML library imports.
 import pytest
 from typing import Any
 
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-
 from dm20_protocol.claudmaster.vector_store import (
+    HAS_CHROMADB,
     VectorStoreManager,
     VectorStoreError,
     CollectionNotFoundError,
     DEFAULT_EMBEDDING_MODEL,
     VALID_CONTENT_TYPES,
 )
+
+# Skip entire module when chromadb is not installed
+if not HAS_CHROMADB:
+    pytest.skip("chromadb not installed", allow_module_level=True)
+
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 
 # ---------------------------------------------------------------------------

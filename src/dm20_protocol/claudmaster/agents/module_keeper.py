@@ -14,7 +14,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from ..base import Agent, AgentRole
-from ..vector_store import VectorStoreManager
+from ..vector_store import HAS_CHROMADB, VectorStoreManager
 from ..models.module import ModuleStructure, ContentType
 
 logger = logging.getLogger("dm20-protocol")

@@ -23,7 +23,7 @@ from .models.module import (
     NPCReference,
     LocationReference,
 )
-from .vector_store import CollectionNotFoundError, VectorStoreManager
+from .vector_store import CollectionNotFoundError, HAS_CHROMADB, VectorStoreManager
 
 logger = logging.getLogger("dm20-protocol")
 
