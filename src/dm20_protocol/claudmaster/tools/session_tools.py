@@ -25,6 +25,7 @@ from ..agents.arbiter import ArbiterAgent
 from ..consistency.fact_database import FactDatabase
 from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
 from ..recovery.error_messages import ErrorMessageFormatter
+from ..onboarding import detect_new_user, run_onboarding, OnboardingState
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -93,6 +94,8 @@ class SessionState(BaseModel):
     last_events: list[str] = Field(description="Recent game events")
     context_budget: int = Field(description="Remaining context budget for LLM calls")
     recap: Optional[str] = Field(default=None, description="'Previously on...' narrative recap for resumed sessions")
+    is_onboarding: bool = Field(default=False, description="True if this is a guided onboarding session for a new user")
+    onboarding: Optional[dict] = Field(default=None, description="Onboarding data: character_suggestions, step, onboarding_state")
     error_message: Optional[str] = Field(default=None, description="Error message if status is error")
 
 
@@ -791,7 +794,11 @@ async def start_claudmaster_session(
 
         try:
             campaign = _storage.load_campaign(campaign_name)
-        except (FileNotFoundError, ValueError) as e:
+        except (FileNotFoundError, ValueError):
+            # Check if this is a new user — trigger onboarding
+            if not resume and detect_new_user(_storage):
+                return await _handle_onboarding(campaign_name)
+
             return {
                 "session_id": session_id or "",
                 "status": "error",
@@ -804,13 +811,33 @@ async def start_claudmaster_session(
         except ValueError:
             config = None  # Will use default config
 
+        # Check for in-progress onboarding (session resumed after interruption)
+        onboarding_data = None
+        is_onboarding = False
+
         # Start or resume the session
         if resume:
             state = await _session_manager.resume_session(session_id, campaign)
         else:
             state = await _session_manager.start_session(campaign, config, module_id)
+            # Check if this session has onboarding metadata (resumed onboarding)
+            if session_id and session_id in _session_manager._active_sessions:
+                _, sess = _session_manager._active_sessions[state.session_id]
+                if sess.metadata.get("onboarding_state"):
+                    ob_state = OnboardingState.from_dict(sess.metadata["onboarding_state"])
+                    if ob_state.step != "complete":
+                        is_onboarding = True
+                        onboarding_data = {
+                            "step": ob_state.step,
+                            "character_suggestions": sess.metadata.get("character_suggestions", ""),
+                            "onboarding_state": ob_state.to_dict(),
+                        }
 
-        return state.model_dump()
+        result = state.model_dump()
+        if is_onboarding:
+            result["is_onboarding"] = True
+            result["onboarding"] = onboarding_data
+        return result
 
     except ValueError as e:
         logger.error(f"Validation error in start_claudmaster_session: {e}")
@@ -825,6 +852,71 @@ async def start_claudmaster_session(
             "session_id": session_id or "",
             "status": "error",
             "error_message": _error_formatter.format_error(e)
+        }
+
+
+async def _handle_onboarding(campaign_name: str) -> dict:
+    """Handle the onboarding flow for a brand-new user.
+
+    Called when no campaigns exist and the user tries to start a session.
+    Creates a campaign with defaults, starts a session, and returns
+    character suggestions from the Narrator.
+
+    Args:
+        campaign_name: The campaign name provided by the user.
+
+    Returns:
+        Dict with session state + onboarding data.
+    """
+    try:
+        # Create a temporary config to get LLM clients for the Narrator
+        config = ClaudmasterConfig()
+        try:
+            config = _storage.get_claudmaster_config()
+        except (ValueError, AttributeError):
+            pass  # Use defaults
+
+        narrator_llm, _ = SessionManager._create_llm_clients(config)
+
+        # Run the onboarding flow
+        onboarding_result = await run_onboarding(
+            storage=_storage,
+            campaign_name=campaign_name,
+            narrator=narrator_llm,
+        )
+
+        # Load the newly created campaign
+        campaign = _storage.load_campaign(onboarding_result.campaign_name)
+
+        # Start a session with the new campaign
+        state = await _session_manager.start_session(campaign, config)
+
+        # Store onboarding state in session metadata
+        _, session = _session_manager._active_sessions[state.session_id]
+        session.metadata["onboarding_state"] = onboarding_result.onboarding_state.to_dict()
+        session.metadata["character_suggestions"] = onboarding_result.character_suggestions
+
+        # Build response with onboarding data
+        result = state.model_dump()
+        result["is_onboarding"] = True
+        result["onboarding"] = {
+            "step": "character_creation",
+            "character_suggestions": onboarding_result.character_suggestions,
+            "onboarding_state": onboarding_result.onboarding_state.to_dict(),
+        }
+
+        logger.info(
+            f"[Onboarding] Started onboarding session {state.session_id} "
+            f"for campaign '{onboarding_result.campaign_name}'"
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"[Onboarding] Failed: {e}", exc_info=True)
+        return {
+            "session_id": "",
+            "status": "error",
+            "error_message": _error_formatter.format_error(e),
         }
 
 
