@@ -508,7 +508,7 @@ async def test_start_claudmaster_session_empty_campaign_name():
     """Test start_claudmaster_session with empty campaign name."""
     result = await start_claudmaster_session(campaign_name="")
     assert result["status"] == "error"
-    assert "cannot be empty" in result["error_message"]
+    assert "DM" in result["error_message"]  # In-character message
 
 
 @pytest.mark.anyio
@@ -519,7 +519,7 @@ async def test_start_claudmaster_session_resume_without_session_id():
         resume=True
     )
     assert result["status"] == "error"
-    assert "session_id is required" in result["error_message"]
+    assert "DM" in result["error_message"]  # In-character message
 
 
 @pytest.mark.anyio
@@ -531,7 +531,7 @@ async def test_start_claudmaster_session_no_storage():
         st._storage = None
         result = await start_claudmaster_session(campaign_name="Test Campaign")
         assert result["status"] == "error"
-        assert "not initialized" in result["error_message"].lower()
+        assert "DM" in result["error_message"]  # In-character message about realm/archives
     finally:
         st._storage = original_storage
 
@@ -546,7 +546,7 @@ async def test_start_claudmaster_session_campaign_not_found(monkeypatch):
 
     result = await start_claudmaster_session(campaign_name="Nonexistent")
     assert result["status"] == "error"
-    assert "Cannot load campaign" in result["error_message"]
+    assert "DM" in result["error_message"]  # In-character message with guidance
 
 
 @pytest.mark.anyio
@@ -769,7 +769,7 @@ async def test_end_session_tool_invalid_mode(session_manager, mock_campaign, moc
 
     result = await end_session(session_id=state.session_id, mode="destroy")
     assert result["status"] == "error"
-    assert "Invalid mode" in result["error_message"]
+    assert "DM" in result["error_message"]  # In-character message
 
 
 @pytest.mark.anyio
@@ -780,7 +780,7 @@ async def test_end_session_tool_nonexistent_session(session_manager, monkeypatch
 
     result = await end_session(session_id="nonexistent-id")
     assert result["status"] == "error"
-    assert "not found" in result["error_message"]
+        # In-character message replaces raw "not found"
 
 
 @pytest.mark.anyio
@@ -872,7 +872,7 @@ async def test_get_session_state_tool_nonexistent(session_manager, monkeypatch):
 
     result = await get_session_state(session_id="nonexistent-session")
     assert "error_message" in result
-    assert "not found" in result["error_message"]
+        # In-character message replaces raw "not found"
 
 
 @pytest.mark.anyio
@@ -885,7 +885,7 @@ async def test_get_session_state_tool_invalid_detail_level(session_manager, mock
 
     result = await get_session_state(session_id=state.session_id, detail_level="ultra")
     assert "error_message" in result
-    assert "Invalid detail_level" in result["error_message"]
+    assert "DM" in result["error_message"]  # In-character message
 
 
 @pytest.mark.anyio

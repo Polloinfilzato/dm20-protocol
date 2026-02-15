@@ -257,5 +257,91 @@ class ErrorMessageFormatter:
             f"Shall we continue where we left off?"
         )
 
+    def format_empty_input(self) -> str:
+        """Format a message for empty or whitespace-only player input.
+
+        Returns:
+            In-character prompt for action
+        """
+        return (
+            "*The DM looks at you expectantly, quill poised over parchment*\n\n"
+            "What do you wish to do, adventurer?"
+        )
+
+    def format_ambiguous_input(self, action: str) -> str:
+        """Format a clarification request for ambiguous player input.
+
+        Args:
+            action: The ambiguous action text
+
+        Returns:
+            In-character clarification request
+        """
+        return (
+            "*The DM tilts their head, considering*\n\n"
+            f'I\'m not quite certain what you mean by "{action}". Could you '
+            f"elaborate on your intentions? What specifically do you wish to accomplish?"
+        )
+
+    def format_missing_campaign(self, campaign_name: str) -> str:
+        """Format a helpful message when campaign cannot be found.
+
+        Args:
+            campaign_name: Name of the campaign that was requested
+
+        Returns:
+            In-character message with guidance
+        """
+        return (
+            "*The DM searches through a stack of campaign books, frowning*\n\n"
+            f'I cannot seem to locate the campaign "{campaign_name}" in my collection. '
+            f"Perhaps you meant a different name? You might:\n\n"
+            f"- Check the exact spelling of the campaign name\n"
+            f"- List available campaigns to see what adventures are ready\n"
+            f"- Create a new campaign if this is your first journey"
+        )
+
+    def format_session_not_found(self, session_id: str) -> str:
+        """Format an in-character message for missing session.
+
+        Args:
+            session_id: The session ID that was not found
+
+        Returns:
+            In-character message about missing session
+        """
+        return (
+            "*The DM shuffles through notes, looking puzzled*\n\n"
+            f"I don't seem to have any record of session '{session_id}'. "
+            f"It appears our connection to that adventure has been lost. "
+            f"You'll need to start a new session to begin your journey."
+        )
+
+    def format_timeout_fallback(self, partial_narrative: str | None = None) -> str:
+        """Format a degraded response when agent timeout occurs.
+
+        Args:
+            partial_narrative: Any partial narrative that was generated before timeout
+
+        Returns:
+            Functional response using available partial results
+        """
+        if partial_narrative:
+            return (
+                f"{partial_narrative}\n\n"
+                f"*The DM's voice wavers slightly*\n\n"
+                f"My apologies - the deeper mysteries of the realm are taking "
+                f"longer to consult than expected. I've given you what I can "
+                f"discern so far. Shall we continue?"
+            )
+        else:
+            return (
+                "*The DM pauses, one hand pressed to their temple*\n\n"
+                "The arcane connection seems sluggish at the moment. I sense your "
+                "action reverberating through the realm, but the full consequences "
+                "remain obscured. Let us proceed cautiously - what would you like "
+                "to do next?"
+            )
+
 
 __all__ = ["ErrorMessageFormatter"]

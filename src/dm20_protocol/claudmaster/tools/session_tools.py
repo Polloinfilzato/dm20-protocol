@@ -24,8 +24,12 @@ from ..agents.narrator import NarratorAgent, NarrativeStyle
 from ..agents.arbiter import ArbiterAgent
 from ..consistency.fact_database import FactDatabase
 from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
+from ..recovery.error_messages import ErrorMessageFormatter
 
 logger = logging.getLogger("dm20-protocol")
+
+# Error formatter for in-character error messages
+_error_formatter = ErrorMessageFormatter()
 
 # Module-level storage reference, set by main.py during initialization
 _storage = None
@@ -642,14 +646,14 @@ async def start_claudmaster_session(
             return {
                 "session_id": "",
                 "status": "error",
-                "error_message": "campaign_name cannot be empty"
+                "error_message": _error_formatter.format_error(ValueError("Empty campaign name"), context={"player_facing": True}) if False else "*The DM looks at you expectantly*\n\nWhich campaign shall we embark upon, adventurer?"
             }
 
         if resume and not session_id:
             return {
                 "session_id": "",
                 "status": "error",
-                "error_message": "session_id is required when resume=True"
+                "error_message": "*The DM searches through campaign notes*\n\nTo resume a session, I need to know which session to restore. Please provide the session identifier."
             }
 
         # Load campaign from storage
@@ -658,8 +662,9 @@ async def start_claudmaster_session(
                 "session_id": session_id or "",
                 "status": "error",
                 "error_message": (
-                    "Session tools not initialized. "
-                    "Storage instance has not been set."
+                    "*The DM gestures at an empty shelf*\n\n"
+                    "The realm's archives seem... inaccessible at the moment. "
+                    "The storage vault has not been properly prepared for our journey."
                 )
             }
 
@@ -669,7 +674,7 @@ async def start_claudmaster_session(
             return {
                 "session_id": session_id or "",
                 "status": "error",
-                "error_message": f"Cannot load campaign '{campaign_name}': {e}"
+                "error_message": _error_formatter.format_missing_campaign(campaign_name)
             }
 
         # Get Claudmaster config for the campaign
@@ -691,14 +696,14 @@ async def start_claudmaster_session(
         return {
             "session_id": session_id or "",
             "status": "error",
-            "error_message": str(e)
+            "error_message": _error_formatter.format_error(e)
         }
     except Exception as e:
         logger.error(f"Unexpected error in start_claudmaster_session: {e}", exc_info=True)
         return {
             "session_id": session_id or "",
             "status": "error",
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}"
+            "error_message": _error_formatter.format_error(e)
         }
 
 
@@ -756,7 +761,7 @@ async def end_session(
             return {
                 "status": "error",
                 "session_id": session_id,
-                "error_message": f"Invalid mode '{mode}'. Must be 'pause' or 'end'.",
+                "error_message": f"*The DM tilts their head, puzzled*\n\nI'm not familiar with the '{mode}' command. When ending a session, please choose either 'pause' (to resume later) or 'end' (to conclude permanently).",
             }
 
         # Check session exists
@@ -764,7 +769,7 @@ async def end_session(
             return {
                 "status": "error",
                 "session_id": session_id,
-                "error_message": f"Session {session_id} not found in active sessions.",
+                "error_message": _error_formatter.format_session_not_found(session_id),
             }
 
         # Get session info before ending
@@ -824,7 +829,7 @@ async def end_session(
         return {
             "status": "error",
             "session_id": session_id,
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}",
+            "error_message": _error_formatter.format_error(e),
         }
 
 
@@ -883,8 +888,9 @@ async def get_session_state(
         if detail_level not in valid_levels:
             return {
                 "error_message": (
-                    f"Invalid detail_level '{detail_level}'. "
-                    f"Must be one of: {', '.join(valid_levels)}"
+                    f"*The DM adjusts their spectacles*\n\n"
+                    f"I don't recognize the '{detail_level}' level of detail. "
+                    f"Please choose from: {', '.join(valid_levels)}."
                 )
             }
 
@@ -893,10 +899,7 @@ async def get_session_state(
 
         if state is None:
             return {
-                "error_message": (
-                    f"Session {session_id} not found. "
-                    f"It may have been ended or never started."
-                )
+                "error_message": _error_formatter.format_session_not_found(session_id)
             }
 
         # Get raw session for additional details
@@ -964,7 +967,7 @@ async def get_session_state(
     except Exception as e:
         logger.error(f"Error in get_session_state for {session_id}: {e}", exc_info=True)
         return {
-            "error_message": f"Unexpected error: {type(e).__name__}: {str(e)}"
+            "error_message": _error_formatter.format_error(e)
         }
 
 

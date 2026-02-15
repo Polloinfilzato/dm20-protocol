@@ -12,8 +12,17 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from ..orchestrator import Orchestrator, IntentType, PlayerIntent, OrchestratorResponse
+from ..orchestrator import (
+    Orchestrator,
+    IntentType,
+    PlayerIntent,
+    OrchestratorResponse,
+    AgentTimeoutError,
+    AgentExecutionError,
+    IntentClassificationError,
+)
 from ..session import ClaudmasterSession
+from ..recovery.error_messages import ErrorMessageFormatter
 from .session_tools import _session_manager
 
 logger = logging.getLogger("dm20-protocol")
@@ -116,6 +125,7 @@ class ActionProcessor:
             session_manager: The SessionManager instance managing active sessions
         """
         self.session_manager = session_manager
+        self.error_formatter = ErrorMessageFormatter()
 
     def _get_active_session(self, session_id: str) -> tuple[Orchestrator, ClaudmasterSession]:
         """
@@ -269,6 +279,15 @@ class ActionProcessor:
             ActionResponse with narrative, state changes, dice rolls, etc.
         """
         try:
+            # Check for empty/whitespace input BEFORE processing
+            if not action or not action.strip():
+                return ActionResponse(
+                    narrative=self.error_formatter.format_empty_input(),
+                    action_type=ActionType.MIXED,
+                    warnings=[],
+                    turn_number=0
+                )
+
             # Step 1 & 2: Validate and get session
             orchestrator, session = self._get_active_session(session_id)
 
@@ -295,13 +314,22 @@ class ActionProcessor:
                     logger.warning(f"[Terminology] Error during term resolution: {e}")
 
             # Step 4: Classify intent BEFORE processing (deterministic, zero tokens)
-            intent = orchestrator.classify_intent(action)
+            try:
+                intent = orchestrator.classify_intent(action)
 
-            logger.info(
-                "[Hybrid Python] Intent classified: %s (confidence: %.2f)",
-                intent.intent_type.value,
-                intent.confidence
-            )
+                logger.info(
+                    "[Hybrid Python] Intent classified: %s (confidence: %.2f)",
+                    intent.intent_type.value,
+                    intent.confidence
+                )
+            except IntentClassificationError as e:
+                # Ambiguous input - request clarification
+                return ActionResponse(
+                    narrative=self.error_formatter.format_ambiguous_input(action),
+                    action_type=ActionType.MIXED,
+                    warnings=[],
+                    turn_number=session.turn_count
+                )
 
             # Step 5: Build context if provided
             if character_name or context:
@@ -320,7 +348,18 @@ class ActionProcessor:
                     logger.debug(f"[Terminology] Injected style preferences into session metadata: {style_prefs}")
 
             # Step 7: Process through orchestrator
-            orchestrator_response = await orchestrator.process_player_input(action)
+            try:
+                orchestrator_response = await orchestrator.process_player_input(action)
+            except AgentTimeoutError as e:
+                # Agent timeout - provide degraded response using partial results
+                logger.warning(f"Agent timeout during processing: {e}")
+                partial_narrative = getattr(e, 'partial_narrative', None)
+                return ActionResponse(
+                    narrative=self.error_formatter.format_timeout_fallback(partial_narrative),
+                    action_type=self._map_intent_to_action_type(intent),
+                    warnings=[],
+                    turn_number=session.turn_count
+                )
 
             # Step 8: Build ActionResponse
             action_type = self._map_intent_to_action_type(intent)
@@ -359,19 +398,19 @@ class ActionProcessor:
             # Session not found or validation error
             logger.warning(f"Validation error in process_action: {e}")
             return ActionResponse(
-                narrative=f"Session {session_id} not found. Please start a session first.",
+                narrative=self.error_formatter.format_session_not_found(session_id),
                 action_type=ActionType.MIXED,
-                warnings=[str(e)],
+                warnings=[],
                 turn_number=0
             )
 
         except Exception as e:
-            # Orchestrator errors or other unexpected errors
+            # All other unexpected errors - use formatter
             logger.error(f"Error processing action in session {session_id}: {e}", exc_info=True)
             return ActionResponse(
-                narrative=f"I encountered an issue processing that action. {type(e).__name__}: {str(e)}",
+                narrative=self.error_formatter.format_error(e),
                 action_type=ActionType.MIXED,
-                warnings=[f"{type(e).__name__}: {str(e)}"],
+                warnings=[],
                 turn_number=0
             )
 
@@ -450,45 +489,64 @@ async def player_action(
         ...     context="Using the shadows for cover"
         ... )
     """
-    # Create processor instance
-    processor = ActionProcessor(_session_manager)
-
-    # Get orchestrator to classify intent BEFORE processing
+    # Wrap entire function in error formatter for safety
     try:
-        orchestrator, _ = processor._get_active_session(session_id)
-        intent = orchestrator.classify_intent(action)
+        # Create processor instance
+        processor = ActionProcessor(_session_manager)
 
-        # Build intent metadata for response
-        intent_metadata = {
-            "intent_type": intent.intent_type.value,
-            "confidence": intent.confidence,
-            "matched_patterns": intent.metadata.get("matched_patterns", []),
-            "ambiguous": intent.metadata.get("ambiguous", False),
-            "python_classified": True,  # Flag: intent was classified locally in Python
-        }
+        # Get orchestrator to classify intent BEFORE processing
+        try:
+            orchestrator, _ = processor._get_active_session(session_id)
+            intent = orchestrator.classify_intent(action)
 
-        # Add alternative intent if ambiguous
-        if intent.metadata.get("ambiguous"):
-            intent_metadata["alternative_intent"] = intent.metadata.get("alternative_intent")
-            intent_metadata["score_gap"] = intent.metadata.get("score_gap")
+            # Build intent metadata for response
+            intent_metadata = {
+                "intent_type": intent.intent_type.value,
+                "confidence": intent.confidence,
+                "matched_patterns": intent.metadata.get("matched_patterns", []),
+                "ambiguous": intent.metadata.get("ambiguous", False),
+                "python_classified": True,  # Flag: intent was classified locally in Python
+            }
+
+            # Add alternative intent if ambiguous
+            if intent.metadata.get("ambiguous"):
+                intent_metadata["alternative_intent"] = intent.metadata.get("alternative_intent")
+                intent_metadata["score_gap"] = intent.metadata.get("score_gap")
+
+        except Exception as e:
+            logger.warning(f"Failed to pre-classify intent: {e}")
+            intent_metadata = {"python_classified": False, "error": str(e)}
+
+        # Process the action
+        response = await processor.process_action(
+            session_id=session_id,
+            action=action,
+            character_name=character_name,
+            context=context
+        )
+
+        # Return as dictionary with intent metadata
+        response_dict = response.model_dump()
+        response_dict["_intent_classification"] = intent_metadata
+
+        return response_dict
 
     except Exception as e:
-        logger.warning(f"Failed to pre-classify intent: {e}")
-        intent_metadata = {"python_classified": False, "error": str(e)}
-
-    # Process the action
-    response = await processor.process_action(
-        session_id=session_id,
-        action=action,
-        character_name=character_name,
-        context=context
-    )
-
-    # Return as dictionary with intent metadata
-    response_dict = response.model_dump()
-    response_dict["_intent_classification"] = intent_metadata
-
-    return response_dict
+        # Ultimate safety net - format any unhandled exception
+        logger.error(f"Unhandled error in player_action: {e}", exc_info=True)
+        error_formatter = ErrorMessageFormatter()
+        return {
+            "narrative": error_formatter.format_error(e),
+            "action_type": "mixed",
+            "state_changes": [],
+            "dice_rolls": [],
+            "npc_responses": [],
+            "follow_up_options": None,
+            "warnings": [],
+            "character_name": character_name,
+            "turn_number": 0,
+            "_intent_classification": {"python_classified": False, "error": str(e)}
+        }
 
 
 __all__ = [
