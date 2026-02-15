@@ -23,6 +23,7 @@ Commands for playing D&D with the AI Dungeon Master.
 | `/dm:combat [situation]` | Initiate or manage a combat encounter with initiative and turn tracking. |
 | `/dm:save` | Save session state and pause. Creates session notes with a narrative stopping point. |
 | `/dm:profile [tier]` | Switch model quality tier: quality, balanced, economy. Trade quality vs token cost. |
+| `/dm:install-rag` | Install RAG dependencies (ChromaDB + sentence-transformers) for vector search. ~2GB download. |
 | `/dm:help` | Show this help overview. |
 
 ### Quick Start
