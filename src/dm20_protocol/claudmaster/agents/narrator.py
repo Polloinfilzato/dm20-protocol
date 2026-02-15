@@ -209,6 +209,26 @@ NPC_NAME: "dialogue text" [optional stage direction]
 Keep the conversation natural, with characters reacting to each other's statements.
 """
 
+RECAP_TEMPLATE = """\
+You are the Narrator of a D&D campaign. A player is resuming their session. Generate a \
+"Previously on..." recap using ONLY the verified facts below — do not invent or embellish \
+beyond what is stated.
+
+Current Location: {location}
+Active Quests: {active_quests}
+Recent Events:
+{recent_events}
+Party Status: {party_status}
+
+Generate a concise, atmospheric recap (2-3 short paragraphs) that:
+1. Reminds the player where they are and what they were doing
+2. Highlights the most significant recent events
+3. Ends with a hook suggesting what to do next
+4. Is written in second person ("You...")
+
+Keep it under 200 words. Be vivid but factual.
+"""
+
 
 # ------------------------------------------------------------------
 # Dialogue models
@@ -469,6 +489,36 @@ class NarratorAgent(Agent):
         # Cache the profile
         self._voice_profiles[npc_name] = profile
         return profile
+
+    async def generate_recap(
+        self,
+        location: str,
+        active_quests: str,
+        recent_events: str,
+        party_status: str,
+    ) -> str:
+        """Generate an atmospheric session recap using the LLM.
+
+        Formats verified session facts into a narrative "Previously on..."
+        recap suitable for session resumption.
+
+        Args:
+            location: Current party location.
+            active_quests: Summary of active quests/objectives.
+            recent_events: Formatted string of recent significant events.
+            party_status: Brief party condition summary (HP, conditions).
+
+        Returns:
+            Atmospheric recap text (2-3 paragraphs).
+        """
+        prompt = RECAP_TEMPLATE.format(
+            location=location or "Unknown",
+            active_quests=active_quests or "None active",
+            recent_events=recent_events or "- No recent events recorded",
+            party_status=party_status or "Unknown",
+        )
+        response = await self.llm.generate(prompt, max_tokens=self.max_tokens)
+        return response.strip()
 
     async def generate_dialogue(
         self,

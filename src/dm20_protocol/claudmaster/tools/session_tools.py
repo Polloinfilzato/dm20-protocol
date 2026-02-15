@@ -92,6 +92,7 @@ class SessionState(BaseModel):
     party_info: list[CharacterSummary] = Field(description="Party members summary")
     last_events: list[str] = Field(description="Recent game events")
     context_budget: int = Field(description="Remaining context budget for LLM calls")
+    recap: Optional[str] = Field(default=None, description="'Previously on...' narrative recap for resumed sessions")
     error_message: Optional[str] = Field(default=None, description="Error message if status is error")
 
 
@@ -336,11 +337,23 @@ class SessionManager:
             f"(turn count: {session.turn_count})"
         )
 
+        # Generate "Previously on..." recap for the resumed session
+        recap_text = await self._generate_session_recap(
+            orchestrator=orchestrator,
+            session=session,
+            campaign=campaign,
+        )
+
+        # Store recap in session metadata to avoid regenerating
+        if recap_text:
+            session.metadata["last_recap"] = recap_text
+
         # Build and return session state
         return self._build_session_state(
             orchestrator=orchestrator,
             session=session,
-            status="active"
+            status="active",
+            recap=recap_text,
         )
 
     def save_session(self, session_id: str) -> bool:
@@ -500,12 +513,118 @@ class SessionManager:
             )
             return narrator_llm, arbiter_llm
 
+    @staticmethod
+    def _extract_recap_data(
+        campaign: Campaign,
+        session: ClaudmasterSession,
+    ) -> dict[str, str]:
+        """
+        Extract factual data from campaign and session for recap generation.
+
+        Gathers location, quests, recent events, and party status from the
+        persisted session data — no hallucination, only verified facts.
+
+        Args:
+            campaign: The campaign with current game state.
+            session: The restored session with conversation history.
+
+        Returns:
+            Dict with keys: location, active_quests, recent_events, party_status.
+        """
+        # Location
+        location = campaign.game_state.current_location or "an unknown location"
+
+        # Active quests
+        quest_lines = []
+        for quest in campaign.quests.values():
+            if quest.status == "active":
+                quest_lines.append(f"- {quest.title} (given by {quest.giver})")
+        active_quests = "\n".join(quest_lines) if quest_lines else "None active"
+
+        # Recent events from conversation history (last 5 assistant messages)
+        event_lines = []
+        for msg in reversed(session.conversation_history):
+            if msg.get("role") == "assistant" and len(event_lines) < 5:
+                content = msg.get("content", "")
+                # Truncate long messages to key info
+                if len(content) > 150:
+                    content = content[:147] + "..."
+                event_lines.append(f"- {content}")
+        recent_events = "\n".join(event_lines) if event_lines else "- No recent events recorded"
+
+        # Party status
+        party_parts = []
+        for char_id, character in campaign.characters.items():
+            hp_info = ""
+            if hasattr(character, "hit_points_current") and hasattr(character, "hit_points_max"):
+                hp_info = f", HP {character.hit_points_current}/{character.hit_points_max}"
+            party_parts.append(
+                f"{character.name} (L{character.character_class.level} "
+                f"{character.character_class.name}{hp_info})"
+            )
+        party_status = "; ".join(party_parts) if party_parts else "Unknown"
+
+        return {
+            "location": location,
+            "active_quests": active_quests,
+            "recent_events": recent_events,
+            "party_status": party_status,
+        }
+
+    async def _generate_session_recap(
+        self,
+        orchestrator: Orchestrator,
+        session: ClaudmasterSession,
+        campaign: Campaign,
+    ) -> Optional[str]:
+        """
+        Generate an atmospheric recap for a resumed session.
+
+        Extracts facts from session data and feeds them to the Narrator
+        agent for atmospheric formatting.
+
+        Args:
+            orchestrator: The orchestrator with registered agents.
+            session: The restored session.
+            campaign: The campaign with current state.
+
+        Returns:
+            Recap text string, or None if generation fails.
+        """
+        try:
+            # Skip if no meaningful history to recap
+            if not session.conversation_history:
+                logger.info(f"[Recap] No conversation history — skipping recap")
+                return None
+
+            # Extract verified facts
+            recap_data = self._extract_recap_data(campaign, session)
+
+            # Get the Narrator agent for atmospheric formatting
+            narrator = orchestrator.agents.get("narrator")
+            if narrator is None:
+                logger.warning("[Recap] Narrator agent not available — skipping recap")
+                return None
+
+            recap_text = await narrator.generate_recap(**recap_data)
+
+            logger.info(
+                f"[Recap] Generated recap for session {session.session_id} "
+                f"({len(recap_text.split())} words)"
+            )
+            return recap_text
+
+        except Exception as e:
+            logger.warning(f"[Recap] Failed to generate recap: {e}")
+            return None
+
     def _build_session_state(
         self,
         orchestrator: Orchestrator,
         session: ClaudmasterSession,
         status: str = "active",
         module_id: Optional[str] = None,
+        recap: Optional[str] = None,
         error_message: Optional[str] = None
     ) -> SessionState:
         """
@@ -516,6 +635,7 @@ class SessionManager:
             session: The session object
             status: Session status (active, paused, error)
             module_id: Optional module ID if a module is loaded
+            recap: Optional recap text for resumed sessions
             error_message: Optional error message if status is error
 
         Returns:
@@ -581,6 +701,7 @@ class SessionManager:
             party_info=party_info,
             last_events=last_events,
             context_budget=context_budget,
+            recap=recap,
             error_message=error_message
         )
 
