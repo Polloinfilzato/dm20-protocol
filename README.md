@@ -175,15 +175,36 @@ The AI will use DM20's tools automatically — no special syntax needed. Just de
 
 For the full list of 66 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
 
-## Optional: RAG Dependencies
+## Optional: Smarter Rulebook Search
 
-For semantic search capabilities (vector-based library queries via `ask_books`):
+By default, when you search your PDF rulebooks with `ask_books`, the system uses **keyword matching** — it finds results that contain the exact words you typed. This works well for specific lookups like "fireball" or "fighter".
+
+With RAG (Retrieval-Augmented Generation) enabled, the system understands **meaning**, not just words. For example:
+
+| You ask | Keyword search finds | RAG search also finds |
+|---|---|---|
+| "tanky melee class" | Nothing (no rulebook contains "tanky") | Fighter, Paladin, Barbarian subclasses |
+| "healing without magic" | Pages mentioning both "healing" and "magic" | Healer feat, Herbalism Kit, Hit Dice recovery |
+| "sneaky ranged build" | Partial matches at best | Rogue/Ranger multiclass options, Skulker feat |
+
+To enable it, run this from inside Claude Code:
+
+```
+/dm:install-rag
+```
+
+This installs ChromaDB (~200 MB), a local vector database that runs entirely on your machine — no cloud services, no API keys. The command auto-detects your setup and handles platform quirks automatically.
+
+<details>
+<summary>Manual installation (developer mode only)</summary>
 
 ```bash
 uv sync --extra rag
 ```
 
-> **Note:** RAG dependencies (`chromadb`, `onnxruntime`) are not available on **macOS Intel (x86_64)**. The server works fine without them — only the `ask_books` tool requires RAG. All other library tools use keyword search.
+</details>
+
+> **Note:** RAG is not available on **macOS Intel (x86_64)** due to missing ML library support. Everything else works perfectly without it — keyword search covers most use cases just fine.
 
 ## Development
 
