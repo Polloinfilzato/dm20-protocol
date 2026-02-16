@@ -57,7 +57,7 @@ The installer offers two modes. **Most users should pick "User"** — it's the d
 | **What it installs** | A single `dm20-protocol` command | Full source code repository |
 | **Disk footprint** | Minimal (~50 MB) | Full dev environment (~200+ MB) |
 | **Prerequisites** | None (auto-installed) | None (auto-installed) |
-| **How to update** | `bash install.sh --upgrade` | `git pull && uv sync` |
+| **How to update** | Re-run the install command with `--upgrade` | `git pull && uv sync` |
 
 > Running `bash install.sh` from inside an existing clone? The installer auto-detects it and switches to Developer mode.
 
