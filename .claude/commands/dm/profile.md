@@ -1,7 +1,7 @@
 ---
 description: Switch model quality profile (quality/balanced/economy)
 argument-hint: <quality|balanced|economy>
-allowed-tools: mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__get_game_state
+allowed-tools: AskUserQuestion, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__get_game_state
 ---
 
 # Model Profile Switch
@@ -15,15 +15,19 @@ Switch the model quality tier for all Claudmaster agents and CC sub-agents at on
 ### If no argument is provided ($ARGUMENTS is empty)
 
 1. Call `configure_claudmaster()` with no arguments to show the current config
-2. Present the three profiles to the user:
+2. Present the three profiles to the user
+3. Use `AskUserQuestion` to let them choose:
 
-| Profile | Model + Effort | CC Agents | Best for |
-|---------|---------------|-----------|----------|
-| **quality** | Opus, effort high | Opus | Boss fights, key story moments, maximum immersion |
-| **balanced** | Opus, effort medium | Opus | General play, good balance of quality and cost |
-| **economy** | Opus, effort low | Haiku | Stretching token budgets, fast responses, casual play |
+```
+Question: "Which model profile would you like to use?"
+Header: "Profile"
+Options:
+  - "Quality — Opus high effort, best for boss fights and key story moments"
+  - "Balanced — Opus medium effort, good balance of quality and cost (Recommended)"
+  - "Economy — Opus low effort + Haiku agents, fast responses, casual play"
+```
 
-3. Ask the user to run `/dm:profile <tier>` to switch
+4. Apply the chosen profile (proceed as if it was passed as argument)
 
 ### If an argument is provided
 
