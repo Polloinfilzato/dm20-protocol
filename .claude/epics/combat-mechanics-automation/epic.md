@@ -1,6 +1,6 @@
 ---
 name: combat-mechanics-automation
-status: backlog
+status: in_progress
 created: 2026-02-16T23:28:02Z
 progress: 0%
 prd: .claude/prds/combat-mechanics-automation.md
