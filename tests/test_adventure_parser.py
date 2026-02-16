@@ -7,7 +7,6 @@ encounter detection, location tracking, and read-aloud text handling.
 
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -22,10 +21,14 @@ from dm20_protocol.adventures.parser import (
 )
 from dm20_protocol.claudmaster.models.module import ContentType
 
+# Use anyio for async tests (compatible with pytest-anyio)
+pytestmark = pytest.mark.anyio
 
-def run_async(coro):
-    """Helper to run async code in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+
+@pytest.fixture(scope="session")
+def anyio_backend():
+    """Configure anyio to use asyncio backend."""
+    return "asyncio"
 
 
 @pytest.fixture
@@ -215,15 +218,12 @@ def test_context_extract_area_refs(parser_context: ParserContext):
 # --- Chapter Parsing Tests ---
 
 
-def test_parse_chapters(parser: AdventureParser):
+async def test_parse_chapters(parser: AdventureParser):
     """Test chapter extraction from mock data."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     assert result.module_id == "LMoP"
     assert result.title == "Lost Mine of Phandelver"
@@ -239,15 +239,12 @@ def test_parse_chapters(parser: AdventureParser):
     assert ch2.page_start == 10
 
 
-def test_parse_chapter_children(parser: AdventureParser):
+async def test_parse_chapter_children(parser: AdventureParser):
     """Test subsection parsing as chapter children."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     ch1 = result.chapters[0]
     assert len(ch1.children) == 1
@@ -262,30 +259,24 @@ def test_parse_chapter_children(parser: AdventureParser):
 # --- NPC Extraction Tests ---
 
 
-def test_npc_extraction_from_tags(parser: AdventureParser):
+async def test_npc_extraction_from_tags(parser: AdventureParser):
     """Test NPC extraction from {@creature ...} tags."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     npc_names = {npc.name for npc in result.npcs}
     assert "Goblin" in npc_names
     assert "Toblen Stonehill" in npc_names
 
 
-def test_npc_extraction_from_statblocks(parser: AdventureParser):
+async def test_npc_extraction_from_statblocks(parser: AdventureParser):
     """Test NPC extraction from statblock entries."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     # Should have NPCs from both statblock and statblockInline
     npc_names = {npc.name for npc in result.npcs}
@@ -293,7 +284,7 @@ def test_npc_extraction_from_statblocks(parser: AdventureParser):
     assert "Toblen Stonehill" in npc_names
 
 
-def test_npc_deduplication(parser: AdventureParser):
+async def test_npc_deduplication(parser: AdventureParser):
     """Test that duplicate NPCs are only added once."""
     duplicate_data = {
         "data": [
@@ -316,26 +307,20 @@ def test_npc_deduplication(parser: AdventureParser):
         ]
     }
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=duplicate_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=duplicate_data):
+        result = await parser.parse_adventure("TEST")
 
     # Should only have one Goblin NPC
     npc_names = [npc.name for npc in result.npcs]
     assert npc_names.count("Goblin") == 1
 
 
-def test_npc_chapter_context(parser: AdventureParser):
+async def test_npc_chapter_context(parser: AdventureParser):
     """Test that NPCs capture their chapter context."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     goblin = next(npc for npc in result.npcs if npc.name == "Goblin")
     assert goblin.chapter == "Chapter 1: Goblin Arrows"
@@ -349,15 +334,12 @@ def test_npc_chapter_context(parser: AdventureParser):
 # --- Encounter Extraction Tests ---
 
 
-def test_encounter_extraction_from_table(parser: AdventureParser):
+async def test_encounter_extraction_from_table(parser: AdventureParser):
     """Test encounter extraction from tables."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     assert len(result.encounters) == 1
     enc = result.encounters[0]
@@ -366,7 +348,7 @@ def test_encounter_extraction_from_table(parser: AdventureParser):
     assert enc.encounter_type == "combat"
 
 
-def test_encounter_type_inference(parser: AdventureParser):
+async def test_encounter_type_inference(parser: AdventureParser):
     """Test encounter type inference from caption."""
     encounter_data = {
         "data": [
@@ -398,11 +380,8 @@ def test_encounter_type_inference(parser: AdventureParser):
         ]
     }
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=encounter_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=encounter_data):
+        result = await parser.parse_adventure("TEST")
 
     assert len(result.encounters) == 3
 
@@ -419,36 +398,30 @@ def test_encounter_type_inference(parser: AdventureParser):
 # --- Location Extraction Tests ---
 
 
-def test_location_extraction_from_area_tags(parser: AdventureParser):
+async def test_location_extraction_from_area_tags(parser: AdventureParser):
     """Test location extraction from {@area ...} tags."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     location_names = {loc.name for loc in result.locations}
     assert "Phandalin" in location_names
 
 
-def test_location_extraction_from_numbered_areas(parser: AdventureParser):
+async def test_location_extraction_from_numbered_areas(parser: AdventureParser):
     """Test location extraction from numbered area headings."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     location_names = {loc.name for loc in result.locations}
     assert "1. Town Square" in location_names
     assert "2. Stonehill Inn" in location_names
 
 
-def test_location_parent_hierarchy(parser: AdventureParser):
+async def test_location_parent_hierarchy(parser: AdventureParser):
     """Test location parent/child hierarchy tracking."""
     hierarchy_data = {
         "data": [
@@ -476,11 +449,8 @@ def test_location_parent_hierarchy(parser: AdventureParser):
         ]
     }
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=hierarchy_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=hierarchy_data):
+        result = await parser.parse_adventure("TEST")
 
     # Note: The parser doesn't automatically set parent_location in this test
     # because context.current_location is not set by default.
@@ -493,15 +463,12 @@ def test_location_parent_hierarchy(parser: AdventureParser):
 # --- Read-Aloud Text Tests ---
 
 
-def test_read_aloud_extraction(parser: AdventureParser):
+async def test_read_aloud_extraction(parser: AdventureParser):
     """Test read-aloud text extraction with markup stripping."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     assert len(result.read_aloud) > 0
 
@@ -513,7 +480,7 @@ def test_read_aloud_extraction(parser: AdventureParser):
     assert any("You've been on the road" in text for text in all_text)
 
 
-def test_read_aloud_markup_stripped(parser: AdventureParser):
+async def test_read_aloud_markup_stripped(parser: AdventureParser):
     """Test that markup is stripped from read-aloud text."""
     readaloud_data = {
         "data": [
@@ -540,11 +507,8 @@ def test_read_aloud_markup_stripped(parser: AdventureParser):
         ]
     }
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=readaloud_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=readaloud_data):
+        result = await parser.parse_adventure("TEST")
 
     all_text = []
     for texts in result.read_aloud.values():
@@ -560,30 +524,24 @@ def test_read_aloud_markup_stripped(parser: AdventureParser):
 # --- Entry Type Handling Tests ---
 
 
-def test_handle_various_entry_types(parser: AdventureParser):
+async def test_handle_various_entry_types(parser: AdventureParser):
     """Test graceful handling of various entry types."""
     mock_data = create_adventure_with_types()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("TEST")
 
     # Should parse without errors
     assert result.module_id == "TEST"
     assert len(result.chapters) == 1
 
 
-def test_handle_unknown_entry_type(parser: AdventureParser):
+async def test_handle_unknown_entry_type(parser: AdventureParser):
     """Test that unknown entry types don't cause crashes."""
     mock_data = create_adventure_with_types()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("TEST")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("TEST")
 
     # Should complete parsing despite unknown types
     assert result is not None
@@ -592,7 +550,7 @@ def test_handle_unknown_entry_type(parser: AdventureParser):
 # --- Download and Caching Tests ---
 
 
-def test_download_caching(parser: AdventureParser, cache_dir: Path):
+async def test_download_caching(parser: AdventureParser, cache_dir: Path):
     """Test that downloaded files are cached."""
     from unittest.mock import MagicMock
     mock_data = create_mock_adventure_data()
@@ -603,16 +561,13 @@ def test_download_caching(parser: AdventureParser, cache_dir: Path):
     mock_response.raise_for_status = MagicMock()
     mock_response.headers = {}
 
-    async def _test():
-        with patch("httpx.AsyncClient") as mock_client:
-            async def mock_get(*args, **kwargs):
-                return mock_response
+    with patch("httpx.AsyncClient") as mock_client:
+        async def mock_get(*args, **kwargs):
+            return mock_response
 
-            mock_client.return_value.__aenter__.return_value.get = mock_get
+        mock_client.return_value.__aenter__.return_value.get = mock_get
 
-            await parser.parse_adventure("LMoP")
-
-    run_async(_test())
+        await parser.parse_adventure("LMoP")
 
     # Check cache file was created
     cache_file = cache_dir / "adventures" / "cache" / "content" / "LMoP.json"
@@ -623,7 +578,7 @@ def test_download_caching(parser: AdventureParser, cache_dir: Path):
     assert cached_data == mock_data
 
 
-def test_use_cached_data(parser: AdventureParser, cache_dir: Path):
+async def test_use_cached_data(parser: AdventureParser, cache_dir: Path):
     """Test that cached data is used instead of downloading."""
     mock_data = create_mock_adventure_data()
 
@@ -632,36 +587,29 @@ def test_use_cached_data(parser: AdventureParser, cache_dir: Path):
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(mock_data))
 
-    async def _test():
-        with patch("httpx.AsyncClient") as mock_client:
-            result = await parser.parse_adventure("LMoP")
+    with patch("httpx.AsyncClient") as mock_client:
+        result = await parser.parse_adventure("LMoP")
 
-            # Should NOT have made HTTP request
-            mock_client.assert_not_called()
-            return result
-
-    result = run_async(_test())
+        # Should NOT have made HTTP request
+        mock_client.assert_not_called()
     assert result.module_id == "LMoP"
 
 
-def test_download_404_error(parser: AdventureParser):
+async def test_download_404_error(parser: AdventureParser):
     """Test handling of 404 errors."""
     mock_response = AsyncMock()
     mock_response.status_code = 404
 
-    async def _test():
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+            return_value=mock_response
+        )
 
-            with pytest.raises(AdventureParserError, match="not found"):
-                await parser.parse_adventure("INVALID")
-
-    run_async(_test())
+        with pytest.raises(AdventureParserError, match="not found"):
+            await parser.parse_adventure("INVALID")
 
 
-def test_download_retry_on_timeout(parser: AdventureParser):
+async def test_download_retry_on_timeout(parser: AdventureParser):
     """Test retry logic on timeout."""
     import httpx
     from unittest.mock import MagicMock
@@ -682,13 +630,10 @@ def test_download_retry_on_timeout(parser: AdventureParser):
             raise httpx.TimeoutException("Timeout")
         return mock_success
 
-    async def _test():
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = mock_get
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get = mock_get
 
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+        result = await parser.parse_adventure("LMoP")
 
     # Should have retried and succeeded
     assert call_count == 2
@@ -698,15 +643,12 @@ def test_download_retry_on_timeout(parser: AdventureParser):
 # --- Full Parse Cycle Test ---
 
 
-def test_full_parse_cycle(parser: AdventureParser):
+async def test_full_parse_cycle(parser: AdventureParser):
     """Test complete parse cycle with realistic mock data."""
     mock_data = create_mock_adventure_data()
 
-    async def _test():
-        with patch.object(parser, "_get_adventure_data", return_value=mock_data):
-            return await parser.parse_adventure("LMoP")
-
-    result = run_async(_test())
+    with patch.object(parser, "_get_adventure_data", return_value=mock_data):
+        result = await parser.parse_adventure("LMoP")
 
     # Verify all components
     assert result.module_id == "LMoP"
