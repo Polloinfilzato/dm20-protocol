@@ -228,10 +228,11 @@ class ModuleStructure:
     encounters: list[EncounterReference] = field(default_factory=list)
     locations: list[LocationReference] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
+    read_aloud: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             "module_id": self.module_id,
             "title": self.title,
             "source_file": self.source_file,
@@ -241,6 +242,9 @@ class ModuleStructure:
             "locations": [loc.to_dict() for loc in self.locations],
             "metadata": self.metadata,
         }
+        if self.read_aloud:
+            result["read_aloud"] = self.read_aloud
+        return result
 
     @classmethod
     def from_dict(cls, data: dict) -> "ModuleStructure":
@@ -254,4 +258,5 @@ class ModuleStructure:
             encounters=[EncounterReference.from_dict(enc) for enc in data.get("encounters", [])],
             locations=[LocationReference.from_dict(loc) for loc in data.get("locations", [])],
             metadata=data.get("metadata", {}),
+            read_aloud=data.get("read_aloud", {}),
         )

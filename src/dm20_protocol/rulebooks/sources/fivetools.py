@@ -42,6 +42,7 @@ from ..models import (
     ItemRarity,
 )
 from .base import RulebookSourceBase, SearchResult, ContentCounts
+from .fivetools_utils import convert_5etools_markup, render_entries
 
 
 logger = logging.getLogger("dm20-protocol")
@@ -165,13 +166,6 @@ XP_BY_CR: dict[float, int] = {
     21: 33000, 22: 41000, 23: 50000, 24: 62000, 25: 75000,
     26: 90000, 27: 105000, 28: 120000, 29: 135000, 30: 155000,
 }
-
-# Regex for stripping 5etools markup tags
-_MARKUP_DC_RE = re.compile(r"\{@dc\s+(\d+)\}")
-_MARKUP_HIT_RE = re.compile(r"\{@hit\s+(\d+)\}")
-_MARKUP_GENERIC_RE = re.compile(r"\{@\w+\s+([^}|]+?)(?:\|[^}]*)?\}")
-_MARKUP_EMPTY_RE = re.compile(r"\{@\w+\}")
-
 
 class FiveToolsSourceError(Exception):
     """Error fetching or parsing 5etools data."""
@@ -538,63 +532,17 @@ class FiveToolsSource(RulebookSourceBase):
     def _convert_5etools_markup(text: str) -> str:
         """Convert 5etools markup tags to plain text.
 
-        Handles tags like {@dice 1d6}, {@spell fireball}, {@dc 15}, etc.
+        Delegates to the shared utility in fivetools_utils.
         """
-        if not text:
-            return ""
-        # Special cases: {@dc 15} → DC 15, {@hit 5} → +5
-        text = _MARKUP_DC_RE.sub(r"DC \1", text)
-        text = _MARKUP_HIT_RE.sub(r"+\1", text)
-        # Generic: {@tag content} or {@tag content|source} → content
-        text = _MARKUP_GENERIC_RE.sub(r"\1", text)
-        # Empty tags with no content: {@h} → ""
-        text = _MARKUP_EMPTY_RE.sub("", text)
-        return text
+        return convert_5etools_markup(text)
 
     @classmethod
     def _render_entries(cls, entries: list | None) -> list[str]:
         """Render 5etools entries array to list of plain text paragraphs.
 
-        5etools entries can be strings or nested objects with sub-entries.
-        This method recursively flattens them into readable text.
+        Delegates to the shared utility in fivetools_utils.
         """
-        if not entries:
-            return []
-        result: list[str] = []
-        for entry in entries:
-            if isinstance(entry, str):
-                result.append(cls._convert_5etools_markup(entry))
-            elif isinstance(entry, dict):
-                entry_type = entry.get("type", "")
-                if entry_type in ("entries", "inset", "insetReadaloud"):
-                    name = entry.get("name", "")
-                    sub = cls._render_entries(entry.get("entries", []))
-                    if name and sub:
-                        result.append(f"{name}. {sub[0]}")
-                        result.extend(sub[1:])
-                    elif name:
-                        result.append(name)
-                    else:
-                        result.extend(sub)
-                elif entry_type == "list":
-                    for item in entry.get("items", []):
-                        if isinstance(item, str):
-                            result.append(
-                                f"- {cls._convert_5etools_markup(item)}"
-                            )
-                        elif isinstance(item, dict):
-                            sub = cls._render_entries([item])
-                            for s in sub:
-                                result.append(f"- {s}")
-                elif entry_type == "table":
-                    caption = entry.get("caption", "")
-                    if caption:
-                        result.append(f"[Table: {caption}]")
-                else:
-                    # Other types — try to extract nested entries
-                    sub = cls._render_entries(entry.get("entries", []))
-                    result.extend(sub)
-        return result
+        return render_entries(entries)
 
     @staticmethod
     def _make_index(name: str) -> str:
