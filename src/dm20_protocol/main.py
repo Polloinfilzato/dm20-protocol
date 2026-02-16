@@ -27,6 +27,8 @@ from .rulebooks.sources.srd import SRDSource
 from .rulebooks.sources.custom import CustomSource
 from .rulebooks.validators import CharacterValidator
 from .library import LibraryManager, TOCExtractor, ContentExtractor, SearchResult
+from .adventures.index import AdventureIndex
+from .adventures.discovery import search_adventures, format_search_results
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -3236,6 +3238,46 @@ def _format_claudmaster_config(config, header: str = "Claudmaster Configuration"
             lines.append(f"  {key}: {value}")
 
     return "\n".join(lines)
+
+
+@mcp.tool
+async def discover_adventures(
+    query: Annotated[str, Field(description="Keyword search (theme, name, etc.)")] = "",
+    level_min: Annotated[int | None, Field(description="Minimum character level filter")] = None,
+    level_max: Annotated[int | None, Field(description="Maximum character level filter")] = None,
+    storyline: Annotated[str | None, Field(description="Filter by storyline")] = None,
+    limit: Annotated[int, Field(description="Maximum number of results")] = 10,
+) -> str:
+    """Discover D&D adventures by theme, keyword, level range, or storyline.
+
+    Search and browse official D&D 5e adventure modules from the 5etools
+    index. Results are grouped by storyline and presented without spoilers.
+
+    Empty query with no filters returns a summary of all available storylines.
+
+    Keyword mapping examples:
+    - "vampire", "gothic", "horror" → Ravenloft
+    - "school", "magic school" → Strixhaven
+    - "dragon", "cult" → Tyranny of Dragons
+    - "heist" → Keys from the Golden Vault, Waterdeep
+    - "space" → Spelljammer
+    """
+    # Create and load adventure index
+    adventure_index = AdventureIndex(data_path)
+    await adventure_index.load()
+
+    # Search with provided criteria
+    result = search_adventures(
+        index=adventure_index,
+        query=query,
+        level_min=level_min,
+        level_max=level_max,
+        storyline=storyline,
+        limit=limit,
+    )
+
+    # Format results as spoiler-free markdown
+    return format_search_results(result)
 
 
 logger.debug("✅ All tools successfully registered. DM20 Protocol server running! 🎲")
