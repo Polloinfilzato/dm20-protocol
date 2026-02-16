@@ -43,9 +43,9 @@ cd ~/dm20    # go to your play directory
 claude       # start Claude Code — the MCP server connects automatically
 ```
 
-That's it. You're ready to play.
+That's it. You're ready to play. Type `/dm:help` to see what you can do, or jump straight in with `/dm:start`.
 
-> **Using Claude Desktop instead?** Just restart it after installation — the MCP server is already configured.
+> **Using Claude Desktop instead?** Just restart it after installation — the MCP server is already configured. Use the MCP tools directly instead of slash commands.
 
 The installer offers two modes. **Most users should pick "User"** — it's the default:
 
