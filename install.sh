@@ -635,8 +635,8 @@ gather_options_user() {
     local play_basename
     play_basename="$(basename "$PLAY_DIR")"
     if ! echo "$play_basename" | grep -qi "dm20"; then
-        PLAY_DIR="${PLAY_DIR}/dm20-protocol"
-        info "Auto-appended 'dm20-protocol' → ${PLAY_DIR}"
+        PLAY_DIR="${PLAY_DIR}/dm20"
+        info "Auto-appended 'dm20' → ${PLAY_DIR}"
     fi
 
     DATA_DIR="${PLAY_DIR}/data"
