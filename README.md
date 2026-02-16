@@ -1,5 +1,7 @@
 # DM20 Protocol
 
+![DM20 Protocol](docs/assets/DM20%20Protocol.png)
+
 A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) server for managing AI-assisted Dungeons & Dragons campaigns, built with **FastMCP 2.9+**.
 
 - **For Groups** — A toolkit to help run campaigns more effectively
