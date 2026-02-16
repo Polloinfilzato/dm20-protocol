@@ -26,7 +26,11 @@ from dm20_protocol.rulebooks.sources.fivetools_utils import (
 
 def run_async(coro):
     """Helper to run async code in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 # =============================================================================

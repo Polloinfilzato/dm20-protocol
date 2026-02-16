@@ -1,0 +1,157 @@
+{
+  "adventure": [
+    {
+      "id": "CoS",
+      "name": "Curse of Strahd",
+      "source": "CoS",
+      "group": "supplement",
+      "storyline": "Ravenloft",
+      "level": {"start": 1, "end": 10},
+      "published": "2016-03-15",
+      "contents": [
+        {"name": "Into the Mists", "headers": ["Death House"]},
+        {"name": "The Village of Barovia", "headers": ["Bildrath's Mercantile"]},
+        {"name": "The Town of Vallaki", "headers": []},
+        {"name": "Castle Ravenloft", "headers": ["Heart of Sorrow"]},
+        {"name": "The Amber Temple", "headers": []}
+      ]
+    },
+    {
+      "id": "LMoP",
+      "name": "Lost Mine of Phandelver",
+      "source": "LMoP",
+      "group": "supplement",
+      "storyline": "",
+      "level": {"start": 1, "end": 5},
+      "published": "2014-07-15",
+      "contents": [
+        {"name": "Goblin Arrows"},
+        {"name": "Phandalin"},
+        {"name": "The Spider's Web"},
+        {"name": "Wave Echo Cave"}
+      ]
+    },
+    {
+      "id": "HotDQ",
+      "name": "Hoard of the Dragon Queen",
+      "source": "HotDQ",
+      "group": "supplement",
+      "storyline": "Tyranny of Dragons",
+      "level": {"start": 1, "end": 7},
+      "published": "2014-08-19",
+      "contents": [
+        {"name": "Greenest in Flames"},
+        {"name": "Raider's Camp"},
+        {"name": "Dragon Hatchery"},
+        {"name": "On the Road"},
+        {"name": "Construction Ahead"},
+        {"name": "Castle Naerytar"},
+        {"name": "Hunting Lodge"},
+        {"name": "Castle in the Clouds"}
+      ]
+    },
+    {
+      "id": "RoT",
+      "name": "The Rise of Tiamat",
+      "source": "RoT",
+      "group": "supplement",
+      "storyline": "Tyranny of Dragons",
+      "level": {"start": 8, "end": 15},
+      "published": "2014-11-04",
+      "contents": [
+        {"name": "Council of Waterdeep"},
+        {"name": "The Sea of Moving Ice"},
+        {"name": "Death to the Wyrmspeakers"},
+        {"name": "Metallic Dragons"},
+        {"name": "Xonthal's Tower"},
+        {"name": "Mission to Thay"},
+        {"name": "Tiamat's Return"}
+      ]
+    },
+    {
+      "id": "SCC",
+      "name": "Strixhaven: A Curriculum of Chaos",
+      "source": "SCC",
+      "group": "supplement",
+      "storyline": "Strixhaven",
+      "level": {"start": 1, "end": 10},
+      "published": "2021-12-07",
+      "contents": [
+        {"name": "Life at Strixhaven"},
+        {"name": "Orientation"},
+        {"name": "Strixhaven Semester 1"},
+        {"name": "Strixhaven Semester 2"},
+        {"name": "Strixhaven Semester 3"},
+        {"name": "Strixhaven Semester 4"}
+      ]
+    },
+    {
+      "id": "SCC-CK",
+      "name": "Strixhaven: Campus Kerfuffle",
+      "source": "SCC",
+      "group": "supplement",
+      "storyline": "Strixhaven",
+      "level": {"start": 1, "end": 4},
+      "published": "2021-12-07",
+      "contents": [
+        {"name": "Campus Kerfuffle"}
+      ]
+    },
+    {
+      "id": "SCC-HfMT",
+      "name": "Strixhaven: Hunt for Mage Tower",
+      "source": "SCC",
+      "group": "supplement",
+      "storyline": "Strixhaven",
+      "level": {"start": 4, "end": 6},
+      "published": "2021-12-07",
+      "contents": [
+        {"name": "Hunt for Mage Tower"}
+      ]
+    },
+    {
+      "id": "SCC-TMM",
+      "name": "Strixhaven: The Magister's Masquerade",
+      "source": "SCC",
+      "group": "supplement",
+      "storyline": "Strixhaven",
+      "level": {"start": 6, "end": 8},
+      "published": "2021-12-07",
+      "contents": [
+        {"name": "The Magister's Masquerade"}
+      ]
+    },
+    {
+      "id": "WDH",
+      "name": "Waterdeep: Dragon Heist",
+      "source": "WDH",
+      "group": "supplement",
+      "storyline": "Waterdeep",
+      "level": {"start": 1, "end": 5},
+      "published": "2018-09-18",
+      "contents": [
+        {"name": "A Friend in Need"},
+        {"name": "Trollskull Alley"},
+        {"name": "Fireball"},
+        {"name": "Dragon Season"}
+      ]
+    },
+    {
+      "id": "TftYP",
+      "name": "Tales from the Yawning Portal",
+      "source": "TftYP",
+      "group": "supplement",
+      "storyline": "",
+      "published": "2017-04-04",
+      "contents": [
+        {"name": "The Sunless Citadel"},
+        {"name": "The Forge of Fury"},
+        {"name": "The Hidden Shrine of Tamoachan"},
+        {"name": "White Plume Mountain"},
+        {"name": "Dead in Thay"},
+        {"name": "Against the Giants"},
+        {"name": "Tomb of Horrors"}
+      ]
+    }
+  ]
+}

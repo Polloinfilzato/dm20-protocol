@@ -1,0 +1,214 @@
+{
+  "data": [
+    {
+      "name": "Strixhaven: Campus Kerfuffle",
+      "source": "SCC",
+      "id": "SCC-CK",
+      "data": [
+        {
+          "type": "section",
+          "name": "Chapter 1: Orientation",
+          "page": 1,
+          "entries": [
+            "Welcome to {@i Strixhaven}, the most elite university of magic in the multiverse! Situated on the plane of Arcavios, Strixhaven draws promising young mages from across the planes to study and grow.",
+            {
+              "type": "insetReadaloud",
+              "entries": [
+                "The grand archway of Strixhaven towers before you, its stones shimmering with arcane energy. Students bustle past, their robes swirling with the colors of their chosen colleges. The air crackles with magic, and the scent of old books mingles with the sweet fragrance of enchanted gardens."
+              ]
+            },
+            {
+              "type": "entries",
+              "name": "Arriving at Strixhaven",
+              "entries": [
+                "As new students arrive at Strixhaven, they are greeted by {@creature Mavinda Sharpbeak|SCC}, the owlin counselor who serves as a guide and mentor.",
+                {
+                  "type": "entries",
+                  "name": "1. The Biblioplex",
+                  "entries": [
+                    "The Biblioplex is the largest library in the multiverse. Its shelves stretch into infinity, organized by {@creature The Oracle of Strixhaven|SCC}, a mysterious entity.",
+                    {
+                      "type": "insetReadaloud",
+                      "entries": [
+                        "You step inside an impossibly vast chamber. Bookshelves tower so high they vanish into clouds. Floating platforms carry students between levels, and spectral librarians drift silently among the stacks."
+                      ]
+                    },
+                    {
+                      "type": "inset",
+                      "name": "DM Note: The Biblioplex",
+                      "entries": [
+                        "The Biblioplex serves as the central hub for the adventure. Students will return here frequently, and the Oracle provides plot hooks."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "entries",
+                  "name": "2. The Firejolt Cafe",
+                  "entries": [
+                    "A popular gathering spot for students from all colleges, the Firejolt Cafe serves enchanted beverages and light meals.",
+                    "The cafe is run by {@creature Ellina Tandaros|SCC}, a spirited tiefling barista who knows all the campus gossip."
+                  ]
+                },
+                {
+                  "type": "entries",
+                  "name": "3. Bow's End Tavern",
+                  "entries": [
+                    "Students who prefer something stronger visit Bow's End Tavern, just outside campus grounds.",
+                    {
+                      "type": "list",
+                      "items": [
+                        "The tavern has a dartboard enchanted to move the bullseye",
+                        "A {@spell prestidigitation} cantrip keeps drinks perfectly chilled",
+                        "The barkeep, {@creature Tulk \"Two Tankards\" Tusktooth|SCC}, is a half-orc with a booming laugh"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "entries",
+              "name": "The Colleges of Strixhaven",
+              "entries": [
+                "Strixhaven comprises five colleges, each founded by an elder dragon and focused on a distinct approach to magic:",
+                {
+                  "type": "table",
+                  "caption": "Strixhaven Colleges",
+                  "colLabels": ["College", "Focus", "Colors"],
+                  "rows": [
+                    ["Lorehold", "Archaeomancy", "Red/White"],
+                    ["Prismari", "Elemental Arts", "Blue/Red"],
+                    ["Quandrix", "Numeromancy", "Green/Blue"],
+                    ["Silverquill", "Eloquence", "White/Black"],
+                    ["Witherbloom", "Essence Studies", "Black/Green"]
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "entries",
+              "name": "Encounter: Campus Orientation",
+              "entries": [
+                "During orientation, a magical mishap disrupts the welcoming ceremony.",
+                {
+                  "type": "table",
+                  "caption": "Orientation Encounter Table",
+                  "colLabels": ["d6", "Event"],
+                  "rows": [
+                    ["1-2", "A {@creature pest mascot|SCC} escapes its handler"],
+                    ["3-4", "An overeager student miscasts {@spell chromatic orb}"],
+                    ["5-6", "A prankster uses {@spell minor illusion} to create chaos"]
+                  ]
+                },
+                {
+                  "type": "statblock",
+                  "name": "Pest Mascot",
+                  "source": "SCC"
+                }
+              ]
+            },
+            {
+              "type": "image",
+              "href": {
+                "type": "internal",
+                "path": "adventure/SCC-CK/campus-map.webp"
+              }
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "name": "Chapter 2: The Campus Kerfuffle",
+          "page": 15,
+          "entries": [
+            "The campus kerfuffle begins when strange magical disturbances rock the university. Students must investigate before things get out of hand.",
+            {
+              "type": "insetReadaloud",
+              "entries": [
+                "A thunderous boom echoes across campus. You look up to see the sky above the Biblioplex swirling with unnatural colors. Screams rise from the direction of the Prismari campus as bolts of wild magic streak across the grounds."
+              ]
+            },
+            {
+              "type": "entries",
+              "name": "Investigating the Disturbance",
+              "entries": [
+                "Characters can make a DC {@dc 15} Intelligence ({@skill Arcana}) check to determine the source of the disturbance.",
+                "The disturbance originates from {@area The Detention Bog|SCC-CK}, an area beneath the Witherbloom campus.",
+                {
+                  "type": "entries",
+                  "name": "4. The Detention Bog",
+                  "entries": [
+                    "Students sent here for discipline must tend the bog's peculiar flora. Recently, something darker has taken root.",
+                    {
+                      "type": "insetReadaloud",
+                      "entries": [
+                        "The bog squelches beneath your feet. Twisted trees draped in luminescent moss form a canopy overhead. Strange mushrooms pulse with a sickly green glow, and you hear whispers coming from deeper within."
+                      ]
+                    },
+                    "The bog is home to {@creature Murgaxor|SCC}, a disgraced mage who has been corrupting the area's natural magic."
+                  ]
+                },
+                {
+                  "type": "entries",
+                  "name": "5. Murgaxor's Lair",
+                  "entries": [
+                    "Deep within the Detention Bog lies the makeshift lair of Murgaxor.",
+                    {
+                      "type": "statblockInline",
+                      "name": "Murgaxor",
+                      "source": "SCC"
+                    },
+                    {
+                      "type": "table",
+                      "caption": "Murgaxor's Lair: Trap and Puzzle Encounter",
+                      "colLabels": ["Area", "Trap"],
+                      "rows": [
+                        ["Entrance", "Glyph of Warding ({@spell glyph of warding})"],
+                        ["Inner Chamber", "Animated books ({@creature animated armor|MM} statistics)"],
+                        ["Sanctum", "Anti-magic field"]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "entries",
+              "name": "Resolving the Kerfuffle",
+              "entries": [
+                "To resolve the campus kerfuffle, the characters must confront {@creature Murgaxor|SCC} and disrupt his ritual.",
+                {
+                  "type": "quote",
+                  "entries": [
+                    "You think you can stop me? I have tapped into the very essence of Strixhaven's founding! The power of the elder dragons flows through me now!",
+                    "- {@creature Murgaxor|SCC}"
+                  ]
+                },
+                "After defeating Murgaxor, the characters are hailed as heroes of Strixhaven.",
+                {
+                  "type": "flowchart",
+                  "blocks": [
+                    {"type": "flowBlock", "name": "Start", "entries": ["Begin combat"]},
+                    {"type": "flowBlock", "name": "Mid", "entries": ["Murgaxor retreats"]},
+                    {"type": "flowBlock", "name": "End", "entries": ["Victory"]}
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "gallery",
+              "images": [
+                {"href": {"type": "internal", "path": "adventure/SCC-CK/murgaxor.webp"}}
+              ]
+            },
+            {
+              "type": "future_format_type",
+              "entries": ["Some content in a future-proof format that should be handled gracefully."]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
