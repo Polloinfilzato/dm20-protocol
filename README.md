@@ -6,7 +6,7 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **For Solo Players** — A complete virtual D&D experience with AI as the DM
 - **For Worldbuilders** — Tools to create rich, interconnected game worlds
 
-> **Status:** Under active development. See [Roadmap](#roadmap) for what's next.
+> **Status:** Under active development. See [Roadmap](docs/ROADMAP.md) for what's next.
 
 ## Features
 
@@ -242,15 +242,15 @@ Switch mid-session with `/dm:profile economy` or via `configure_claudmaster(mode
 
 Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches. Built on the Claudmaster architecture with session persistence, difficulty scaling, and configurable narrative style.
 
-See the **[Player Guide](PLAYER_GUIDE.md)** for how to play, or the **[Roadmap](ROADMAP.md)** for what's next.
+See the **[Player Guide](docs/PLAYER_GUIDE.md)** for how to play, or the **[Roadmap](docs/ROADMAP.md)** for what's next.
 
 ## Documentation
 
-- [Player Guide](PLAYER_GUIDE.md) — How to play solo D&D with the AI DM
+- [Player Guide](docs/PLAYER_GUIDE.md) — How to play solo D&D with the AI DM
 - [User Guide](docs/GUIDE.md) — System prompt, tools reference, data structure, PDF library
 - [Storage Structure](docs/STORAGE_STRUCTURE.md) — How campaign data is organized on disk
 - [Development Guide](docs/DEVELOPMENT.md) — Architecture, contributing, API details
-- [Roadmap](ROADMAP.md) — What's implemented, what's next
+- [Roadmap](docs/ROADMAP.md) — What's implemented, what's next
 - [Changelog](CHANGELOG.md) — Version history
 
 ## Credits

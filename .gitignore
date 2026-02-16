@@ -75,6 +75,7 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+MagicMock/
 
 # Type checking
 .mypy_cache/
