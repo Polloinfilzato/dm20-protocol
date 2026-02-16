@@ -40,6 +40,12 @@ except ImportError:
     EncounterTrigger = None  # type: ignore[assignment,misc]
     PlotContext = None  # type: ignore[assignment,misc]
 
+from .player_character import (
+    PlayerCharacterAgent,
+    PCContext,
+    PCDecision,
+)
+
 __all__ = [
     "NarratorAgent",
     "NarrativeStyle",
@@ -68,4 +74,8 @@ __all__ = [
     "LocationDescription",
     "EncounterTrigger",
     "PlotContext",
+    # Player Character Agent exports
+    "PlayerCharacterAgent",
+    "PCContext",
+    "PCDecision",
 ]

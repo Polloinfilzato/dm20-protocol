@@ -808,6 +808,75 @@ class Orchestrator:
             metadata=metadata
         )
 
+    # ------------------------------------------------------------------
+    # AI Companion Support (SOLO mode)
+    # ------------------------------------------------------------------
+
+    def get_ai_companion_agents(self) -> list[Agent]:
+        """Get all registered PlayerCharacterAgent instances.
+
+        Returns:
+            List of agents with the PLAYER_CHARACTER role.
+        """
+        return [
+            agent for agent in self.agents.values()
+            if agent.role == AgentRole.PLAYER_CHARACTER
+        ]
+
+    async def process_ai_companions(
+        self,
+        human_action_result: OrchestratorResponse,
+        party_characters: list | None = None,
+    ) -> list[AgentResponse]:
+        """Process AI companion turns after the human player acts.
+
+        Each AI companion agent receives a restricted context (no secrets)
+        and decides its own action. Results are collected for the narrator
+        to integrate into a cohesive narrative.
+
+        Args:
+            human_action_result: The response from processing the human's turn.
+            party_characters: Character models for context building.
+
+        Returns:
+            List of AgentResponse from each AI companion.
+        """
+        pc_agents = self.get_ai_companion_agents()
+        if not pc_agents:
+            return []
+
+        if self.session is None:
+            logger.warning("No active session for AI companion processing")
+            return []
+
+        # Build base context from session (this is the full context)
+        full_context = self.session.get_context()
+        full_context["game_state"] = self.campaign.game_state.model_dump()
+        full_context["human_action_narrative"] = human_action_result.narrative
+
+        # Execute each PC agent with restricted context
+        companion_responses: list[AgentResponse] = []
+
+        for agent in pc_agents:
+            try:
+                # The agent's reason() will call build_restricted_context
+                # to filter out secrets before making decisions
+                response = await asyncio.wait_for(
+                    agent.run(full_context),
+                    timeout=self.config.agent_timeout,
+                )
+                companion_responses.append(response)
+                logger.info(
+                    f"AI companion {agent.name} decided: "
+                    f"{response.observations.get('action', 'unknown')}"
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"AI companion {agent.name} timed out")
+            except Exception as e:
+                logger.error(f"AI companion {agent.name} failed: {e}")
+
+        return companion_responses
+
 
 __all__ = [
     "IntentType",

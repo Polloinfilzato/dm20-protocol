@@ -22,6 +22,8 @@ from ..persistence import SessionSerializer, SessionMetadata
 from ..agents.archivist import ArchivistAgent
 from ..agents.narrator import NarratorAgent, NarrativeStyle
 from ..agents.arbiter import ArbiterAgent
+from ..agents.player_character import PlayerCharacterAgent
+from ..companions import CompanionArchetype, CombatStyle
 from ..consistency.fact_database import FactDatabase
 from ..llm_client import AnthropicLLMClient, MockLLMClient, LLMDependencyError
 from ..recovery.error_messages import ErrorMessageFormatter
@@ -183,6 +185,9 @@ class SessionManager:
 
         # Register ModuleKeeperAgent if ChromaDB is available and a module is loaded
         self._try_register_module_keeper(orchestrator, campaign, module_id)
+
+        # Register AI companion agents if SOLO mode with companions
+        self._register_ai_companions(orchestrator, campaign, session_config)
 
         # Start the session
         session = orchestrator.start_session()
@@ -578,6 +583,91 @@ class SessionManager:
             )
         except Exception as exc:
             logger.warning("[ModuleKeeper] Registration failed: %s", exc)
+
+    def _register_ai_companions(
+        self,
+        orchestrator: Orchestrator,
+        campaign: Campaign,
+        config: ClaudmasterConfig,
+    ) -> None:
+        """Register PlayerCharacterAgent for each AI companion in the campaign.
+
+        Reads AI companion IDs from game_state notes and creates an agent
+        for each. Uses an economy LLM client for companion decisions.
+
+        Args:
+            orchestrator: The orchestrator to register agents with.
+            campaign: The campaign being played.
+            config: Session config for LLM client creation.
+        """
+        # Parse AI companion IDs from game_state notes
+        notes = campaign.game_state.notes or ""
+        if "ai_companions:" not in notes:
+            return
+
+        # Extract companion IDs: "ai_companions:[id1,id2,...]"
+        import re
+        match = re.search(r'ai_companions:\[([^\]]*)\]', notes)
+        if not match:
+            return
+
+        companion_ids = [cid.strip() for cid in match.group(1).split(",") if cid.strip()]
+        if not companion_ids:
+            return
+
+        # Create a shared LLM client for all AI companions (economy tier)
+        try:
+            pc_llm, _ = self._create_llm_clients(config)
+        except Exception as e:
+            logger.warning(f"[AI Companions] Could not create LLM client: {e}")
+            return
+
+        # Map role archetypes from character class
+        class_archetype_map = {
+            "fighter": CompanionArchetype.TANK,
+            "barbarian": CompanionArchetype.TANK,
+            "paladin": CompanionArchetype.TANK,
+            "cleric": CompanionArchetype.HEALER,
+            "druid": CompanionArchetype.HEALER,
+            "wizard": CompanionArchetype.STRIKER,
+            "sorcerer": CompanionArchetype.STRIKER,
+            "warlock": CompanionArchetype.STRIKER,
+            "rogue": CompanionArchetype.STRIKER,
+            "ranger": CompanionArchetype.SUPPORT,
+            "bard": CompanionArchetype.SUPPORT,
+            "monk": CompanionArchetype.STRIKER,
+        }
+
+        registered = 0
+        for char_id in companion_ids:
+            # Find character by ID or name
+            character = None
+            for char_name, char in campaign.characters.items():
+                if char.id == char_id or char_name == char_id:
+                    character = char
+                    break
+
+            if not character:
+                logger.warning(f"[AI Companions] Character '{char_id}' not found in campaign")
+                continue
+
+            # Determine archetype from class
+            class_name = character.character_class.name.lower() if character.character_class else ""
+            archetype = class_archetype_map.get(class_name, CompanionArchetype.SUPPORT)
+
+            # Create and register the agent
+            pc_agent = PlayerCharacterAgent(
+                character=character,
+                llm=pc_llm,
+                archetype=archetype,
+                max_tokens=config.max_tokens // 4,  # Use smaller token budget
+            )
+            orchestrator.register_agent(pc_agent.name, pc_agent)
+            registered += 1
+            logger.info(f"[AI Companions] Registered {pc_agent.name} (archetype: {archetype.value})")
+
+        if registered:
+            logger.info(f"[AI Companions] Total {registered} AI companion(s) registered")
 
     @staticmethod
     def _extract_recap_data(

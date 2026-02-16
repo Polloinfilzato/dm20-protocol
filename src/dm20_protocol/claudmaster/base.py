@@ -23,6 +23,7 @@ class AgentRole(str, Enum):
     MODULE_KEEPER = "module_keeper"
     CONSISTENCY = "consistency"
     ARBITER = "arbiter"
+    PLAYER_CHARACTER = "player_character"
 
 
 class AgentRequest(BaseModel):
