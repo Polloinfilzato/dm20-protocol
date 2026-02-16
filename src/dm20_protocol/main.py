@@ -139,6 +139,21 @@ def load_campaign(
     campaign = storage.load_campaign(name)
     return f"📖 Loaded campaign: '{campaign.name}'. Campaign is now active!"
 
+@mcp.tool
+def delete_campaign(
+    name: Annotated[str, Field(description="Campaign name to delete")]
+) -> str:
+    """Delete a campaign permanently. This cannot be undone."""
+    try:
+        deleted_name = storage.delete_campaign(name)
+        return f"🗑️ Campaign '{deleted_name}' has been permanently deleted."
+    except FileNotFoundError:
+        campaigns = storage.list_campaigns()
+        if campaigns:
+            campaign_list = "\n".join(f"• {c}" for c in campaigns)
+            return f"❌ Campaign '{name}' not found.\n\n**Available campaigns:**\n{campaign_list}"
+        return f"❌ Campaign '{name}' not found. No campaigns exist."
+
 # Character Management Tools
 @mcp.tool
 def create_character(

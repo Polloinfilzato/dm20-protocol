@@ -5,6 +5,7 @@ Handles persistence of campaign data to JSON files.
 
 import asyncio
 import logging
+import shutil
 import shortuuid
 import json
 from contextlib import contextmanager
@@ -471,6 +472,56 @@ class DnDStorage:
 
         logger.info(f"✅ Successfully loaded campaign '{name}' using {storage_format} format.")
         return self._current_campaign
+
+    def delete_campaign(self, name: str) -> str:
+        """Delete a campaign from storage.
+
+        Supports both monolithic (single JSON file) and split (directory) formats.
+        If the deleted campaign is the currently active one, all state is cleared.
+
+        Args:
+            name: The name of the campaign to delete
+
+        Returns:
+            The name of the deleted campaign
+
+        Raises:
+            FileNotFoundError: If the campaign does not exist
+        """
+        storage_format = self._detect_campaign_format(name)
+
+        if storage_format == StorageFormat.NOT_FOUND:
+            raise FileNotFoundError(f"Campaign '{name}' not found")
+
+        safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_', "'")).rstrip()
+
+        if storage_format == StorageFormat.MONOLITHIC:
+            file_path = self._get_campaign_file(name)
+            file_path.unlink()
+            logger.info(f"🗑️ Deleted monolithic campaign file: {file_path}")
+        elif storage_format == StorageFormat.SPLIT:
+            dir_path = self.data_dir / "campaigns" / safe_name
+            # Safety check: path must be under campaigns directory
+            campaigns_dir = (self.data_dir / "campaigns").resolve()
+            if not dir_path.resolve().is_relative_to(campaigns_dir):
+                raise ValueError(f"Unsafe path detected: {dir_path}")
+            shutil.rmtree(dir_path)
+            logger.info(f"🗑️ Deleted split campaign directory: {dir_path}")
+
+        # If deleting the active campaign, clear all state
+        if self._current_campaign and self._current_campaign.name == name:
+            self._current_campaign = None
+            self._current_format = StorageFormat.NOT_FOUND
+            self._character_id_index.clear()
+            self._player_name_index.clear()
+            self._campaign_hash = ""
+            self._rulebook_manager = None
+            self._library_bindings = None
+            if hasattr(self, '_split_backend'):
+                self._split_backend._current_campaign = None
+            logger.info(f"🧹 Cleared active campaign state (was: '{name}')")
+
+        return name
 
     def _load_rulebook_manager(self) -> None:
         """Load RulebookManager for the current campaign if manifest exists.
