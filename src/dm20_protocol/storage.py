@@ -20,6 +20,7 @@ from .models import (
 from .rulebooks.manager import RulebookManager
 from .library.manager import LibraryManager
 from .library.bindings import LibraryBindings
+from .consistency.discovery import DiscoveryTracker
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -85,6 +86,9 @@ class DnDStorage:
         # Library bindings for the current campaign
         self._library_bindings: LibraryBindings | None = None
 
+        # Discovery tracker for location/feature discovery state
+        self._discovery_tracker: DiscoveryTracker | None = None
+
         # Load existing data
         logger.debug("📂 Loading initial data...")
         self._load_current_campaign()
@@ -127,6 +131,19 @@ class DnDStorage:
             Path to the library directory (dnd_data/library/)
         """
         return self.data_dir / "library"
+
+    @property
+    def packs_dir(self) -> Path:
+        """Get the directory for compendium pack files.
+
+        Creates the directory if it does not exist.
+
+        Returns:
+            Path to the packs directory (dnd_data/packs/)
+        """
+        packs = self.data_dir / "packs"
+        packs.mkdir(exist_ok=True)
+        return packs
 
     @property
     def library_manager(self) -> LibraryManager:
@@ -435,6 +452,10 @@ class DnDStorage:
         self._library_bindings = LibraryBindings(campaign_id=campaign.id)
         logger.debug(f"📚 Created empty library bindings for campaign '{name}'")
 
+        # Initialize discovery tracker for the new campaign
+        self._discovery_tracker = DiscoveryTracker(campaign_dir)
+        logger.debug(f"Initialized empty DiscoveryTracker for campaign '{name}'")
+
         logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format.")
         return campaign
 
@@ -498,6 +519,9 @@ class DnDStorage:
         # Load enabled library content into RulebookManager
         self._load_library_content()
 
+        # Load discovery tracker (split campaigns only)
+        self._load_discovery_tracker()
+
         logger.info(f"✅ Successfully loaded campaign '{name}' using {storage_format} format.")
         return self._current_campaign
 
@@ -545,6 +569,7 @@ class DnDStorage:
             self._campaign_hash = ""
             self._rulebook_manager = None
             self._library_bindings = None
+            self._discovery_tracker = None
             if hasattr(self, '_split_backend'):
                 self._split_backend._current_campaign = None
             logger.info(f"🧹 Cleared active campaign state (was: '{name}')")
@@ -1123,6 +1148,59 @@ class DnDStorage:
         if not self._library_bindings:
             return []
         return self._library_bindings.get_enabled_sources()
+
+    # ------------------------------------------------------------------
+    # Discovery Tracker Management
+    # ------------------------------------------------------------------
+
+    @property
+    def discovery_tracker(self) -> DiscoveryTracker | None:
+        """Get the discovery tracker for the current campaign.
+
+        Returns:
+            DiscoveryTracker instance if a split campaign is loaded, None otherwise.
+        """
+        return self._discovery_tracker
+
+    def _load_discovery_tracker(self) -> None:
+        """Load or initialize the DiscoveryTracker for the current campaign.
+
+        Only applicable to split storage campaigns. Creates a DiscoveryTracker
+        pointed at the campaign directory, which will load discovery_state.json
+        if it exists.
+        """
+        self._discovery_tracker = None
+
+        if self._current_format != StorageFormat.SPLIT or not self._current_campaign:
+            return
+
+        campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        try:
+            self._discovery_tracker = DiscoveryTracker(campaign_dir)
+            logger.info(
+                f"Loaded DiscoveryTracker for campaign '{self._current_campaign.name}' "
+                f"({self._discovery_tracker.location_count} locations)"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load DiscoveryTracker: {e}")
+            self._discovery_tracker = None
+
+    def _save_discovery_state(self) -> None:
+        """Save the discovery state for the current campaign.
+
+        Only applicable to split storage campaigns with an active tracker.
+        """
+        if not self._discovery_tracker:
+            return
+
+        if self._current_format != StorageFormat.SPLIT or not self._current_campaign:
+            return
+
+        try:
+            self._discovery_tracker.save()
+            logger.debug(f"Saved discovery state for campaign '{self._current_campaign.name}'")
+        except Exception as e:
+            logger.error(f"Failed to save discovery state: {e}")
 
     # ------------------------------------------------------------------
     # Claudmaster Configuration Management

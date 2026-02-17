@@ -201,6 +201,65 @@ class NPCKnowledgeTracker:
 
         logger.debug(f"Propagated knowledge from {from_npc} to {to_npc} (session {session})")
 
+    def share_with_party(
+        self,
+        npc_id: str,
+        fact_ids: list[str],
+        party_knowledge: "PartyKnowledge",
+        session: int,
+        location: str | None = None,
+    ) -> list[str]:
+        """
+        Share knowledge from an NPC with the party.
+
+        Only facts that the NPC actually knows will be shared. For each
+        shared fact, the party's PartyKnowledge tracker is updated via
+        learn_fact() with method=TOLD_BY_NPC and the NPC as source.
+
+        Args:
+            npc_id: The NPC's identifier (used as knowledge source)
+            fact_ids: List of fact IDs the NPC wants to share
+            party_knowledge: The PartyKnowledge tracker to update
+            session: Session number when sharing occurs
+            location: Where the sharing takes place (optional)
+
+        Returns:
+            List of fact IDs that were successfully shared (newly learned)
+        """
+        from dm20_protocol.consistency.party_knowledge import AcquisitionMethod
+
+        npc_knowledge = self.get_npc_knowledge(npc_id)
+        known_fact_ids = {entry.fact_id for entry in npc_knowledge}
+
+        shared = []
+        for fact_id in fact_ids:
+            # NPC must actually know this fact
+            if fact_id not in known_fact_ids:
+                logger.debug(
+                    f"NPC {npc_id} tried to share fact {fact_id} but doesn't know it"
+                )
+                continue
+
+            try:
+                learned = party_knowledge.learn_fact(
+                    fact_id=fact_id,
+                    source=npc_id,
+                    method=AcquisitionMethod.TOLD_BY_NPC,
+                    session=session,
+                    location=location,
+                )
+                if learned:
+                    shared.append(fact_id)
+            except KeyError:
+                logger.warning(
+                    f"Fact {fact_id} known by NPC {npc_id} not found in FactDatabase"
+                )
+
+        logger.debug(
+            f"NPC {npc_id} shared {len(shared)} facts with the party (session {session})"
+        )
+        return shared
+
     def record_interaction(
         self,
         npc_id: str,
