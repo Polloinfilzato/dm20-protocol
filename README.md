@@ -21,13 +21,17 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **NPCs & Locations** — Rich world-building with relationships and connections
 - **Quest Tracking** — Objectives, status, rewards, and branching paths
 - **Combat System** — Initiative, turns, attack/spell resolution, active effects, concentration tracking, ASCII tactical maps, AoE targeting, encounter builder
+- **Compendium Packs** — Export/import campaign content as portable JSON packs with conflict resolution (skip, overwrite, rename), selective filtering, and full backups
+- **Narrative Fog of War** — Progressive location discovery (undiscovered → glimpsed → explored → fully mapped), sensory hints for hidden features, narrator-aware descriptions
+- **Party Knowledge** — Track what the party knows about the world, with source attribution and bidirectional NPC knowledge sharing
+- **Multi-User Permissions** — Role-based access (DM, Player, Observer) with output filtering, session coordination, and private messaging — zero overhead in single-player
 - **Multi-Source Rulebooks** — Load rules from SRD, Open5e, 5etools, or custom JSON
 - **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
 - **Bilingual Play** — Italian/English D&D terminology resolution (500+ terms)
 - **Session Notes** — Per-session summaries, XP, loot, attendance
 - **Adventure Log** — Searchable timeline of all campaign events
 - **Dice & Utilities** — Rolls, XP calculations, rules lookup
-- **78 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
+- **84 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
 
 ## Installation
 

@@ -6,19 +6,21 @@ For installation and quick start, see the main [README](../README.md).
 
 ## Quick Reference
 
-**TL;DR:** DM20 Protocol gives your AI assistant 66 tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, rulebook lookups, a PDF library, and a full AI Dungeon Master — all through natural language.
+**TL;DR:** DM20 Protocol gives your AI assistant 84 tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, rulebook lookups, a PDF library, and a full AI Dungeon Master — all through natural language.
 
 1. **[System Prompt](#system-prompt-recommendation)** — Paste the recommended prompt to prime your AI as a Dungeon Master
    - Covers Session Zero setup flow and in-play guidance
    - Works with any MCP-compatible AI client
 
-2. **[Tools Reference](#available-tools-66)** — All 66 tools organized by category
+2. **[Tools Reference](#available-tools-84)** — All 84 tools organized by 16 categories
    - Campaign, Character, NPC, Location, Quest management
    - Character builder, level-up, equipment, spells, rests
-   - Combat system, session notes, adventure log
+   - Combat system with tactical maps, AoE, effects, encounter builder
+   - Session notes, adventure log
    - Multi-source rulebooks (SRD, Open5e, 5etools, custom)
    - PDF library with semantic search
-   - AI Dungeon Master (Claudmaster) for solo play
+   - AI Dungeon Master (Claudmaster) with adventure modules
+   - Character sheets, compendium packs, discovery, multi-user sessions
 
 3. **[Workflow Examples](#workflow-examples)** — Step-by-step practical flows
    - Character creation with rulebook validation
@@ -138,11 +140,11 @@ For detailed instructions, see the [Player Guide](../PLAYER_GUIDE.md).
 
 ---
 
-## Available Tools (66)
+## Available Tools (84)
 
-DM20 Protocol exposes 66 MCP tools organized into 12 categories. Each tool can be called by any MCP-compatible AI client through natural language.
+DM20 Protocol exposes 84 MCP tools organized into 16 categories. Each tool can be called by any MCP-compatible AI client through natural language.
 
-### Campaign Management (4 tools)
+### Campaign Management (5 tools)
 
 Create, load, and switch between campaigns. Every other tool operates on the currently active campaign.
 
@@ -152,6 +154,7 @@ Create, load, and switch between campaigns. Every other tool operates on the cur
 | `get_campaign_info` | Get current campaign information (entity counts, game state summary) |
 | `list_campaigns` | List all available campaigns in the data directory |
 | `load_campaign` | Switch to a different campaign by name |
+| `delete_campaign` | Permanently delete a campaign and all its data |
 
 **Example:** "Create a campaign called 'Curse of the Crimson Throne' set in a dark fantasy city."
 
@@ -247,15 +250,20 @@ Track the live state of the campaign and maintain a detailed adventure log acros
 
 **Example:** "Log a quest event: 'The party accepted the dragon-slaying quest from Durgan' at importance 4."
 
-### Combat (5 tools)
+### Combat (10 tools)
 
-Full combat encounter management with initiative tracking, turn advancement, and XP calculation.
+Full combat encounter management with initiative tracking, turn advancement, attack/spell resolution, active effects, tactical maps, and XP calculation.
 
 | Tool | Description |
 |------|-------------|
 | `start_combat` | Start a combat encounter with participants and initiative order; validates against known characters/NPCs |
 | `next_turn` | Advance to the next turn; automatically skips dead/incapacitated participants |
 | `end_combat` | End combat and show summary (participants, casualties) |
+| `combat_action` | Resolve an attack, spell, or ability: rolls to hit, damage, saving throws, and applies results |
+| `build_encounter` | Generate a balanced encounter using XP budget guidelines based on party size and level |
+| `show_map` | Render an ASCII tactical map with character positions, terrain, and AoE overlays |
+| `apply_effect` | Add a buff, debuff, or condition to a character with duration tracking and stat modifiers |
+| `remove_effect` | Remove an active effect by name or ID |
 | `roll_dice` | Roll dice with D&D notation (e.g., `1d20`, `3d6+2`); supports advantage/disadvantage and context labels |
 | `calculate_experience` | Calculate XP distribution for an encounter based on party size, level, and encounter XP value |
 
@@ -311,6 +319,63 @@ A complete AI DM system for solo D&D play. Configurable narrative style, difficu
 | `player_action` | Submit a natural language action (exploration, social, combat); the AI DM resolves it and narrates the result |
 
 **Example:** "Configure Claudmaster with dramatic narrative style, hard difficulty, and high improvisation. Then start a session for 'Curse of the Crimson Throne'."
+
+### Adventure Modules (2 tools)
+
+Discover and load pre-built D&D adventure modules for use with the AI DM.
+
+| Tool | Description |
+|------|-------------|
+| `discover_adventures` | Search for available adventure modules compatible with the current campaign |
+| `load_adventure` | Load a D&D adventure module into the current campaign, importing its locations, NPCs, quests, and encounters |
+
+**Example:** "Discover adventures suitable for a level 3 party, then load 'Lost Mine of Phandelver'."
+
+### Character Sheets (4 tools)
+
+Bidirectional sync between character JSON data and human-readable Markdown sheets. Edit sheets in Obsidian or any editor; changes are parsed, diffed, and classified by editability tier.
+
+| Tool | Description |
+|------|-------------|
+| `export_character_sheet` | Generate a Markdown character sheet with YAML frontmatter from a character's JSON data |
+| `sync_all_sheets` | Regenerate all character sheets for the current campaign |
+| `check_sheet_changes` | Detect and classify changes made to Markdown sheets (player_free, player_approval, dm_only) |
+| `approve_sheet_change` | DM approves a pending player-submitted sheet change |
+
+**Example:** "Export Thalion's character sheet, then check if the player made any edits."
+
+### Compendium Packs (4 tools)
+
+Export and import campaign content as portable JSON packs. Share NPCs, locations, quests, and encounters between campaigns with conflict resolution.
+
+| Tool | Description |
+|------|-------------|
+| `export_pack` | Export campaign entities to a portable JSON pack file; supports selective export by type, location, tags, or full backup |
+| `import_pack` | Import a pack into the current campaign with conflict resolution (skip, overwrite, rename) and optional preview mode |
+| `list_packs` | List all available packs in the campaign's packs directory with metadata |
+| `validate_pack` | Validate a pack file's schema and integrity without importing |
+
+**Example:** "Export all NPCs and locations from Waterdeep as a pack, then import it into the new campaign with rename conflict mode."
+
+### Discovery and Knowledge (1 tool)
+
+Track what the party collectively knows about the world. Integrates with the Fog of War discovery system and NPC knowledge sharing.
+
+| Tool | Description |
+|------|-------------|
+| `party_knowledge` | Query what the party knows about a topic (NPC, location, quest, lore) with optional source and method filters |
+
+**Example:** "What does the party know about the dragon's lair?"
+
+### Multi-User Session (1 tool)
+
+DM-to-player private messaging for group play sessions. Works with the role-based permission system (DM, Player, Observer).
+
+| Tool | Description |
+|------|-------------|
+| `send_private_message` | Send a private message from the DM to a specific player (visible only to recipient) |
+
+**Example:** "Send a private message to the rogue: 'You notice the merchant palming a small vial under the table.'"
 
 ---
 
