@@ -1,8 +1,8 @@
 ---
 name: adventure-module-integration
-status: in_progress
+status: completed
 created: 2026-02-16T00:47:37Z
-progress: 20%
+progress: 100%
 prd: .claude/prds/adventure-module-integration.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/125
 ---

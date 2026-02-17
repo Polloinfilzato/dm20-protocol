@@ -461,6 +461,104 @@ class ArbiterAgent(Agent):
 
         return "\n".join(context_lines)
 
+    async def resolve_npc_action(
+        self,
+        attacker: Any,
+        target: Any,
+        weapon: Any = None,
+    ) -> dict[str, Any]:
+        """Resolve an NPC combat action using the combat pipeline.
+
+        Uses the structured combat pipeline (resolve_attack) for mechanical
+        resolution instead of LLM-based adjudication. This provides deterministic,
+        rules-accurate NPC attacks during combat.
+
+        Args:
+            attacker: The NPC Character object performing the attack.
+            target: The target Character object.
+            weapon: Optional weapon Item. If None, uses attacker's main weapon.
+
+        Returns:
+            Dict with keys:
+                - 'result': The CombatResult object
+                - 'summary': Human-readable mechanical summary
+                - 'narrative_hooks': List of brief descriptions for the Narrator
+                - 'state_changes': List of StateChange objects to apply
+        """
+        try:
+            from dm20_protocol.combat.pipeline import resolve_attack, CombatResult
+
+            combat_result = resolve_attack(
+                attacker=attacker,
+                target=target,
+                weapon=weapon,
+            )
+
+            # Build mechanical summary
+            summary_parts = []
+            if combat_result.hit:
+                if combat_result.critical:
+                    summary_parts.append(f"Critical hit! {attacker.name} strikes {target.name}.")
+                else:
+                    summary_parts.append(f"Hit! {attacker.name} hits {target.name}.")
+                summary_parts.append(
+                    f"Attack roll: {combat_result.attack_roll_total} vs AC {combat_result.target_ac}."
+                )
+                if combat_result.damage > 0:
+                    summary_parts.append(
+                        f"Damage: {combat_result.damage} {combat_result.damage_type}."
+                    )
+            else:
+                summary_parts.append(f"Miss! {attacker.name} misses {target.name}.")
+                summary_parts.append(
+                    f"Attack roll: {combat_result.attack_roll_total} vs AC {combat_result.target_ac}."
+                )
+
+            # Build narrative hooks for the Narrator agent
+            narrative_hooks = []
+            if combat_result.critical:
+                narrative_hooks.append(
+                    f"{attacker.name} delivers a devastating critical strike against {target.name}."
+                )
+            elif combat_result.hit and combat_result.damage > 0:
+                narrative_hooks.append(
+                    f"{attacker.name}'s attack connects with {target.name} for "
+                    f"{combat_result.damage} {combat_result.damage_type} damage."
+                )
+            elif not combat_result.hit:
+                narrative_hooks.append(
+                    f"{target.name} evades {attacker.name}'s attack."
+                )
+
+            for effect in combat_result.effects_triggered:
+                narrative_hooks.append(effect)
+
+            # Build state changes
+            state_changes = []
+            if combat_result.hit and combat_result.damage > 0:
+                state_changes.append(StateChange(
+                    target=target.name,
+                    change_type="hp",
+                    description=f"{target.name} takes {combat_result.damage} {combat_result.damage_type} damage",
+                    value=-combat_result.damage,
+                ))
+
+            return {
+                "result": combat_result,
+                "summary": " ".join(summary_parts),
+                "narrative_hooks": narrative_hooks,
+                "state_changes": state_changes,
+            }
+
+        except ImportError:
+            logger.warning("Combat pipeline not available for NPC action resolution")
+            return {
+                "result": None,
+                "summary": "Combat pipeline not available.",
+                "narrative_hooks": [],
+                "state_changes": [],
+            }
+
     def _get_rules_context(self, action_type: str) -> str:
         """Get relevant rules context for the action type.
 

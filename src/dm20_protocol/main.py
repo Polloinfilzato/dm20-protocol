@@ -1531,6 +1531,33 @@ def next_turn() -> str:
         return "No initiative order set."
 
     num_participants = len(game_state.initiative_order)
+    effect_messages = []
+
+    # Tick effects on the character whose turn just ended
+    if game_state.current_turn:
+        ending_char = storage.get_character(game_state.current_turn)
+        if ending_char and ending_char.active_effects:
+            try:
+                from .combat.effects import EffectsEngine
+                expired = EffectsEngine.tick_effects(ending_char, event="turn")
+                if expired:
+                    expired_names = ", ".join(e.name for e in expired)
+                    effect_messages.append(
+                        f"Effects expired on {ending_char.name}: {expired_names}"
+                    )
+                # Report remaining timed effects
+                for eff in ending_char.active_effects:
+                    if eff.duration_type == "rounds" and eff.duration_remaining is not None:
+                        effect_messages.append(
+                            f"  {eff.name}: {eff.duration_remaining} round(s) remaining"
+                        )
+                # Persist effect changes
+                storage.update_character(
+                    game_state.current_turn,
+                    active_effects=ending_char.active_effects,
+                )
+            except ImportError:
+                pass  # Combat module not available, skip effect ticking
 
     # Find current turn index and advance
     current_index = 0
@@ -1558,6 +1585,8 @@ def next_turn() -> str:
         result = f"**Next Turn:** {candidate_name}"
         if skipped:
             result += f"\n(Skipped dead/incapacitated: {', '.join(skipped)})"
+        if effect_messages:
+            result += "\n" + "\n".join(effect_messages)
         return result
 
     # All participants are dead or incapacitated - end combat
@@ -1567,6 +1596,493 @@ def next_turn() -> str:
         current_turn=None
     )
     return "All remaining participants are dead or incapacitated. **Combat ended automatically.**"
+
+
+# ----------------------------------------------------------------------
+# Advanced Combat Tools (pipeline, effects, encounter builder, map)
+# ----------------------------------------------------------------------
+
+def _format_combat_result(result) -> str:
+    """Format a CombatResult into a human-readable chat string."""
+    lines = []
+
+    # Header
+    if result.hit:
+        if result.critical:
+            lines.append(f"**CRITICAL HIT!** {result.attacker_name} strikes {result.target_name}!")
+        else:
+            lines.append(f"**Hit!** {result.attacker_name} hits {result.target_name}.")
+    else:
+        if result.auto_miss:
+            lines.append(f"**Natural 1!** {result.attacker_name} misses {result.target_name}.")
+        else:
+            lines.append(f"**Miss.** {result.attacker_name} misses {result.target_name}.")
+
+    # Attack roll details
+    adv_text = ""
+    if result.had_advantage:
+        adv_text = " (advantage)"
+    elif result.had_disadvantage:
+        adv_text = " (disadvantage)"
+    rolls_text = ", ".join(str(r) for r in result.all_d20_rolls)
+    lines.append(
+        f"Attack: [{rolls_text}]{adv_text} + {result.attack_modifier} = "
+        f"{result.attack_roll_total} vs AC {result.target_ac}"
+    )
+
+    # Damage details (on hit, including immunity where raw_damage > 0 but final is 0)
+    if result.hit and (result.damage > 0 or result.raw_damage > 0):
+        dice_text = ", ".join(str(d) for d in result.damage_dice_results)
+        lines.append(
+            f"Damage: [{dice_text}] + {result.damage_modifier} = "
+            f"{result.raw_damage} {result.damage_type}"
+        )
+        if result.resistance_applied:
+            lines.append(f"  Resistance applied: {result.damage} damage dealt")
+        elif result.vulnerability_applied:
+            lines.append(f"  Vulnerability applied: {result.damage} damage dealt")
+        elif result.immunity_applied:
+            lines.append("  Immune! 0 damage dealt")
+        elif result.raw_damage != result.damage:
+            lines.append(f"  Final damage: {result.damage}")
+
+        # Bonus dice
+        if result.bonus_dice_results:
+            for source, rolls in result.bonus_dice_results.items():
+                rolls_str = ", ".join(str(r) for r in rolls)
+                lines.append(f"  + {source}: [{rolls_str}]")
+
+    # Triggered effects
+    for effect in result.effects_triggered:
+        lines.append(f"  > {effect}")
+
+    return "\n".join(lines)
+
+
+def _format_spell_save_result(result) -> str:
+    """Format a SpellSaveResult into a human-readable chat string."""
+    lines = []
+
+    if result.saved:
+        lines.append(f"**{result.target_name} saves!**")
+    else:
+        lines.append(f"**{result.target_name} fails the save!**")
+
+    adv_text = ""
+    if result.had_advantage:
+        adv_text = " (advantage)"
+    elif result.had_disadvantage:
+        adv_text = " (disadvantage)"
+    rolls_text = ", ".join(str(r) for r in result.all_d20_rolls)
+    lines.append(
+        f"{result.save_ability.capitalize()} save: [{rolls_text}]{adv_text} + "
+        f"{result.save_modifier} = {result.save_roll_total} vs DC {result.save_dc}"
+    )
+
+    if result.damage > 0:
+        lines.append(f"Damage: {result.damage} {result.damage_type}")
+        if result.half_on_save and result.saved:
+            lines.append(f"  (half damage on save, raw: {result.raw_damage})")
+
+    for effect in result.effects_triggered:
+        lines.append(f"  > {effect}")
+
+    return "\n".join(lines)
+
+
+def _format_encounter_suggestion(suggestion) -> str:
+    """Format an EncounterSuggestion into a human-readable chat string."""
+    lines = []
+    lines.append(f"**Encounter Builder** ({suggestion.requested_difficulty.upper()})")
+    lines.append(f"Party: {suggestion.party_size} characters (levels {suggestion.party_levels})")
+    lines.append(f"XP Budget: {suggestion.xp_budget}")
+    lines.append("")
+
+    # Thresholds
+    thresh = suggestion.thresholds
+    lines.append(
+        f"Thresholds: Easy {thresh['easy']} | Medium {thresh['medium']} | "
+        f"Hard {thresh['hard']} | Deadly {thresh['deadly']}"
+    )
+    lines.append("")
+
+    if not suggestion.compositions:
+        lines.append("No compositions found within budget.")
+    else:
+        for i, comp in enumerate(suggestion.compositions, 1):
+            lines.append(f"**Option {i}: {comp.strategy_description}**")
+            for group in comp.monster_groups:
+                lines.append(
+                    f"  - {group.count}x {group.monster_name} "
+                    f"(CR {group.challenge_rating}, {group.xp_per_monster} XP each)"
+                )
+            lines.append(
+                f"  Total: {comp.total_monsters} monsters, "
+                f"{comp.base_xp} base XP x{comp.encounter_multiplier} = "
+                f"{comp.adjusted_xp} adjusted XP ({comp.actual_difficulty})"
+            )
+            lines.append("")
+
+    for note in suggestion.notes:
+        lines.append(f"Note: {note}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def combat_action(
+    attacker: Annotated[str, Field(description="Name of the attacking character or NPC")],
+    target: Annotated[str, Field(description="Name of the target character or NPC")],
+    action_type: Annotated[str, Field(description="Action type: 'attack' for weapon/melee/ranged, 'save_spell' for saving throw spells")] = "attack",
+    weapon_or_spell: Annotated[str | None, Field(description="Weapon name (from inventory) or spell name. None uses equipped main weapon.")] = None,
+    damage_dice: Annotated[str | None, Field(description="Override damage dice (e.g., '8d6' for fireball). Only for save_spell actions.")] = None,
+    damage_type: Annotated[str | None, Field(description="Damage type (e.g., 'fire', 'slashing'). Only for save_spell actions.")] = None,
+    save_ability: Annotated[str | None, Field(description="Saving throw ability (e.g., 'dexterity'). Required for save_spell actions.")] = None,
+    half_on_save: Annotated[bool, Field(description="Whether successful save deals half damage. Only for save_spell actions.")] = False,
+    spell_dc: Annotated[int | None, Field(description="Override spell save DC. Only for save_spell actions.")] = None,
+) -> str:
+    """Resolve a combat action via the pipeline, apply results, and return a formatted outcome.
+
+    Supports weapon attacks (melee/ranged) and saving throw spells. Automatically
+    applies damage to the target's HP, triggers concentration checks, and reports
+    the full mechanical outcome. This is additive -- it does not replace manual
+    roll_dice workflows.
+    """
+    try:
+        from .combat.pipeline import resolve_attack, resolve_save_spell
+        from .combat.concentration import ConcentrationTracker
+    except ImportError:
+        return "Combat pipeline not available. Ensure the combat module is installed."
+
+    # Resolve attacker character
+    attacker_char = storage.get_character(attacker)
+    if not attacker_char:
+        return f"Attacker '{attacker}' not found. Must be a character in the current campaign."
+
+    # Resolve target character
+    target_char = storage.get_character(target)
+    if not target_char:
+        return f"Target '{target}' not found. Must be a character in the current campaign."
+
+    if action_type == "save_spell":
+        # Saving throw spell resolution
+        if not save_ability:
+            return "save_ability is required for save_spell actions (e.g., 'dexterity')."
+
+        results = resolve_save_spell(
+            caster=attacker_char,
+            targets=[target_char],
+            save_ability=save_ability,
+            damage_dice=damage_dice,
+            damage_type=damage_type or "",
+            half_on_save=half_on_save,
+            spell_dc=spell_dc,
+        )
+
+        output_lines = []
+        for spell_result in results:
+            # Apply damage to target
+            if spell_result.damage > 0:
+                # Absorb temp HP first
+                remaining_damage = spell_result.damage
+                if target_char.temporary_hit_points > 0:
+                    absorbed = min(target_char.temporary_hit_points, remaining_damage)
+                    target_char.temporary_hit_points -= absorbed
+                    remaining_damage -= absorbed
+
+                target_char.hit_points_current = max(0, target_char.hit_points_current - remaining_damage)
+
+                # Trigger concentration check
+                if spell_result.concentration_check_dc is not None:
+                    conc_result = ConcentrationTracker.check_concentration(
+                        target_char, spell_result.damage
+                    )
+                    if conc_result:
+                        output_lines.append(conc_result.detail)
+
+            output_lines.append(_format_spell_save_result(spell_result))
+            output_lines.append(f"  {target_char.name}: {target_char.hit_points_current}/{target_char.hit_points_max} HP")
+
+        # Persist changes
+        storage.update_character(target, hit_points_current=target_char.hit_points_current,
+                                 temporary_hit_points=target_char.temporary_hit_points,
+                                 active_effects=target_char.active_effects,
+                                 concentration=target_char.concentration)
+
+        return "\n".join(output_lines)
+
+    else:
+        # Weapon attack resolution
+        weapon_item = None
+        if weapon_or_spell:
+            # Search inventory for the weapon
+            for item in attacker_char.inventory:
+                if item.name.lower() == weapon_or_spell.lower():
+                    weapon_item = item
+                    break
+            # Also check equipped weapons
+            if not weapon_item:
+                for slot, eq_item in attacker_char.equipment.items():
+                    if eq_item and eq_item.name.lower() == weapon_or_spell.lower():
+                        weapon_item = eq_item
+                        break
+            if not weapon_item:
+                return f"Weapon '{weapon_or_spell}' not found in {attacker}'s inventory or equipment."
+
+        result = resolve_attack(
+            attacker=attacker_char,
+            target=target_char,
+            weapon=weapon_item,
+        )
+
+        output_lines = [_format_combat_result(result)]
+
+        # Apply damage to target
+        if result.hit and result.damage > 0:
+            remaining_damage = result.damage
+            if target_char.temporary_hit_points > 0:
+                absorbed = min(target_char.temporary_hit_points, remaining_damage)
+                target_char.temporary_hit_points -= absorbed
+                remaining_damage -= absorbed
+
+            target_char.hit_points_current = max(0, target_char.hit_points_current - remaining_damage)
+
+            # Trigger concentration check
+            if result.concentration_check_dc is not None:
+                conc_result = ConcentrationTracker.check_concentration(
+                    target_char, result.damage
+                )
+                if conc_result:
+                    output_lines.append(conc_result.detail)
+
+            # Check auto-break (HP dropped to 0)
+            if target_char.hit_points_current <= 0:
+                auto_break = ConcentrationTracker.check_auto_break(target_char)
+                if auto_break:
+                    output_lines.append(auto_break["detail"])
+
+            output_lines.append(f"{target_char.name}: {target_char.hit_points_current}/{target_char.hit_points_max} HP")
+
+            # Persist changes
+            storage.update_character(target, hit_points_current=target_char.hit_points_current,
+                                     temporary_hit_points=target_char.temporary_hit_points,
+                                     active_effects=target_char.active_effects,
+                                     concentration=target_char.concentration)
+
+        return "\n".join(output_lines)
+
+
+@mcp.tool
+def build_encounter_tool(
+    party_size: Annotated[int, Field(description="Number of party members", ge=1)],
+    party_level: Annotated[int, Field(description="Average party level", ge=1, le=20)],
+    difficulty: Annotated[str, Field(description="Encounter difficulty: 'easy', 'medium', 'hard', 'deadly'")] = "medium",
+    creature_type: Annotated[str | None, Field(description="Optional creature type filter (e.g., 'undead', 'beast')")] = None,
+    environment: Annotated[str | None, Field(description="Optional environment filter (e.g., 'forest', 'cave')")] = None,
+) -> str:
+    """Return encounter suggestions with monster compositions based on party size, level, and difficulty.
+
+    Uses the D&D 5e encounter building rules (DMG Chapter 3) to calculate XP budgets
+    and suggest balanced encounters. When rulebooks are loaded, suggests specific monsters.
+    """
+    try:
+        from .combat.encounter_builder import build_encounter
+    except ImportError:
+        return "Encounter builder not available. Ensure the combat module is installed."
+
+    party_levels = [party_level] * party_size
+
+    suggestion = build_encounter(
+        party_levels=party_levels,
+        difficulty=difficulty,
+        rulebook_manager=storage.rulebook_manager if hasattr(storage, 'rulebook_manager') else None,
+        creature_type=creature_type,
+        environment=environment,
+    )
+
+    return _format_encounter_suggestion(suggestion)
+
+
+@mcp.tool
+def show_map(
+    highlight_aoe: Annotated[str | None, Field(description="Optional AoE description to highlight (e.g., 'sphere 20ft at 5,5')")] = None,
+) -> str:
+    """Render the current tactical map as ASCII art.
+
+    Shows positions of all combat participants on a grid. Returns
+    'No tactical map active' if no positions are set or no combat is active.
+    """
+    game_state = storage.get_game_state()
+    if not game_state or not game_state.in_combat:
+        return "No tactical map active. Start combat first with start_combat."
+
+    if not game_state.initiative_order:
+        return "No participants in combat."
+
+    # Collect character positions
+    positions = {}
+    has_any_position = False
+    for participant in game_state.initiative_order:
+        p_name = participant.get("name", "")
+        if p_name:
+            char = storage.get_character(p_name)
+            if char and hasattr(char, 'position') and char.position is not None:
+                positions[p_name] = char.position
+                has_any_position = True
+
+    if not has_any_position:
+        return (
+            "No tactical map active. No participants have positions set.\n"
+            "Use update_character to set position coordinates for grid-based combat."
+        )
+
+    # Try to use ASCII map renderer if available
+    try:
+        from .combat.ascii_map import AsciiMapRenderer, TacticalGrid
+        grid = TacticalGrid()
+        for name, pos in positions.items():
+            grid.add_participant(name, pos)
+        renderer = AsciiMapRenderer(grid)
+        return renderer.render()
+    except ImportError:
+        pass
+
+    # Fallback: simple text-based position list
+    lines = ["**Tactical Positions:**", ""]
+    for p_name, pos in positions.items():
+        lines.append(f"  {p_name}: ({pos.x}, {pos.y}) [{pos.x * 5}ft, {pos.y * 5}ft]")
+
+    if game_state.current_turn:
+        lines.append("")
+        lines.append(f"**Current Turn:** {game_state.current_turn}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def apply_effect(
+    character_name: Annotated[str, Field(description="Name of the character to apply the effect to")],
+    effect_name: Annotated[str, Field(description="Effect name (SRD condition like 'blinded', 'poisoned', or custom name)")],
+    source: Annotated[str | None, Field(description="Source of the effect (e.g., 'Poison trap', 'Hold Person spell')")] = None,
+    duration: Annotated[int | None, Field(description="Duration in rounds. None for permanent effects.")] = None,
+    custom_modifiers: Annotated[str | None, Field(description="JSON list of custom modifiers, e.g. '[{\"stat\":\"attack_roll\",\"operation\":\"add\",\"value\":2}]'")] = None,
+) -> str:
+    """Apply an ActiveEffect to a character (SRD condition or custom effect).
+
+    For SRD conditions (blinded, charmed, deafened, exhaustion, frightened,
+    grappled, incapacitated, invisible, paralyzed, petrified, poisoned,
+    prone, restrained, stunned), uses the standard condition template.
+
+    For custom effects, creates a new ActiveEffect with the provided modifiers.
+    """
+    from .combat.effects import EffectsEngine, SRD_CONDITIONS
+    from .models import ActiveEffect as ActiveEffectModel, Modifier as ModifierModel
+
+    character = storage.get_character(character_name)
+    if not character:
+        return f"Character '{character_name}' not found."
+
+    effect_key = effect_name.lower()
+
+    if effect_key in SRD_CONDITIONS:
+        # Apply SRD condition template
+        template = SRD_CONDITIONS[effect_key]
+        # Override duration if specified
+        from copy import deepcopy
+        effect = deepcopy(template)
+        if source:
+            effect.source = source
+        if duration is not None:
+            effect.duration_type = "rounds"
+            effect.duration_remaining = duration
+
+        applied = EffectsEngine.apply_effect(character, effect)
+
+        # Persist
+        storage.update_character(character_name, active_effects=character.active_effects)
+
+        dur_text = f" ({duration} rounds)" if duration else " (permanent)"
+        return (
+            f"Applied **{applied.name}** to {character.name}{dur_text}.\n"
+            f"Source: {applied.source}\n"
+            f"Effect ID: {applied.id}"
+        )
+    else:
+        # Custom effect
+        modifiers = []
+        if custom_modifiers:
+            try:
+                mod_data = json.loads(custom_modifiers)
+                modifiers = [ModifierModel(**m) for m in mod_data]
+            except (json.JSONDecodeError, Exception) as e:
+                return f"Invalid custom_modifiers JSON: {e}"
+
+        effect = ActiveEffectModel(
+            name=effect_name,
+            source=source or "Manual",
+            modifiers=modifiers,
+            duration_type="rounds" if duration is not None else "permanent",
+            duration_remaining=duration,
+        )
+
+        applied = EffectsEngine.apply_effect(character, effect)
+
+        # Persist
+        storage.update_character(character_name, active_effects=character.active_effects)
+
+        dur_text = f" ({duration} rounds)" if duration else " (permanent)"
+        mod_text = ""
+        if modifiers:
+            mod_text = "\nModifiers: " + ", ".join(
+                f"{m.stat} {m.operation} {m.value}" for m in modifiers
+            )
+        return (
+            f"Applied **{applied.name}** to {character.name}{dur_text}.\n"
+            f"Source: {applied.source}\n"
+            f"Effect ID: {applied.id}"
+            f"{mod_text}"
+        )
+
+
+@mcp.tool
+def remove_effect(
+    character_name: Annotated[str, Field(description="Name of the character to remove the effect from")],
+    effect_id_or_name: Annotated[str, Field(description="Effect ID (exact match) or effect name (removes all with that name)")],
+) -> str:
+    """Remove an active effect from a character by ID or name.
+
+    If an exact effect ID is provided, removes that specific instance.
+    If a name is provided, removes all effects with that name.
+    """
+    from .combat.effects import EffectsEngine
+
+    character = storage.get_character(character_name)
+    if not character:
+        return f"Character '{character_name}' not found."
+
+    if not character.active_effects:
+        return f"{character.name} has no active effects."
+
+    # Try by ID first
+    removed = EffectsEngine.remove_effect(character, effect_id_or_name)
+    if removed:
+        storage.update_character(character_name, active_effects=character.active_effects)
+        return f"Removed effect **{removed.name}** (ID: {removed.id}) from {character.name}."
+
+    # Try by name
+    removed_list = EffectsEngine.remove_effects_by_name(character, effect_id_or_name)
+    if removed_list:
+        storage.update_character(character_name, active_effects=character.active_effects)
+        names = ", ".join(f"{e.name} (ID: {e.id})" for e in removed_list)
+        return f"Removed {len(removed_list)} effect(s) from {character.name}: {names}"
+
+    # Nothing found
+    available = ", ".join(f"{e.name} ({e.id})" for e in character.active_effects)
+    return (
+        f"No effect matching '{effect_id_or_name}' found on {character.name}.\n"
+        f"Active effects: {available or 'none'}"
+    )
+
 
 # Session Management Tools
 @mcp.tool

@@ -1,8 +1,8 @@
 ---
 name: combat-mechanics-automation
-status: backlog
+status: completed
 created: 2026-02-16T23:28:02Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/combat-mechanics-automation.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/132
 ---

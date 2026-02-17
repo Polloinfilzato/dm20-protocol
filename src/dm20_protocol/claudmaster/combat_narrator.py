@@ -14,9 +14,12 @@ repetition and maintains immersion.
 
 import logging
 from enum import Enum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from dm20_protocol.combat.pipeline import CombatResult
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -566,6 +569,63 @@ class CombatNarrator:
         template_key = "death_player" if is_player else "death_npc"
         self._tracker.record(description, template_key)
         return description
+
+    async def narrate_combat_result(
+        self,
+        combat_result: "CombatResult",
+        target_hp_current: int,
+        target_hp_max: int,
+    ) -> str:
+        """Narrate a combat action from a structured CombatResult.
+
+        Accepts a CombatResult from the combat pipeline and generates
+        appropriate narrative by delegating to the existing narrate_attack
+        and narrate_damage methods. This provides a single entry point
+        for pipeline-driven narration.
+
+        Args:
+            combat_result: A CombatResult from combat.pipeline.resolve_attack().
+            target_hp_current: Target's HP after damage was applied.
+            target_hp_max: Target's maximum HP.
+
+        Returns:
+            Generated narrative text combining attack and damage narration.
+        """
+        # Determine weapon description from context
+        weapon = "their weapon"
+
+        # Narrate the attack
+        attack_text = await self.narrate_attack(
+            attacker=combat_result.attacker_name,
+            defender=combat_result.target_name,
+            weapon=weapon,
+            roll=combat_result.attack_roll_total,
+            hit=combat_result.hit,
+            critical=combat_result.critical,
+            fumble=combat_result.auto_miss,
+        )
+
+        # If the attack hit and dealt damage, narrate the damage
+        if combat_result.hit and combat_result.damage > 0:
+            damage_text = await self.narrate_damage(
+                target=combat_result.target_name,
+                damage=combat_result.damage,
+                damage_type=combat_result.damage_type,
+                current_hp=target_hp_current,
+                max_hp=target_hp_max,
+            )
+
+            # Check for unconsciousness
+            if combat_result.target_dropped_to_zero:
+                unconscious_text = await self.narrate_unconscious(
+                    character=combat_result.target_name,
+                    cause=f"{combat_result.damage} {combat_result.damage_type} damage from {combat_result.attacker_name}",
+                )
+                return f"{attack_text}\n\n{damage_text}\n\n{unconscious_text}"
+
+            return f"{attack_text}\n\n{damage_text}"
+
+        return attack_text
 
     async def narrate_unconscious(
         self,

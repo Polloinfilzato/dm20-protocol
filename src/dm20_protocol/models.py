@@ -204,6 +204,93 @@ class Feature(BaseModel):
     level_gained: int = 1
 
 
+class Modifier(BaseModel):
+    """A single stat modifier within an active effect.
+
+    Represents a change to a character's stat, such as +2 to attack rolls
+    or setting speed to 0.
+
+    Attributes:
+        stat: The stat being modified (e.g., "attack_roll", "armor_class", "strength", "speed").
+        operation: How the modifier applies: "add" (additive), "set" (override), "dice" (extra dice roll).
+        value: The modifier value. For "add"/"set", an integer. For "dice", a dice notation string like "1d4".
+    """
+    stat: str = Field(description="The stat being modified (e.g., 'attack_roll', 'armor_class', 'strength')")
+    operation: str = Field(
+        default="add",
+        description="How the modifier applies: 'add' (additive), 'set' (override), 'dice' (extra dice)"
+    )
+    value: int | str = Field(
+        description="Modifier value: int for add/set, dice notation string (e.g., '1d4') for dice operation"
+    )
+
+
+class ActiveEffect(BaseModel):
+    """An active effect on a character (buff, debuff, condition, spell effect).
+
+    Represents a temporary or permanent modification to a character's stats,
+    capabilities, or state. Effects can grant advantage/disadvantage, modify
+    stats, grant immunities, and have tracked durations.
+
+    Attributes:
+        id: Unique identifier for this effect instance.
+        name: Display name of the effect (e.g., "Bless", "Blinded").
+        source: What caused this effect (e.g., "Bless spell", "Poison trap").
+        modifiers: List of stat modifiers this effect applies.
+        duration_type: How duration is tracked: "rounds", "minutes", "concentration", "permanent".
+        duration_remaining: Remaining duration in rounds/minutes. None for concentration/permanent.
+        grants_advantage: List of check types this effect grants advantage on.
+        grants_disadvantage: List of check types this effect grants disadvantage on.
+        immunities: List of damage types or conditions this effect grants immunity to.
+        stackable: Whether multiple instances of the same-named effect can coexist.
+    """
+    id: str = Field(default_factory=lambda: random(length=8))
+    name: str
+    source: str = ""
+    modifiers: list[Modifier] = Field(default_factory=list)
+    duration_type: str = Field(
+        default="permanent",
+        description="Duration tracking: 'rounds', 'minutes', 'concentration', 'permanent'"
+    )
+    duration_remaining: int | None = Field(
+        default=None,
+        description="Remaining duration in rounds/minutes. None for concentration/permanent."
+    )
+    grants_advantage: list[str] = Field(
+        default_factory=list,
+        description="Check types this effect grants advantage on (e.g., ['attack_roll', 'dexterity_save'])"
+    )
+    grants_disadvantage: list[str] = Field(
+        default_factory=list,
+        description="Check types this effect grants disadvantage on (e.g., ['attack_roll', 'ability_check'])"
+    )
+    immunities: list[str] = Field(
+        default_factory=list,
+        description="Damage types or conditions this grants immunity to"
+    )
+    stackable: bool = Field(
+        default=False,
+        description="Whether multiple instances of same-named effect can coexist"
+    )
+
+
+class ConcentrationState(BaseModel):
+    """Tracks a character's active concentration on a spell.
+
+    When a character is concentrating on a spell, this model records the spell
+    name, the IDs of any ActiveEffects that should be removed when concentration
+    breaks, and the round when concentration started.
+
+    Attributes:
+        spell_name: The name of the spell being concentrated on.
+        effect_ids: IDs of ActiveEffects to remove when concentration breaks.
+        started_round: The combat round when concentration began (0 if out of combat).
+    """
+    spell_name: str
+    effect_ids: list[str] = Field(default_factory=list)
+    started_round: int = 0
+
+
 class Character(BaseModel):
     """Complete character sheet."""
     # Basic Info
@@ -243,6 +330,18 @@ class Character(BaseModel):
     death_saves_success: int = Field(ge=0, le=3, default=0)
     death_saves_failure: int = Field(ge=0, le=3, default=0)
     conditions: list[str] = Field(default_factory=list)
+    active_effects: list[ActiveEffect] = Field(
+        default_factory=list,
+        description="Active effects (buffs, debuffs, conditions) currently on this character"
+    )
+    concentration: "ConcentrationState | None" = Field(
+        default=None,
+        description="Current concentration state. None if not concentrating."
+    )
+    position: "Position | None" = Field(
+        default=None,
+        description="Grid position in combat (5ft per square). None when not in grid combat."
+    )
 
     # Skills & Proficiencies
     proficiency_bonus: int = 2
@@ -432,6 +531,13 @@ class AdventureEvent(BaseModel):
     tags: list[str] = Field(default_factory=list)
     importance: int = Field(ge=1, le=5, default=3)  # 1=minor, 5=major
 
+# Deferred import for Position to avoid circular dependency.
+# Position is defined in combat.positioning but referenced as a forward-ref
+# string annotation ("Position | None") on Character.position.
+from dm20_protocol.combat.positioning import Position  # noqa: E402
+
+Character.model_rebuild()
+
 __all__ = [
     "AbilityScore",
     "CharacterClass",
@@ -439,6 +545,9 @@ __all__ = [
     "Item",
     "Spell",
     "Feature",
+    "Modifier",
+    "ActiveEffect",
+    "ConcentrationState",
     "Character",
     "NPC",
     "Location",
@@ -449,5 +558,6 @@ __all__ = [
     "Campaign",
     "EventType",
     "AdventureEvent",
-    "GameStats"
+    "GameStats",
+    "Position",
 ]
