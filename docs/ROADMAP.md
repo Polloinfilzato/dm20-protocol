@@ -80,6 +80,7 @@ Improvements that make the overall experience smoother for daily use.
 
 Realistic next steps beyond the current phase plan:
 
+- **Party Mode** — Multi-player web relay: lightweight web server on the host machine lets N players connect via browser (phone/tablet/PC) with QR code authentication. Phase 2A (host-driven, zero extra cost) → Phase 2B (autonomous Claudmaster via Claude API). See [PARTY_MODE.md](PARTY_MODE.md) for full architecture
 - **PyPI distribution** — Publish as a pip/uvx-installable package (`uvx dm20-protocol`) for zero-setup installation
 - **Module playtesting** — Validate the PDF library pipeline with real published adventures (Lost Mine of Phandelver, Curse of Strahd)
 - **Narrative quality tuning** — Style calibration for different DM personas (gritty realism, high fantasy, comedic)
