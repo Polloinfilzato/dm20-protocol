@@ -17,6 +17,7 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **Level-Up & Progression** — Automatic HP, class features, spell slots, ASI/feats on level-up
 - **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, death saves
 - **Sheet Sync** — Bidirectional Markdown↔JSON sync: edit YAML frontmatter in Obsidian or any editor, DM approves changes
+- **D&D Beyond Import** — Import characters from D&D Beyond (URL or JSON file)
 - **Rest & Recovery** — Long rest, short rest with hit dice, spell slot management, death saves
 - **NPCs & Locations** — Rich world-building with relationships and connections
 - **Quest Tracking** — Objectives, status, rewards, and branching paths
@@ -31,7 +32,7 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **Session Notes** — Per-session summaries, XP, loot, attendance
 - **Adventure Log** — Searchable timeline of all campaign events
 - **Dice & Utilities** — Rolls, XP calculations, rules lookup
-- **84 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
+- **86 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
 
 ## Installation
 
@@ -180,7 +181,7 @@ Create a quest called "The Missing Amulet" given by Marta
 
 The AI will use DM20's tools automatically — no special syntax needed. Just describe what you want in plain English. With a rulebook loaded, the Character Builder auto-populates HP, proficiencies, features, equipment, and spell slots from official rules.
 
-For the full list of 84 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
+For the full list of 86 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
 
 ## Playing the Game
 
