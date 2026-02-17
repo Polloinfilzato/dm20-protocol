@@ -26,7 +26,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import uvicorn
 from starlette.applications import Starlette
@@ -48,6 +48,9 @@ from dm20_protocol.storage import DnDStorage
 from . import bridge
 from .auth import TokenManager, detect_host_ip
 from .queue import ActionQueue, ResponseQueue
+
+if TYPE_CHECKING:
+    from dm20_protocol.claudmaster.turn_manager import TurnManager
 
 logger = logging.getLogger("dm20-protocol.party")
 
@@ -248,6 +251,40 @@ class ConnectionManager:
 
         return total_sent
 
+    async def broadcast_combat_state(
+        self,
+        turn_manager: "TurnManager",
+        storage: DnDStorage,
+        permission_resolver: PermissionResolver,
+    ) -> int:
+        """
+        Broadcast personalized combat state to all connected players.
+
+        Each player receives their own view with ``your_turn`` set
+        correctly for their character.
+
+        Args:
+            turn_manager: Active TurnManager instance
+            storage: Campaign storage for character data lookups
+            permission_resolver: Used to determine player roles
+
+        Returns:
+            Total number of WebSocket sends
+        """
+        with self._lock:
+            player_ids = list(self._connections.keys())
+
+        total_sent = 0
+        for player_id in player_ids:
+            combat_msg = bridge.get_combat_state(
+                player_id, turn_manager, storage
+            )
+            if combat_msg is not None:
+                sent = await self.send_to_player(player_id, combat_msg)
+                total_sent += sent
+
+        return total_sent
+
     async def handle_reconnect(
         self,
         player_id: str,
@@ -364,6 +401,9 @@ class PartyServer:
         self.host = host
         self.port = port
         self.start_time = datetime.now()
+
+        # TurnManager reference — set externally when combat starts
+        self.turn_manager: Optional["TurnManager"] = None
 
         # Event loop reference (set when server thread starts)
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -488,6 +528,11 @@ class PartyServer:
         if not player_id:
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+        # Turn gating: reject if combat is active and not this player's turn
+        gate_error = self._check_turn_gate(player_id)
+        if gate_error:
+            return JSONResponse({"error": gate_error}, status_code=403)
+
         try:
             body = await request.json()
             action_text = body.get("action", "")
@@ -594,6 +639,72 @@ class PartyServer:
             "active_pcs": len(self.pc_registry.get_all_active()),
         })
 
+    def broadcast_combat_update(self) -> None:
+        """
+        Schedule a combat state broadcast from any thread.
+
+        Thread-safe method that bridges to the server's event loop.
+        Call this whenever combat state changes (turn advance, combat
+        start/end) so all connected players receive an immediate update.
+        """
+        if not self._loop or self._loop.is_closed():
+            logger.warning("No event loop available for combat broadcast")
+            return
+
+        if self.turn_manager is None:
+            return
+
+        turn_mgr = self.turn_manager
+        storage = self.storage
+        perm = self.permission_resolver
+
+        async def _do_combat_broadcast() -> None:
+            await self.connection_manager.broadcast_combat_state(
+                turn_mgr, storage, perm
+            )
+
+        try:
+            asyncio.run_coroutine_threadsafe(_do_combat_broadcast(), self._loop)
+        except RuntimeError as e:
+            logger.error(f"Failed to schedule combat broadcast: {e}")
+
+    def _check_turn_gate(self, player_id: str) -> Optional[str]:
+        """
+        Check if a player is allowed to submit an action based on
+        combat turn gating.
+
+        If combat is not active or no TurnManager is set, actions are
+        always allowed (returns None). During turn-based combat, only
+        the player whose turn it is may act.
+
+        Args:
+            player_id: The player attempting to act
+
+        Returns:
+            None if action is allowed, or an error message string if blocked
+        """
+        if self.turn_manager is None:
+            return None
+
+        from dm20_protocol.claudmaster.turn_manager import TurnPhase
+
+        state = self.turn_manager.state
+        if state is None or state.phase != TurnPhase.COMBAT:
+            return None
+
+        # In simultaneous / free-form mode, everyone can act
+        from dm20_protocol.claudmaster.turn_manager import TurnDistribution
+
+        if state.distribution_mode == TurnDistribution.FREE_FORM:
+            return None
+
+        # Turn-based mode: only current player may act
+        if not bridge.is_players_turn(player_id, self.turn_manager):
+            current = self.turn_manager.get_current_turn() or "unknown"
+            return f"Not your turn. Waiting for {current}."
+
+        return None
+
     async def websocket_endpoint(self, websocket: WebSocket) -> None:
         """
         Handle WebSocket connections for real-time updates.
@@ -679,6 +790,17 @@ class PartyServer:
             except Exception:
                 pass  # PCRegistry may not track this player
         elif msg_type == "action":
+            # Turn gating: reject if combat is active and not this player's turn
+            gate_error = self._check_turn_gate(player_id)
+            if gate_error:
+                await self.connection_manager.send_to_player(player_id, {
+                    "type": "action_status",
+                    "action_id": None,
+                    "status": "rejected",
+                    "error": gate_error,
+                })
+                return
+
             action_text = message.get("text", "")
             if action_text.strip():
                 action_id = self.action_queue.push(player_id, action_text)
