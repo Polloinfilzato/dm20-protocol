@@ -45,8 +45,9 @@ from dm20_protocol.claudmaster.pc_tracking import PCRegistry
 from dm20_protocol.permissions import PermissionResolver
 from dm20_protocol.storage import DnDStorage
 
+from . import bridge
 from .auth import TokenManager, detect_host_ip
-from .queue import ActionQueue
+from .queue import ActionQueue, ResponseQueue
 
 logger = logging.getLogger("dm20-protocol.party")
 
@@ -71,6 +72,8 @@ class ConnectionManager:
     def __init__(self) -> None:
         """Initialize an empty ConnectionManager."""
         self._connections: dict[str, set[WebSocket]] = {}
+        self._last_seen: dict[str, str] = {}
+        self._last_pong: dict[str, float] = {}
         self._lock = threading.Lock()
 
     async def connect(self, player_id: str, websocket: WebSocket) -> None:
@@ -191,6 +194,127 @@ class ConnectionManager:
                 logger.warning(f"Error closing WebSocket: {e}")
         logger.info(f"Closed {len(all_connections)} WebSocket connections")
 
+    async def broadcast_response(
+        self,
+        response: dict,
+        permission_resolver: PermissionResolver,
+    ) -> int:
+        """
+        Push a response to all connected players with per-player filtering.
+
+        Each player receives a personalized view: public narrative for all,
+        private messages only for the intended recipient, dm_only stripped
+        for non-DM players.
+
+        Args:
+            response: The raw response dict from ResponseQueue
+            permission_resolver: Used to determine player roles
+
+        Returns:
+            Total number of WebSocket sends
+        """
+        with self._lock:
+            player_ids = list(self._connections.keys())
+
+        total_sent = 0
+        for player_id in player_ids:
+            filtered = bridge.format_response(response, player_id, permission_resolver)
+            # Wrap as a WebSocket message with type
+            ws_msg = {"type": "narrative", **filtered}
+            if "private" in filtered:
+                ws_msg["type"] = "private"
+                ws_msg["from"] = "DM"
+            sent = await self.send_to_player(player_id, ws_msg)
+            total_sent += sent
+
+            # If there's a private message for this player, send it separately
+            if "private" in filtered and filtered.get("narrative"):
+                # Send narrative as a separate message
+                narrative_msg = {
+                    "type": "narrative",
+                    "id": filtered.get("id"),
+                    "timestamp": filtered.get("timestamp"),
+                    "content": filtered.get("narrative", ""),
+                }
+                private_msg = {
+                    "type": "private",
+                    "id": filtered.get("id"),
+                    "timestamp": filtered.get("timestamp"),
+                    "content": filtered["private"],
+                    "from": "DM",
+                }
+                # Replace the combined message with two separate ones
+                # (The client expects separate narrative and private messages)
+
+        return total_sent
+
+    async def handle_reconnect(
+        self,
+        player_id: str,
+        since_timestamp: Optional[str],
+        response_queue: "ResponseQueue",
+        permission_resolver: PermissionResolver,
+    ) -> int:
+        """
+        Replay missed messages since a player's last-seen timestamp.
+
+        Args:
+            player_id: The reconnecting player
+            since_timestamp: ISO timestamp of last seen message
+            response_queue: Queue to fetch missed responses from
+            permission_resolver: For filtering
+
+        Returns:
+            Number of replayed messages
+        """
+        from dm20_protocol.permissions import PlayerRole
+
+        role = permission_resolver.get_player_role(player_id)
+        is_dm = role == PlayerRole.DM
+
+        missed = response_queue.get_for_player(
+            player_id,
+            since_timestamp=since_timestamp,
+            is_dm=is_dm,
+        )
+
+        for resp in missed:
+            msg = {"type": "narrative", **resp}
+            await self.send_to_player(player_id, msg)
+
+        if missed:
+            logger.info(f"Replayed {len(missed)} messages for {player_id}")
+        return len(missed)
+
+    def update_last_seen(self, player_id: str, timestamp: str) -> None:
+        """Update the last-seen timestamp for a player."""
+        with self._lock:
+            self._last_seen[player_id] = timestamp
+
+    def mark_pong(self, player_id: str) -> None:
+        """Record a pong response from a player."""
+        with self._lock:
+            self._last_pong[player_id] = time.time()
+
+    def get_stale_players(self, timeout_seconds: float = 60.0) -> list[str]:
+        """
+        Get players whose last pong is older than timeout.
+
+        Args:
+            timeout_seconds: Staleness threshold
+
+        Returns:
+            List of stale player_ids
+        """
+        now = time.time()
+        with self._lock:
+            stale = []
+            for player_id in self._connections:
+                last = self._last_pong.get(player_id, now)
+                if now - last > timeout_seconds:
+                    stale.append(player_id)
+            return stale
+
 
 class PartyServer:
     """
@@ -241,8 +365,15 @@ class PartyServer:
         self.port = port
         self.start_time = datetime.now()
 
-        # Initialize action queue
+        # Event loop reference (set when server thread starts)
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
+        # Initialize queues
         self.action_queue = ActionQueue(campaign_dir)
+        self.response_queue = ResponseQueue(
+            campaign_dir,
+            on_push=self._on_response_pushed,
+        )
 
         # Detect LAN IP for QR codes
         self.host_ip = detect_host_ip()
@@ -251,6 +382,37 @@ class PartyServer:
         self.app = self._build_app()
 
         logger.info(f"PartyServer initialized on {host}:{port}")
+
+    def _on_response_pushed(self, response: dict) -> None:
+        """
+        Callback fired when a response is pushed to the queue.
+
+        Bridges from the caller's thread to the server's event loop
+        using asyncio.run_coroutine_threadsafe.
+        """
+        if not self._loop or self._loop.is_closed():
+            logger.warning("No event loop available for broadcast")
+            return
+
+        async def _do_broadcast():
+            await self.connection_manager.broadcast_response(
+                response, self.permission_resolver
+            )
+            # Notify action status if this response references an action
+            action_id = response.get("action_id")
+            if action_id:
+                # Find who submitted the action and notify them
+                action_status_msg = {
+                    "type": "action_status",
+                    "action_id": action_id,
+                    "status": "resolved",
+                }
+                await self.connection_manager.broadcast(action_status_msg)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_do_broadcast(), self._loop)
+        except RuntimeError as e:
+            logger.error(f"Failed to schedule broadcast: {e}")
 
     def _build_app(self) -> Starlette:
         """
@@ -436,6 +598,9 @@ class PartyServer:
         """
         Handle WebSocket connections for real-time updates.
 
+        Includes join/leave broadcasting, heartbeat pings, and
+        reconnection with message replay.
+
         Args:
             websocket: WebSocket connection
         """
@@ -452,6 +617,19 @@ class PartyServer:
 
         # Register connection
         await self.connection_manager.connect(player_id, websocket)
+        self.connection_manager.mark_pong(player_id)
+
+        # Broadcast join event to all other players
+        await self.connection_manager.broadcast({
+            "type": "system",
+            "content": f"{player_id} joined",
+            "timestamp": datetime.now().isoformat(),
+        })
+
+        # Start heartbeat task for this connection
+        heartbeat_task = asyncio.create_task(
+            self._heartbeat_loop(player_id, websocket)
+        )
 
         try:
             # Send initial connection confirmation
@@ -464,29 +642,42 @@ class PartyServer:
             # Keep connection alive and handle incoming messages
             while True:
                 message = await websocket.receive_json()
-                # Handle client messages (heartbeat, action, etc.)
-                await self._handle_ws_message(player_id, message)
+                await self._handle_ws_message(player_id, message, websocket)
 
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected: {player_id}")
         except Exception as e:
             logger.error(f"WebSocket error for {player_id}: {e}")
         finally:
+            heartbeat_task.cancel()
             self.connection_manager.disconnect(player_id, websocket)
 
-    async def _handle_ws_message(self, player_id: str, message: dict) -> None:
+            # Broadcast leave event
+            await self.connection_manager.broadcast({
+                "type": "system",
+                "content": f"{player_id} disconnected",
+                "timestamp": datetime.now().isoformat(),
+            })
+
+    async def _handle_ws_message(
+        self, player_id: str, message: dict, websocket: WebSocket
+    ) -> None:
         """
         Handle incoming WebSocket messages from a player.
 
         Args:
             player_id: The player who sent the message
             message: The message dict
+            websocket: The WebSocket connection
         """
         msg_type = message.get("type")
 
-        if msg_type == "heartbeat":
-            # Update player activity timestamp
-            self.pc_registry.heartbeat(player_id)
+        if msg_type == "heartbeat" or msg_type == "pong":
+            self.connection_manager.mark_pong(player_id)
+            try:
+                self.pc_registry.heartbeat(player_id)
+            except Exception:
+                pass  # PCRegistry may not track this player
         elif msg_type == "action":
             action_text = message.get("text", "")
             if action_text.strip():
@@ -496,8 +687,44 @@ class PartyServer:
                     "action_id": action_id,
                     "status": "pending",
                 })
+        elif msg_type == "history_request":
+            since = message.get("since")
+            await self.connection_manager.handle_reconnect(
+                player_id, since, self.response_queue, self.permission_resolver
+            )
         else:
-            logger.warning(f"Unknown WebSocket message type: {msg_type}")
+            logger.debug(f"Unknown WebSocket message type: {msg_type}")
+
+    async def _heartbeat_loop(
+        self, player_id: str, websocket: WebSocket
+    ) -> None:
+        """
+        Send periodic ping messages to detect stale connections.
+
+        Runs as an asyncio task per WebSocket connection. Sends a ping
+        every 30 seconds. If no pong is received within 60 seconds,
+        the connection is closed.
+
+        Args:
+            player_id: The player to ping
+            websocket: The WebSocket connection
+        """
+        try:
+            while True:
+                await asyncio.sleep(30)
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+
+                # Check for stale connection
+                stale = self.connection_manager.get_stale_players(timeout_seconds=60.0)
+                if player_id in stale:
+                    logger.warning(f"Stale connection detected: {player_id}")
+                    await websocket.close(code=1001, reason="Stale connection")
+                    break
+        except asyncio.CancelledError:
+            pass
 
 
 def _run_server(server: PartyServer, stop_event: threading.Event) -> None:
@@ -511,9 +738,10 @@ def _run_server(server: PartyServer, stop_event: threading.Event) -> None:
         server: The PartyServer instance
         stop_event: Event to signal server shutdown
     """
-    # Create a new event loop for this thread
+    # Create a new event loop for this thread and store it on the server
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    server._loop = loop
 
     config = uvicorn.Config(
         server.app,

@@ -359,6 +359,12 @@ class TestPartyServerWebSocket:
         token = party_server.token_manager.get_all_tokens()["aragorn"]
 
         with client.websocket_connect(f"/ws?token={token}") as websocket:
+            # First message is the join broadcast
+            join_msg = websocket.receive_json()
+            assert join_msg["type"] == "system"
+            assert "joined" in join_msg["content"]
+
+            # Second message is the connection confirmation
             data = websocket.receive_json()
             assert data["type"] == "connected"
             assert data["player_id"] == "aragorn"
