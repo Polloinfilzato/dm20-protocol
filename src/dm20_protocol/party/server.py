@@ -45,6 +45,7 @@ from dm20_protocol.permissions import PermissionResolver
 from dm20_protocol.storage import DnDStorage
 
 from .auth import TokenManager, detect_host_ip
+from .queue import ActionQueue
 
 logger = logging.getLogger("dm20-protocol.party")
 
@@ -239,6 +240,9 @@ class PartyServer:
         self.port = port
         self.start_time = datetime.now()
 
+        # Initialize action queue
+        self.action_queue = ActionQueue(campaign_dir)
+
         # Detect LAN IP for QR codes
         self.host_ip = detect_host_ip()
 
@@ -257,6 +261,7 @@ class PartyServer:
         routes = [
             Route("/play", self.get_play, methods=["GET"]),
             Route("/action", self.post_action, methods=["POST"]),
+            Route("/action/{action_id}/status", self.get_action_status, methods=["GET"]),
             Route("/character/{player_id}", self.get_character, methods=["GET"]),
             Route("/status", self.get_status, methods=["GET"]),
             WebSocketRoute("/ws", self.websocket_endpoint),
@@ -301,14 +306,13 @@ class PartyServer:
         """
         Handle player action submission.
 
-        Validates token and forwards the action to the appropriate handler.
-        (Implementation will be expanded in Task 4: Action Processing)
+        Validates token and queues the action for host processing.
 
         Args:
             request: Starlette request object
 
         Returns:
-            JSON response with action result
+            JSON response with action_id and status
         """
         # Extract token from Authorization header or query param
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -325,12 +329,40 @@ class PartyServer:
         except Exception as e:
             return JSONResponse({"error": f"Invalid request: {e}"}, status_code=400)
 
-        # Placeholder response (Task 4 will implement actual action handling)
-        logger.info(f"Action from {player_id}: {action_text}")
+        if not action_text.strip():
+            return JSONResponse({"error": "Empty action"}, status_code=400)
+
+        action_id = self.action_queue.push(player_id, action_text)
+        logger.info(f"Action queued: {action_id} from {player_id}")
+
         return JSONResponse({
             "success": True,
+            "action_id": action_id,
             "player_id": player_id,
-            "message": "Action received (not yet processed)",
+            "status": "pending",
+        })
+
+    async def get_action_status(self, request: Request) -> Response:
+        """
+        Get the status of a submitted action.
+
+        Args:
+            request: Starlette request object
+
+        Returns:
+            JSON response with action status
+        """
+        action_id = request.path_params.get("action_id")
+        if not action_id:
+            return JSONResponse({"error": "Missing action_id"}, status_code=400)
+
+        status = self.action_queue.get_status(action_id)
+        if status is None:
+            return JSONResponse({"error": "Action not found"}, status_code=404)
+
+        return JSONResponse({
+            "action_id": action_id,
+            "status": status,
         })
 
     async def get_character(self, request: Request) -> Response:
@@ -453,8 +485,14 @@ class PartyServer:
             # Update player activity timestamp
             self.pc_registry.heartbeat(player_id)
         elif msg_type == "action":
-            # Handle player action (will be expanded in Task 4)
-            logger.info(f"WS action from {player_id}: {message.get('action')}")
+            action_text = message.get("text", "")
+            if action_text.strip():
+                action_id = self.action_queue.push(player_id, action_text)
+                await self.connection_manager.send_to_player(player_id, {
+                    "type": "action_status",
+                    "action_id": action_id,
+                    "status": "pending",
+                })
         else:
             logger.warning(f"Unknown WebSocket message type: {msg_type}")
 
