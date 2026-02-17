@@ -37,7 +37,8 @@ from starlette.responses import (
     PlainTextResponse,
     Response,
 )
-from starlette.routing import Route, WebSocketRoute
+from starlette.routing import Mount, Route, WebSocketRoute
+from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from dm20_protocol.claudmaster.pc_tracking import PCRegistry
@@ -258,6 +259,7 @@ class PartyServer:
         Returns:
             Configured Starlette app
         """
+        static_dir = Path(__file__).parent / "static"
         routes = [
             Route("/play", self.get_play, methods=["GET"]),
             Route("/action", self.post_action, methods=["POST"]),
@@ -265,6 +267,7 @@ class PartyServer:
             Route("/character/{player_id}", self.get_character, methods=["GET"]),
             Route("/status", self.get_status, methods=["GET"]),
             WebSocketRoute("/ws", self.websocket_endpoint),
+            Mount("/static", app=StaticFiles(directory=str(static_dir)), name="static"),
         ]
 
         return Starlette(debug=False, routes=routes)

@@ -2,164 +2,126 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
     <title>Party Mode - {player_name}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a7b 100%);
-            color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            background: rgba(30, 30, 40, 0.95);
-            border-radius: 12px;
-            padding: 40px;
-            max-width: 600px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            background: linear-gradient(45deg, #4a9eff, #7b68ee);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .player-name {
-            font-size: 1.5rem;
-            color: #ffd700;
-            margin-bottom: 30px;
-            font-weight: bold;
-        }
-
-        .status {
-            background: rgba(74, 158, 255, 0.1);
-            border: 1px solid rgba(74, 158, 255, 0.3);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .status p {
-            margin: 10px 0;
-            font-size: 1rem;
-        }
-
-        .status .connected {
-            color: #4ade80;
-            font-weight: bold;
-        }
-
-        .status .disconnected {
-            color: #f87171;
-            font-weight: bold;
-        }
-
-        .info {
-            font-size: 0.95rem;
-            color: #a0aec0;
-            line-height: 1.6;
-        }
-
-        .info code {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .pulse {
-            animation: pulse 2s ease-in-out infinite;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🎲 Party Mode</h1>
-        <div class="player-name">{player_name}</div>
+    <div id="app">
 
-        <div class="status">
-            <p>Status: <span id="connection-status" class="disconnected">Connecting...</span></p>
-            <p id="session-info">Session token: <code>{token}</code></p>
+        <!-- Character Bar (Sticky Header) -->
+        <header class="character-bar">
+            <div class="character-bar__main">
+                <span class="character-bar__name">{player_name}</span>
+                <div class="character-bar__stats">
+                    <div class="hp-bar">
+                        <div class="hp-bar__fill" style="width: 100%"></div>
+                        <span class="hp-bar__text">--/--</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge__label">AC</span>
+                        <span class="stat-badge__value" id="stat-ac">--</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge__label">Lv</span>
+                        <span class="stat-badge__value" id="stat-level">--</span>
+                    </div>
+                </div>
+                <div class="indicators">
+                    <div class="connection-dot" title="Connection status"></div>
+                </div>
+            </div>
+            <div class="character-bar__conditions"></div>
+            <div class="character-bar__expand-hint">Tap for character sheet</div>
+        </header>
+
+        <!-- Combat Banner -->
+        <div class="combat-banner">
+            <div class="combat-banner__title">Combat</div>
+            <div class="combat-banner__info"></div>
+            <div class="initiative-list"></div>
         </div>
 
-        <div class="info">
-            <p><strong>Welcome to Party Mode!</strong></p>
-            <p style="margin-top: 15px;">
-                This is a placeholder page. The full player UI will be built in Task 3.
-            </p>
-            <p style="margin-top: 15px;">
-                Your session is authenticated and ready. The WebSocket connection
-                will be established automatically when you visit this page.
-            </p>
-        </div>
+        <!-- Narrative Feed -->
+        <main class="narrative-feed">
+            <!-- Private Messages Section -->
+            <div class="private-section">
+                <button class="private-section__toggle">
+                    <span class="private-section__toggle-arrow">&#9654;</span>
+                    Private Messages
+                    <span class="private-section__count">0</span>
+                </button>
+                <div class="private-section__messages"></div>
+            </div>
+
+            <!-- Messages appear here -->
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state__icon">&#9876;</div>
+                <div class="empty-state__title">Awaiting the adventure...</div>
+                <div class="empty-state__subtitle">Messages will appear here once the session begins.</div>
+            </div>
+        </main>
+
+        <!-- Action Bar (Fixed Bottom) -->
+        <footer class="action-bar">
+            <div class="action-bar__status"></div>
+            <form class="action-bar__form">
+                <input
+                    type="text"
+                    class="action-bar__input"
+                    placeholder="What do you do?"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="sentences"
+                >
+                <button type="submit" class="action-bar__send" title="Send action">&#9654;</button>
+            </form>
+        </footer>
+
+        <!-- Character Sheet (Slide-in Panel) -->
+        <div class="character-sheet-overlay"></div>
+        <aside class="character-sheet">
+            <button class="character-sheet__close">&times;</button>
+            <h2 class="character-sheet__title">{player_name}</h2>
+            <p class="character-sheet__subtitle"></p>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Ability Scores</h3>
+                <div class="ability-grid"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Skills</h3>
+                <div class="skills-list"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Inventory</h3>
+                <ul class="inventory-list"></ul>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Spell Slots</h3>
+                <div class="spell-slots"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Features</h3>
+                <ul class="features-list"></ul>
+            </div>
+        </aside>
     </div>
 
     <script>
-        // WebSocket connection for real-time updates
-        const token = '{token}';
-        const wsUrl = `ws://${window.location.host}/ws?token=${token}`;
-        let ws = null;
-        let reconnectTimer = null;
-
-        function connect() {
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                document.getElementById('connection-status').textContent = 'Connected';
-                document.getElementById('connection-status').className = 'connected';
-            };
-
-            ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                console.log('Received:', message);
-                // Task 4 will handle different message types here
-            };
-
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                document.getElementById('connection-status').textContent = 'Disconnected';
-                document.getElementById('connection-status').className = 'disconnected pulse';
-
-                // Attempt to reconnect after 3 seconds
-                reconnectTimer = setTimeout(connect, 3000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-        }
-
-        // Start connection when page loads
-        connect();
-
-        // Send heartbeat every 30 seconds to keep connection alive
-        setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'heartbeat' }));
-            }
-        }, 30000);
+        // Injected by server — do not edit
+        window.PARTY_CONFIG = {
+            token: '{token}',
+            playerName: '{player_name}',
+        };
     </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
