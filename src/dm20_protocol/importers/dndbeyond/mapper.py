@@ -8,7 +8,7 @@ into dm20's flat, normalized Character model. Each mapper function returns a
 
 from __future__ import annotations
 
-from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore
+from dm20_protocol.models import Character, CharacterClass, Race, AbilityScore, Item, Spell, Feature
 
 from ..base import ImportResult
 from .schema import (
@@ -16,9 +16,11 @@ from .schema import (
     ALIGNMENT_MAP,
     CLASS_HIT_DICE,
     CLASS_SPELLCASTING_ABILITY,
+    ITEM_FILTER_TYPE_MAP,
     MODIFIER_SECTIONS,
     SAVING_THROW_SUBTYPES,
     SKILL_SUBTYPES,
+    SPELL_SCHOOL_MAP,
     STAT_ID_MAP,
 )
 
@@ -259,6 +261,376 @@ def map_proficiencies(ddb: dict) -> tuple[dict, list[str]]:
     return result, warnings
 
 
+def map_inventory(ddb: dict) -> tuple[list[Item], list[str]]:
+    """Map inventory items from DDB character.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+
+    Returns:
+        Tuple of (item_list, warnings).
+    """
+    warnings: list[str] = []
+    items: list[Item] = []
+
+    inventory_data = ddb.get("inventory", [])
+    for item_data in inventory_data:
+        try:
+            definition = item_data.get("definition", {})
+            name = definition.get("name", "Unknown Item")
+            description = definition.get("description", "")
+
+            # Truncate long descriptions
+            if description and len(description) > 500:
+                description = description[:497] + "..."
+
+            quantity = item_data.get("quantity", 1)
+            weight = definition.get("weight")
+
+            # Parse cost/value
+            cost = definition.get("cost")
+            value = None
+            if cost:
+                value = f"{cost} gp"
+
+            # Map filter type to item_type
+            filter_type = definition.get("filterType", "Other Gear")
+            item_type = ITEM_FILTER_TYPE_MAP.get(filter_type, "misc")
+
+            # Build properties dict with damage, AC, etc.
+            properties = {}
+            if definition.get("damage"):
+                damage_data = definition["damage"]
+                if damage_data.get("diceString"):
+                    properties["damage"] = damage_data["diceString"]
+            if definition.get("armorClass") is not None:
+                properties["armor_class"] = definition["armorClass"]
+            if item_data.get("equipped") is not None:
+                properties["equipped"] = item_data["equipped"]
+
+            item = Item(
+                name=name,
+                description=description,
+                quantity=quantity,
+                weight=weight,
+                value=value,
+                item_type=item_type,
+                properties=properties,
+            )
+            items.append(item)
+        except Exception as e:
+            warnings.append(f"Failed to parse inventory item: {e}")
+
+    return items, warnings
+
+
+def map_equipment(ddb: dict, items: list[Item]) -> tuple[dict[str, Item | None], list[str]]:
+    """Detect equipped items and assign to equipment slots.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+        items: Already-parsed inventory items.
+
+    Returns:
+        Tuple of (equipment_dict, warnings).
+    """
+    warnings: list[str] = []
+    equipment: dict[str, Item | None] = {
+        "weapon_main": None,
+        "weapon_off": None,
+        "armor": None,
+        "shield": None,
+    }
+
+    # Find equipped items
+    equipped_items = [item for item in items if item.properties.get("equipped", False)]
+
+    for item in equipped_items:
+        if item.item_type == "weapon":
+            if equipment["weapon_main"] is None:
+                equipment["weapon_main"] = item
+            elif equipment["weapon_off"] is None:
+                equipment["weapon_off"] = item
+        elif item.item_type == "armor":
+            if "shield" in item.name.lower():
+                equipment["shield"] = item
+            else:
+                equipment["armor"] = item
+
+    return equipment, warnings
+
+
+def map_spells(ddb: dict) -> tuple[dict, list[str]]:
+    """Map spells and spell slots from DDB character.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+
+    Returns:
+        Tuple of (spell_fields_dict, warnings).
+        spell_fields_dict contains: spells_known, spell_slots
+    """
+    warnings: list[str] = []
+    result: dict = {
+        "spells_known": [],
+        "spell_slots": {},
+    }
+
+    # Component mapping: DDB uses ints (1=V, 2=S, 3=M)
+    component_map = {1: "V", 2: "S", 3: "M"}
+
+    # Parse spells from classSpells array
+    class_spells = ddb.get("classSpells", [])
+    for class_spell_list in class_spells:
+        spells_data = class_spell_list.get("spells", [])
+        for spell_data in spells_data:
+            try:
+                definition = spell_data.get("definition", {})
+                name = definition.get("name", "Unknown Spell")
+                level = definition.get("level", 0)
+                school_raw = definition.get("school", "Abjuration")
+                school = SPELL_SCHOOL_MAP.get(school_raw, school_raw)
+                # castingTime can be a dict or string in DDB
+                casting_time_raw = definition.get("castingTime", "1 action")
+                if isinstance(casting_time_raw, dict):
+                    casting_time = casting_time_raw.get("castingTimeInterval", "1 action")
+                else:
+                    casting_time = str(casting_time_raw)
+
+                # Parse range
+                range_data = definition.get("range", {})
+                if isinstance(range_data, dict):
+                    range_value = range_data.get("rangeValue")
+                else:
+                    range_value = range_data
+                if range_value is None:
+                    range_value = 5
+
+                # duration can be a dict or string in DDB
+                duration_raw = definition.get("duration", "Instantaneous")
+                if isinstance(duration_raw, dict):
+                    duration = duration_raw.get("durationInterval", "Instantaneous")
+                else:
+                    duration = str(duration_raw)
+                description = definition.get("description", "")
+
+                # Truncate long descriptions
+                if description and len(description) > 500:
+                    description = description[:497] + "..."
+
+                # Parse components
+                components_raw = definition.get("components", [])
+                components = [component_map.get(c, str(c)) for c in components_raw]
+
+                # Material components
+                material_components = None
+                if "M" in components:
+                    material_components = definition.get("componentsDescription", "")
+
+                prepared = spell_data.get("prepared", False)
+
+                spell = Spell(
+                    name=name,
+                    level=level,
+                    school=school,
+                    casting_time=casting_time,
+                    range=range_value,
+                    duration=duration,
+                    components=components,
+                    description=description,
+                    material_components=material_components,
+                    prepared=prepared,
+                )
+                result["spells_known"].append(spell)
+            except Exception as e:
+                warnings.append(f"Failed to parse spell: {e}")
+
+    # Parse spell slots from classes
+    classes = ddb.get("classes", [])
+    for class_data in classes:
+        try:
+            spell_rules = class_data.get("definition", {}).get("spellRules")
+            if spell_rules:
+                level_spell_slots = spell_rules.get("levelSpellSlots", {})
+                # levelSpellSlots is a dict like {"1": [2, 0, 0, ...], "2": [2, 3, 0, ...]}
+                # where the array index is spell level and value is number of slots
+                class_level = class_data.get("level", 1)
+                slots_array = level_spell_slots.get(str(class_level), [])
+                for spell_level, slot_count in enumerate(slots_array, start=1):
+                    if slot_count > 0:
+                        # Sum slots if multiclass
+                        current = result["spell_slots"].get(spell_level, 0)
+                        result["spell_slots"][spell_level] = current + slot_count
+        except Exception as e:
+            warnings.append(f"Failed to parse spell slots for class: {e}")
+
+    return result, warnings
+
+
+def map_features(ddb: dict) -> tuple[list[Feature], list[str]]:
+    """Map class features, racial traits, and feats from DDB character.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+
+    Returns:
+        Tuple of (feature_list, warnings).
+    """
+    warnings: list[str] = []
+    features: list[Feature] = []
+
+    # Class features
+    classes = ddb.get("classes", [])
+    for class_data in classes:
+        try:
+            class_name = class_data.get("definition", {}).get("name", "Unknown")
+            class_level = class_data.get("level", 1)
+            class_features = class_data.get("classFeatures", [])
+
+            for feature_data in class_features:
+                definition = feature_data.get("definition", {})
+                required_level = definition.get("requiredLevel", 1)
+
+                # Only include features the character has access to
+                if required_level <= class_level:
+                    name = definition.get("name", "Unknown Feature")
+                    description = definition.get("description", "")
+
+                    # Truncate long descriptions
+                    if description and len(description) > 500:
+                        description = description[:497] + "..."
+
+                    feature = Feature(
+                        name=name,
+                        source=f"{class_name} {required_level}",
+                        description=description,
+                        level_gained=required_level,
+                    )
+                    features.append(feature)
+        except Exception as e:
+            warnings.append(f"Failed to parse class features: {e}")
+
+    # Racial traits
+    try:
+        race_data = ddb.get("race", {})
+        race_name = race_data.get("fullName") or race_data.get("baseName", "Unknown")
+        racial_traits = race_data.get("racialTraits", [])
+
+        for trait_data in racial_traits:
+            definition = trait_data.get("definition", {})
+            name = definition.get("name", "Unknown Trait")
+            description = definition.get("description", "")
+
+            # Truncate long descriptions
+            if description and len(description) > 500:
+                description = description[:497] + "..."
+
+            feature = Feature(
+                name=name,
+                source=race_name,
+                description=description,
+                level_gained=1,
+            )
+            features.append(feature)
+    except Exception as e:
+        warnings.append(f"Failed to parse racial traits: {e}")
+
+    # Feats
+    try:
+        feats = ddb.get("feats", [])
+        for feat_data in feats:
+            definition = feat_data.get("definition", {})
+            name = definition.get("name", "Unknown Feat")
+            description = definition.get("description", "")
+
+            # Truncate long descriptions
+            if description and len(description) > 500:
+                description = description[:497] + "..."
+
+            feature = Feature(
+                name=name,
+                source="Feat",
+                description=description,
+                level_gained=1,
+            )
+            features.append(feature)
+    except Exception as e:
+        warnings.append(f"Failed to parse feats: {e}")
+
+    return features, warnings
+
+
+def map_notes(ddb: dict) -> tuple[str, list[str]]:
+    """Map character traits and notes from DDB character.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+
+    Returns:
+        Tuple of (notes_string, warnings).
+    """
+    warnings: list[str] = []
+    notes_parts: list[str] = []
+
+    # Parse traits
+    traits = ddb.get("traits", {})
+    if traits:
+        personality = traits.get("personalityTraits")
+        if personality:
+            notes_parts.append(f"Personality: {personality}")
+
+        ideals = traits.get("ideals")
+        if ideals:
+            notes_parts.append(f"Ideals: {ideals}")
+
+        bonds = traits.get("bonds")
+        if bonds:
+            notes_parts.append(f"Bonds: {bonds}")
+
+        flaws = traits.get("flaws")
+        if flaws:
+            notes_parts.append(f"Flaws: {flaws}")
+
+    # Parse notes
+    notes_data = ddb.get("notes", {})
+    if notes_data:
+        # DDB notes can have various fields, we'll collect any that exist
+        for key, value in notes_data.items():
+            if value and isinstance(value, str):
+                notes_parts.append(f"{key.title()}: {value}")
+
+    notes = "\n\n".join(notes_parts)
+    return notes, warnings
+
+
+def map_currency(ddb: dict) -> tuple[str, list[str]]:
+    """Format currency string for notes.
+
+    Args:
+        ddb: Raw D&D Beyond character JSON.
+
+    Returns:
+        Tuple of (currency_string, warnings).
+    """
+    warnings: list[str] = []
+    currency = ddb.get("currencies", {})
+
+    parts = []
+    if currency.get("pp"):
+        parts.append(f"{currency['pp']} pp")
+    if currency.get("gp"):
+        parts.append(f"{currency['gp']} gp")
+    if currency.get("ep"):
+        parts.append(f"{currency['ep']} ep")
+    if currency.get("sp"):
+        parts.append(f"{currency['sp']} sp")
+    if currency.get("cp"):
+        parts.append(f"{currency['cp']} cp")
+
+    currency_str = ", ".join(parts) if parts else ""
+    return currency_str, warnings
+
+
 def map_ddb_to_character(ddb: dict, player_name: str | None = None) -> ImportResult:
     """Orchestrate full DDB → Character mapping.
 
@@ -365,6 +737,65 @@ def map_ddb_to_character(ddb: dict, player_name: str | None = None) -> ImportRes
             "tool_proficiencies",
             "languages",
         ])
+
+    # Map inventory
+    try:
+        inventory, warnings = map_inventory(ddb)
+        character_data["inventory"] = inventory
+        all_warnings.extend(warnings)
+        mapped_fields.append("inventory")
+    except Exception as e:
+        all_warnings.append(f"Failed to map inventory: {e}")
+        unmapped_fields.append("inventory")
+
+    # Map equipment (requires inventory)
+    try:
+        equipment, warnings = map_equipment(ddb, character_data.get("inventory", []))
+        character_data["equipment"] = equipment
+        all_warnings.extend(warnings)
+        mapped_fields.append("equipment")
+    except Exception as e:
+        all_warnings.append(f"Failed to map equipment: {e}")
+        unmapped_fields.append("equipment")
+
+    # Map spells and spell slots
+    try:
+        spell_data, warnings = map_spells(ddb)
+        character_data.update(spell_data)
+        all_warnings.extend(warnings)
+        mapped_fields.extend(["spells_known", "spell_slots"])
+    except Exception as e:
+        all_warnings.append(f"Failed to map spells: {e}")
+        unmapped_fields.extend(["spells_known", "spell_slots"])
+
+    # Map features and traits
+    try:
+        features, warnings = map_features(ddb)
+        character_data["features"] = features
+        all_warnings.extend(warnings)
+        mapped_fields.append("features")
+    except Exception as e:
+        all_warnings.append(f"Failed to map features: {e}")
+        unmapped_fields.append("features")
+
+    # Map notes
+    try:
+        notes, warnings = map_notes(ddb)
+        currency, curr_warnings = map_currency(ddb)
+        all_warnings.extend(warnings)
+        all_warnings.extend(curr_warnings)
+
+        # Combine notes and currency
+        notes_parts = []
+        if currency:
+            notes_parts.append(f"Currency: {currency}")
+        if notes:
+            notes_parts.append(notes)
+        character_data["notes"] = "\n\n".join(notes_parts)
+        mapped_fields.append("notes")
+    except Exception as e:
+        all_warnings.append(f"Failed to map notes: {e}")
+        unmapped_fields.append("notes")
 
     # Add player name if provided
     if player_name:
