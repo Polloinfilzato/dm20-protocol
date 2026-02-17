@@ -24,18 +24,21 @@ The **data model and permission layer** are complete and tested:
 | Output filtering by role | `src/dm20_protocol/output_filter.py` | Done |
 | Zero overhead in single-player mode | `src/dm20_protocol/permissions.py` | Done |
 
-### What Needs to Be Built
+### Transport and Presentation Layer
 
-The **transport and presentation layer** — the web server that connects players to the existing game engine:
+The web server that connects players to the existing game engine:
 
 | Component | Description | Status |
 |-----------|-------------|--------|
-| Web server (Party Mode) | HTTP server with WebSocket support | Not started |
-| Player web UI | Responsive HTML/JS interface for browsers | Not started |
-| QR code generation | Per-player access tokens encoded as QR | Not started |
-| Action queue | Player actions queued for DM processing | Not started |
-| Real-time push | WebSocket notifications to player browsers | Not started |
-| DM dashboard | Host monitoring view (optional, Phase 2B) | Not started |
+| Web server (Party Mode) | Starlette/Uvicorn HTTP server with WebSocket support | Done |
+| Player web UI | Responsive vanilla HTML/CSS/JS interface for browsers | Done |
+| QR code generation | Per-player access tokens encoded as QR PNG | Done |
+| Action queue | JSONL-backed action queue with crash recovery | Done |
+| Real-time push | WebSocket per-player filtered broadcast with reconnection replay | Done |
+| Combat coordination | Turn gating, initiative display, simultaneous mode | Done |
+| Host slash commands | 7 commands: party-mode, party-stop, party-next, party-auto, party-status, party-kick, party-token | Done |
+| E2E integration tests | 154 tests: permission boundaries, concurrency, stability | Done |
+| DM dashboard | Host monitoring web UI (optional, Phase 2B) | Not started |
 
 ---
 
