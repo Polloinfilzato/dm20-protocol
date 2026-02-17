@@ -31,6 +31,7 @@ from .adventures.index import AdventureIndex
 from .adventures.discovery import search_adventures, format_search_results
 from .sheets.sync import SheetSyncManager
 from .sheets.diff import SheetDiffEngine
+from .permissions import PermissionResolver, PlayerRole
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -74,6 +75,10 @@ if storage.get_current_campaign():
     logger.debug(f"📄 Sheet sync started for campaign '{_campaign.name}'")
 
 logger.debug("✅ Server initialized, registering tools")
+
+# Initialize permission resolver for multi-player role-based access control
+permission_resolver = PermissionResolver()
+logger.debug("🔐 Permission resolver initialized")
 
 
 
@@ -288,6 +293,7 @@ def level_up_character(
     asi_choices: Annotated[str | None, Field(description="JSON dict for ASI: {\"strength\": 2} or {\"strength\": 1, \"dexterity\": 1}")] = None,
     subclass: Annotated[str | None, Field(description="Subclass to select (at subclass level, typically 3)")] = None,
     new_spells: Annotated[str | None, Field(description="JSON list of new spells learned: [\"fireball\", \"counterspell\"]")] = None,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Level up a character by one level.
 
@@ -307,6 +313,8 @@ def level_up_character(
     character = storage.get_character(name_or_id)
     if not character:
         return f"❌ Character '{name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "level_up_character", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
 
     # Parse JSON parameters
     parsed_asi = None
@@ -525,6 +533,7 @@ def update_character(
     remove_saving_throw_proficiencies: Annotated[str | None, Field(description="JSON list of saving throw proficiencies to remove")] = None,
     add_features_and_traits: Annotated[str | None, Field(description="JSON list of features/traits to add")] = None,
     remove_features_and_traits: Annotated[str | None, Field(description="JSON list of features/traits to remove")] = None,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Update a character's properties.
 
@@ -536,6 +545,8 @@ def update_character(
     character = storage.get_character(name_or_id)
     if not character:
         return f"❌ Character '{name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "update_character", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
 
     messages = []
     all_params = locals()
@@ -702,11 +713,14 @@ def add_item_to_character(
     item_type: Annotated[Literal["weapon", "armor", "consumable", "misc"], Field(description="Item type")] = "misc",
     weight: Annotated[float | None, Field(description="Item weight", ge=0)] = None,
     value: Annotated[str | None, Field(description="Item value (e.g., '50 gp')")] = None,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Add an item to a character's inventory."""
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found!"
+    if not permission_resolver.check_permission(player_id, "add_item_to_character", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
 
     item = Item(
         name=item_name,
@@ -809,6 +823,7 @@ def equip_item(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     item_name_or_id: Annotated[str, Field(description="Item name or ID from inventory")],
     slot: Annotated[str, Field(description="Equipment slot: weapon_main, weapon_off, armor, or shield")],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Equip an item from inventory to an equipment slot.
 
@@ -819,6 +834,8 @@ def equip_item(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "equip_item", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _equip_item_logic(character, item_name_or_id, slot)
     if result.startswith("✅"):
         storage.save()
@@ -829,6 +846,7 @@ def equip_item(
 def unequip_item(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     slot: Annotated[str, Field(description="Equipment slot: weapon_main, weapon_off, armor, or shield")],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Unequip an item from an equipment slot back to inventory.
 
@@ -837,6 +855,8 @@ def unequip_item(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "unequip_item", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _unequip_item_logic(character, slot)
     if result.startswith("✅"):
         storage.save()
@@ -848,6 +868,7 @@ def remove_item(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     item_name_or_id: Annotated[str, Field(description="Item name or ID to remove")],
     quantity: Annotated[int, Field(description="Quantity to remove (default: all)", ge=1)] = 1,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Remove an item from a character's inventory.
 
@@ -857,6 +878,8 @@ def remove_item(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "remove_item", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _remove_item_logic(character, item_name_or_id, quantity)
     if result.startswith("✅"):
         storage.save()
@@ -892,6 +915,7 @@ def _use_spell_slot_logic(character: Character, slot_level: int) -> str:
 def use_spell_slot(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     slot_level: Annotated[int, Field(description="Spell slot level to use (1-9)", ge=1, le=9)],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Use a spell slot, decrementing available slots for the given level.
 
@@ -901,6 +925,8 @@ def use_spell_slot(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "use_spell_slot", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _use_spell_slot_logic(character, slot_level)
     if result.startswith("✅"):
         storage.save()
@@ -929,11 +955,14 @@ def add_spell(
     components: Annotated[str | None, Field(description="JSON list of components, e.g. '[\"V\",\"S\",\"M\"]'")] = None,
     spell_description: Annotated[str, Field(description="Spell description")] = "",
     prepared: Annotated[bool, Field(description="Whether the spell is prepared")] = False,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Add a spell to a character's spells known list."""
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "add_spell", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
 
     comp_list = _parse_json_list(components) if components else ["V", "S"]
     spell = Spell(
@@ -967,11 +996,14 @@ def _remove_spell_logic(character: Character, spell_name_or_id: str) -> str:
 def remove_spell(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     spell_name_or_id: Annotated[str, Field(description="Spell name or ID to remove")],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Remove a spell from a character's spells known list."""
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "remove_spell", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _remove_spell_logic(character, spell_name_or_id)
     if result.startswith("✅"):
         storage.save()
@@ -1024,6 +1056,7 @@ def _long_rest_logic(character: Character, restore_hp: bool = True) -> str:
 def long_rest(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     restore_hp: Annotated[bool, Field(description="Restore HP to maximum (default: true)")] = True,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Perform a long rest for a character.
 
@@ -1033,6 +1066,8 @@ def long_rest(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "long_rest", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _long_rest_logic(character, restore_hp)
     storage.save()
     return result
@@ -1091,6 +1126,7 @@ def _short_rest_logic(character: Character, hit_dice_to_spend: int) -> str:
 def short_rest(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     hit_dice_to_spend: Annotated[int, Field(description="Number of hit dice to spend for healing", ge=0)] = 0,
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Perform a short rest for a character.
 
@@ -1100,6 +1136,8 @@ def short_rest(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "short_rest", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _short_rest_logic(character, hit_dice_to_spend)
     storage.save()
     return result
@@ -1142,6 +1180,7 @@ def _add_death_save_logic(character: Character, success: bool) -> str:
 def add_death_save(
     character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
     success: Annotated[bool, Field(description="True for success, False for failure")],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Record a death saving throw result.
 
@@ -1151,6 +1190,8 @@ def add_death_save(
     character = storage.get_character(character_name_or_id)
     if not character:
         return f"❌ Character '{character_name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "add_death_save", str(character.id)):
+        return f"🔒 Permission denied: you cannot modify '{character.name}'."
     result = _add_death_save_logic(character, success)
     storage.save()
     return result
@@ -1293,14 +1334,41 @@ def create_location(
 
 @mcp.tool
 def get_location(
-    name: Annotated[str, Field(description="Location name")]
+    name: Annotated[str, Field(description="Location name")],
+    discovery_filter: Annotated[bool, Field(description="Filter notable features by discovery state. When True, only features the party has discovered (GLIMPSED+) are shown. Default: False")] = False,
 ) -> str:
     """Get location information."""
     location = storage.get_location(name)
     if not location:
         return f"Location '{name}' not found."
 
-    loc_info = f"""**{location.name}** ({location.location_type})
+    # Apply discovery filter if requested and tracker is available
+    if discovery_filter and storage.discovery_tracker:
+        from .consistency.narrator_discovery import filter_location_by_discovery
+        filtered = filter_location_by_discovery(location, storage.discovery_tracker)
+        features = filtered["notable_features"]
+        discovery_level = filtered.get("discovery_level", "EXPLORED")
+        hidden_count = filtered.get("hidden_features_count", 0)
+
+        features_text = chr(10).join(['• ' + f for f in features]) if features else 'None listed'
+        hidden_note = f"\n*({hidden_count} undiscovered feature(s) remain hidden)*" if hidden_count > 0 else ""
+
+        loc_info = f"""**{location.name}** ({location.location_type})
+
+**Discovery Level:** {discovery_level}
+
+**Description:** {location.description}
+
+**Population:** {location.population or 'Unknown'}
+**Government:** {location.government or 'Unknown'}
+
+**Notable Features:**
+{features_text}{hidden_note}
+
+**Notes:** {location.notes or 'No additional notes.'}
+"""
+    else:
+        loc_info = f"""**{location.name}** ({location.location_type})
 
 **Description:** {location.description}
 
@@ -4215,6 +4283,88 @@ def validate_pack(
 
     if not result.errors and not result.warnings:
         lines.append("No issues found.")
+
+    return "\n".join(lines)
+
+
+# Party Knowledge Tool
+from .consistency.party_knowledge import PartyKnowledge, AcquisitionMethod, PARTY_KNOWN_TAG
+
+
+@mcp.tool
+def party_knowledge(
+    topic: Annotated[str, Field(description="Topic to search party knowledge about (e.g., 'dragon', 'Strahd', 'curse')")] = "",
+    source_filter: Annotated[str | None, Field(description="Filter by knowledge source (e.g., NPC name)")] = None,
+    method_filter: Annotated[str | None, Field(description="Filter by acquisition method: told_by_npc, observed, investigated, read, overheard, deduced, magical, common_knowledge")] = None,
+) -> str:
+    """Query what the party knows about the world.
+
+    Searches the party's collective knowledge — facts they have learned
+    through NPC interactions, observation, investigation, reading, and other
+    means. Returns matching facts with details on how they were learned.
+
+    Use with no arguments to list all known facts. Provide a topic to search
+    for specific knowledge. Optionally filter by source or acquisition method.
+    """
+    campaign = storage.get_current_campaign()
+    if not campaign:
+        return "No active campaign. Load or create a campaign first."
+
+    # Get campaign directory path
+    campaign_dir = data_path / "campaigns" / campaign.name
+
+    # Initialize FactDatabase and PartyKnowledge
+    from .claudmaster.consistency.fact_database import FactDatabase
+    try:
+        fact_db = FactDatabase(campaign_dir)
+        pk = PartyKnowledge(fact_db, campaign_dir)
+    except Exception as e:
+        return f"Error initializing party knowledge: {e}"
+
+    # Apply filters
+    if source_filter:
+        results = pk.get_knowledge_by_source(source_filter)
+    elif method_filter:
+        try:
+            results = pk.get_knowledge_by_method(method_filter)
+        except ValueError:
+            valid = ", ".join(m.value for m in AcquisitionMethod)
+            return f"Invalid method '{method_filter}'. Valid methods: {valid}"
+    elif topic:
+        results = pk.knows_about(topic)
+    else:
+        results = pk.get_all_known_facts()
+
+    if not results:
+        if topic:
+            return f"The party has no knowledge about '{topic}'."
+        elif source_filter:
+            return f"No knowledge from source '{source_filter}'."
+        elif method_filter:
+            return f"No knowledge acquired via '{method_filter}'."
+        else:
+            return "The party has not learned any facts yet."
+
+    # Format results
+    lines = [f"## Party Knowledge ({len(results)} fact(s))\n"]
+
+    for entry in results:
+        fact = entry["fact"]
+        record = entry["record"]
+        lines.append(f"### {fact.content[:80]}{'...' if len(fact.content) > 80 else ''}")
+        lines.append(f"- **Category:** {fact.category.value}")
+        lines.append(f"- **Source:** {record.source}")
+        lines.append(f"- **Method:** {record.method.value}")
+        lines.append(f"- **Session:** {record.learned_session}")
+        if record.location:
+            lines.append(f"- **Location:** {record.location}")
+        if record.notes:
+            lines.append(f"- **Notes:** {record.notes}")
+        if fact.tags:
+            display_tags = [t for t in fact.tags if t != PARTY_KNOWN_TAG]
+            if display_tags:
+                lines.append(f"- **Tags:** {', '.join(display_tags)}")
+        lines.append("")
 
     return "\n".join(lines)
 
