@@ -64,6 +64,9 @@ class DnDStorage:
         # Batch mode flag to defer saves during bulk operations
         self._batch_mode: bool = False
 
+        # Callback system for sheet sync and other listeners
+        self._character_callbacks: list = []
+
         # Dirty tracking: hash of last saved campaign state
         self._campaign_hash: str = ""
 
@@ -265,6 +268,9 @@ class DnDStorage:
         self._campaign_hash = self._compute_campaign_hash()
         logger.debug(f"✅ Campaign '{self._current_campaign.name}' saved successfully.")
 
+        # Notify listeners
+        self._notify_character_callbacks("saved")
+
     def save(self) -> None:
         """Save the current campaign to disk.
 
@@ -272,6 +278,28 @@ class DnDStorage:
         character objects directly (equip, spell slots, rests, etc.).
         """
         self._save_campaign()
+
+    # --- Character Callback System ---
+
+    def register_character_callback(self, callback) -> None:
+        """Register a callback for character events.
+
+        The callback is called as callback(action, *args) where action is
+        one of: "saved", "deleted", "renamed".
+        """
+        self._character_callbacks.append(callback)
+
+    def _notify_character_callbacks(self, action: str, *args) -> None:
+        """Fire all registered character callbacks, catching exceptions."""
+        for cb in self._character_callbacks:
+            try:
+                cb(action, *args)
+            except Exception:
+                logger.exception("Error in character callback (action=%s)", action)
+
+    def find_character(self, name_or_id: str) -> Character | None:
+        """Public wrapper for _find_character — find by name, ID, or player name."""
+        return self._find_character(name_or_id)
 
     def _save_monolithic_campaign(self) -> None:
         """Save campaign as a single JSON file (legacy format)."""
@@ -830,6 +858,11 @@ class DnDStorage:
 
         self._current_campaign.updated_at = datetime.now()
         self._save_campaign()
+
+        # Notify rename if name changed
+        if new_name and new_name != original_name:
+            self._notify_character_callbacks("renamed", original_name, new_name, character)
+
         logger.info(f"✅ Character '{new_name or original_name}' updated successfully.")
 
     def remove_character(self, name_or_id: str) -> None:
@@ -851,6 +884,7 @@ class DnDStorage:
                 self._player_name_index.pop(player_name.lower(), None)
             self._current_campaign.updated_at = datetime.now()
             self._save_campaign()
+            self._notify_character_callbacks("deleted", char_name)
             logger.info(f"✅ Character '{char_name}' removed successfully.")
         else:
             logger.warning(f"⚠️ Character '{name_or_id}' not found for removal.")

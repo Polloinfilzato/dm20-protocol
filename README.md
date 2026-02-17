@@ -16,17 +16,18 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **Character Builder** — Auto-populated characters from loaded rulebooks (Standard Array, Point Buy, Manual)
 - **Level-Up & Progression** — Automatic HP, class features, spell slots, ASI/feats on level-up
 - **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, death saves
+- **Sheet Sync** — Bidirectional Markdown↔JSON sync: edit YAML frontmatter in Obsidian or any editor, DM approves changes
 - **Rest & Recovery** — Long rest, short rest with hit dice, spell slot management, death saves
 - **NPCs & Locations** — Rich world-building with relationships and connections
 - **Quest Tracking** — Objectives, status, rewards, and branching paths
-- **Combat System** — Initiative, turns, conditions, damage/healing
+- **Combat System** — Initiative, turns, attack/spell resolution, active effects, concentration tracking, ASCII tactical maps, AoE targeting, encounter builder
 - **Multi-Source Rulebooks** — Load rules from SRD, Open5e, 5etools, or custom JSON
 - **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
 - **Bilingual Play** — Italian/English D&D terminology resolution (500+ terms)
 - **Session Notes** — Per-session summaries, XP, loot, attendance
 - **Adventure Log** — Searchable timeline of all campaign events
 - **Dice & Utilities** — Rolls, XP calculations, rules lookup
-- **66 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
+- **78 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
 
 ## Installation
 
