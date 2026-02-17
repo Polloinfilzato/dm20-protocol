@@ -2,16 +2,20 @@
 Combat mechanics package for dm20-protocol.
 
 Provides the Active Effects engine, SRD condition definitions,
-stat computation utilities, encounter building, XP budget calculation,
-and difficulty classification for D&D 5e combat.
+concentration tracking, stat computation utilities, encounter building,
+XP budget calculation, and difficulty classification for D&D 5e combat.
 """
 
 # Active Effects engine
 from .effects import EffectsEngine, SRD_CONDITIONS
 
+# Concentration tracking
+from .concentration import ConcentrationTracker
+
 __all__ = [
     "EffectsEngine",
     "SRD_CONDITIONS",
+    "ConcentrationTracker",
 ]
 
 # Encounter builder (may be added by parallel agent)

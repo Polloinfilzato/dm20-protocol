@@ -274,6 +274,23 @@ class ActiveEffect(BaseModel):
     )
 
 
+class ConcentrationState(BaseModel):
+    """Tracks a character's active concentration on a spell.
+
+    When a character is concentrating on a spell, this model records the spell
+    name, the IDs of any ActiveEffects that should be removed when concentration
+    breaks, and the round when concentration started.
+
+    Attributes:
+        spell_name: The name of the spell being concentrated on.
+        effect_ids: IDs of ActiveEffects to remove when concentration breaks.
+        started_round: The combat round when concentration began (0 if out of combat).
+    """
+    spell_name: str
+    effect_ids: list[str] = Field(default_factory=list)
+    started_round: int = 0
+
+
 class Character(BaseModel):
     """Complete character sheet."""
     # Basic Info
@@ -316,6 +333,10 @@ class Character(BaseModel):
     active_effects: list[ActiveEffect] = Field(
         default_factory=list,
         description="Active effects (buffs, debuffs, conditions) currently on this character"
+    )
+    concentration: "ConcentrationState | None" = Field(
+        default=None,
+        description="Current concentration state. None if not concentrating."
     )
     position: "Position | None" = Field(
         default=None,
@@ -526,6 +547,7 @@ __all__ = [
     "Feature",
     "Modifier",
     "ActiveEffect",
+    "ConcentrationState",
     "Character",
     "NPC",
     "Location",
