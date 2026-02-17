@@ -1,0 +1,345 @@
+{
+  "id": 98765432,
+  "name": "Thalion Nightbreeze",
+  "alignmentId": 3,
+  "race": {
+    "baseName": "Elf",
+    "fullName": "Wood Elf",
+    "subRaceShortName": "Wood",
+    "weightSpeeds": {
+      "normal": {
+        "walk": 35
+      }
+    },
+    "racialTraits": [
+      {
+        "definition": {
+          "name": "Darkvision",
+          "description": "Accustomed to twilit forests and the night sky, you have superior vision in dark and dim conditions. You can see in dim light within 60 feet of you as if it were bright light, and in darkness as if it were dim light. You can't discern color in darkness, only shades of gray."
+        }
+      },
+      {
+        "definition": {
+          "name": "Fey Ancestry",
+          "description": "You have advantage on saving throws against being charmed, and magic can't put you to sleep."
+        }
+      },
+      {
+        "definition": {
+          "name": "Trance",
+          "description": "Elves don't need to sleep. Instead, they meditate deeply, remaining semiconscious, for 4 hours a day."
+        }
+      },
+      {
+        "definition": {
+          "name": "Mask of the Wild",
+          "description": "You can attempt to hide even when you are only lightly obscured by foliage, heavy rain, falling snow, mist, and other natural phenomena."
+        }
+      }
+    ]
+  },
+  "background": {
+    "definition": {
+      "name": "Outlander"
+    }
+  },
+  "stats": [
+    {"id": 1, "value": 10},
+    {"id": 2, "value": 14},
+    {"id": 3, "value": 14},
+    {"id": 4, "value": 12},
+    {"id": 5, "value": 15},
+    {"id": 6, "value": 8}
+  ],
+  "bonusStats": [
+    {"id": 1, "value": 0},
+    {"id": 2, "value": 0},
+    {"id": 3, "value": 0},
+    {"id": 4, "value": 0},
+    {"id": 5, "value": 0},
+    {"id": 6, "value": 0}
+  ],
+  "overrideStats": [
+    {"id": 1, "value": null},
+    {"id": 2, "value": null},
+    {"id": 3, "value": null},
+    {"id": 4, "value": null},
+    {"id": 5, "value": null},
+    {"id": 6, "value": null}
+  ],
+  "modifiers": {
+    "race": [
+      {
+        "type": "bonus",
+        "subType": "dexterity-score",
+        "value": 2
+      },
+      {
+        "type": "bonus",
+        "subType": "wisdom-score",
+        "value": 1
+      },
+      {
+        "type": "proficiency",
+        "subType": "perception",
+        "friendlySubtypeName": "Perception"
+      },
+      {
+        "type": "language",
+        "subType": "common",
+        "friendlySubtypeName": "Common"
+      },
+      {
+        "type": "language",
+        "subType": "elvish",
+        "friendlySubtypeName": "Elvish"
+      },
+      {
+        "type": "language",
+        "subType": "sylvan",
+        "friendlySubtypeName": "Sylvan"
+      }
+    ],
+    "class": [
+      {
+        "type": "proficiency",
+        "subType": "strength-saving-throws",
+        "friendlySubtypeName": "Strength"
+      },
+      {
+        "type": "proficiency",
+        "subType": "dexterity-saving-throws",
+        "friendlySubtypeName": "Dexterity"
+      },
+      {
+        "type": "proficiency",
+        "subType": "athletics",
+        "friendlySubtypeName": "Athletics"
+      },
+      {
+        "type": "proficiency",
+        "subType": "stealth",
+        "friendlySubtypeName": "Stealth"
+      },
+      {
+        "type": "proficiency",
+        "subType": "nature",
+        "friendlySubtypeName": "Nature"
+      },
+      {
+        "type": "proficiency",
+        "subType": "survival",
+        "friendlySubtypeName": "Survival"
+      }
+    ],
+    "background": [
+      {
+        "type": "proficiency",
+        "subType": "athletics",
+        "friendlySubtypeName": "Athletics"
+      }
+    ],
+    "item": [],
+    "feat": [],
+    "condition": []
+  },
+  "baseHitPoints": 45,
+  "bonusHitPoints": 0,
+  "overrideHitPoints": null,
+  "removedHitPoints": 5,
+  "temporaryHitPoints": 3,
+  "armorClass": 15,
+  "currentXp": 23000,
+  "classes": [
+    {
+      "level": 7,
+      "definition": {
+        "name": "Ranger",
+        "spellRules": {
+          "levelSpellSlots": {
+            "1": [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "2": [2, 0, 0, 0, 0, 0, 0, 0, 0],
+            "3": [3, 0, 0, 0, 0, 0, 0, 0, 0],
+            "4": [3, 0, 0, 0, 0, 0, 0, 0, 0],
+            "5": [4, 2, 0, 0, 0, 0, 0, 0, 0],
+            "6": [4, 2, 0, 0, 0, 0, 0, 0, 0],
+            "7": [4, 3, 0, 0, 0, 0, 0, 0, 0]
+          }
+        }
+      },
+      "subclassDefinition": {
+        "name": "Gloom Stalker"
+      },
+      "classFeatures": [
+        {
+          "definition": {
+            "name": "Favored Enemy",
+            "description": "Beginning at 1st level, you have significant experience studying, tracking, hunting, and even talking to a certain type of enemy.",
+            "requiredLevel": 1
+          }
+        },
+        {
+          "definition": {
+            "name": "Natural Explorer",
+            "description": "You are particularly familiar with one type of natural environment and are adept at traveling and surviving in such regions.",
+            "requiredLevel": 1
+          }
+        },
+        {
+          "definition": {
+            "name": "Fighting Style",
+            "description": "At 2nd level, you adopt a particular style of fighting as your specialty.",
+            "requiredLevel": 2
+          }
+        },
+        {
+          "definition": {
+            "name": "Dread Ambusher",
+            "description": "At 3rd level, you master the art of the ambush.",
+            "requiredLevel": 3
+          }
+        }
+      ]
+    }
+  ],
+  "inventory": [
+    {
+      "definition": {
+        "name": "Longbow",
+        "description": "A powerful ranged weapon.",
+        "filterType": "Weapon",
+        "damage": {
+          "diceString": "1d8"
+        },
+        "weight": 2,
+        "cost": 50
+      },
+      "quantity": 1,
+      "equipped": true
+    },
+    {
+      "definition": {
+        "name": "Shortsword",
+        "description": "A versatile blade.",
+        "filterType": "Weapon",
+        "damage": {
+          "diceString": "1d6"
+        },
+        "weight": 2,
+        "cost": 10
+      },
+      "quantity": 1,
+      "equipped": true
+    },
+    {
+      "definition": {
+        "name": "Studded Leather",
+        "description": "Leather armor with metal studs.",
+        "filterType": "Armor",
+        "armorClass": 12,
+        "weight": 13,
+        "cost": 45
+      },
+      "quantity": 1,
+      "equipped": true
+    },
+    {
+      "definition": {
+        "name": "Healing Potion",
+        "description": "A potion that restores 2d4+2 hit points.",
+        "filterType": "Potion",
+        "weight": 0.5,
+        "cost": 50
+      },
+      "quantity": 1,
+      "equipped": false
+    }
+  ],
+  "classSpells": [
+    {
+      "spells": [
+        {
+          "definition": {
+            "name": "Hunter's Mark",
+            "level": 1,
+            "school": "Divination",
+            "range": {
+              "rangeValue": 90
+            },
+            "components": [1, 2],
+            "castingTime": {
+              "castingTimeInterval": "1 Bonus Action"
+            },
+            "duration": {
+              "durationInterval": "1 Hour"
+            },
+            "description": "You choose a creature you can see within range and mystically mark it as your quarry. Until the spell ends, you deal an extra 1d6 damage to the target whenever you hit it with a weapon attack."
+          },
+          "prepared": true
+        },
+        {
+          "definition": {
+            "name": "Cure Wounds",
+            "level": 1,
+            "school": "Evocation",
+            "range": {
+              "rangeValue": 0
+            },
+            "components": [1, 2],
+            "castingTime": {
+              "castingTimeInterval": "1 Action"
+            },
+            "duration": {
+              "durationInterval": "Instantaneous"
+            },
+            "description": "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier."
+          },
+          "prepared": true
+        },
+        {
+          "definition": {
+            "name": "Pass without Trace",
+            "level": 2,
+            "school": "Abjuration",
+            "range": {
+              "rangeValue": 0
+            },
+            "components": [1, 2, 3],
+            "castingTime": {
+              "castingTimeInterval": "1 Action"
+            },
+            "duration": {
+              "durationInterval": "1 Hour"
+            },
+            "description": "A veil of shadows and silence radiates from you, masking you and your companions from detection. For the duration, each creature you choose within 30 feet of you (including you) has a +10 bonus to Dexterity (Stealth) checks and can't be tracked except by magical means."
+          },
+          "prepared": true
+        }
+      ]
+    }
+  ],
+  "feats": [
+    {
+      "definition": {
+        "name": "Sharpshooter",
+        "description": "You have mastered ranged weapons and can make shots that others find impossible. You gain the following benefits:\n\n- Attacking at long range doesn't impose disadvantage on your ranged weapon attack rolls.\n- Your ranged weapon attacks ignore half cover and three-quarters cover.\n- Before you make an attack with a ranged weapon that you are proficient with, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the attack's damage."
+      }
+    }
+  ],
+  "traits": {
+    "personalityTraits": "I watch over my friends as if they were a litter of newborn pups.",
+    "ideals": "Life is like the seasons, in constant change, and we must change with it.",
+    "bonds": "An injury to the unspoiled wilderness is an injury to me.",
+    "flaws": "I am slow to trust members of other races."
+  },
+  "currencies": {
+    "pp": 2,
+    "gp": 150,
+    "ep": 0,
+    "sp": 30,
+    "cp": 15
+  },
+  "notes": {
+    "personalNotes": "Tracking the shadow beast."
+  }
+}

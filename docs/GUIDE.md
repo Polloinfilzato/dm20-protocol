@@ -6,7 +6,7 @@ For installation and quick start, see the main [README](../README.md).
 
 ## Quick Reference
 
-**TL;DR:** DM20 Protocol gives your AI assistant 84 tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, rulebook lookups, a PDF library, and a full AI Dungeon Master — all through natural language.
+**TL;DR:** DM20 Protocol gives your AI assistant 86 tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, rulebook lookups, a PDF library, and a full AI Dungeon Master — all through natural language.
 
 1. **[How to Use DM20](#how-to-use-dm20)** — Slash commands vs natural language, gameplay workflow, when to use which command
    - Why slash commands matter (not just shortcuts — they change output quality)
@@ -16,7 +16,7 @@ For installation and quick start, see the main [README](../README.md).
 2. **[System Prompt](#system-prompt-recommendation)** — For non-Claude Code clients: paste this prompt to prime your AI as a DM
    - Full game loop, combat protocol, authority rules, NPC voice guidelines
 
-3. **[Tools Reference](#available-tools-84)** — All 84 tools organized by 16 categories
+3. **[Tools Reference](#available-tools-86)** — All 86 tools organized by 17 categories
    - Campaign, Character, NPC, Location, Quest management
    - Character builder, level-up, equipment, spells, rests
    - Combat system with tactical maps, AoE, effects, encounter builder
@@ -24,19 +24,24 @@ For installation and quick start, see the main [README](../README.md).
    - Multi-source rulebooks (SRD, Open5e, 5etools, custom)
    - PDF library with semantic search
    - AI Dungeon Master (Claudmaster) with adventure modules
-   - Character sheets, compendium packs, discovery, multi-user sessions
+   - Character sheets, D&D Beyond import, compendium packs, discovery, multi-user sessions
 
 4. **[Workflow Examples](#workflow-examples)** — Step-by-step practical flows
    - Character creation with rulebook validation
    - Solo play session with AI DM
    - Running a combat encounter
 
-5. **[Data Structure](#data-structure)** — How campaign data is organized
+5. **[Importing Characters from D&D Beyond](#importing-characters-from-dd-beyond)** — Bring your existing characters over
+   - URL import for public characters, file import for private ones
+   - What gets imported and what doesn't (yet)
+   - Troubleshooting common issues
+
+6. **[Data Structure](#data-structure)** — How campaign data is organized
    - Central `Campaign` model with interconnected entities
    - Characters, NPCs, locations, and quests are cross-referenced
    - Split file format for easy version control
 
-6. **[PDF Library](#pdf-rulebook-library)** — Import and query your own rulebooks
+7. **[PDF Library](#pdf-rulebook-library)** — Import and query your own rulebooks
    - Drop PDFs/Markdown into the library folder
    - Smart indexing with on-demand content extraction
    - Semantic search with `ask_books`
@@ -49,12 +54,12 @@ DM20 Protocol works with any MCP-compatible client, but the experience differs s
 
 ### Slash Commands vs Natural Language
 
-Each `/dm:*` slash command injects ~300 lines of context-specific instructions and the full DM persona into Claude's prompt. This ensures the AI follows the exact right protocol for each situation — combat, exploration, social — and restricts tool access to only what's relevant. Without slash commands, the AI relies solely on the system prompt and has to figure out which of the 84 tools to chain together on its own.
+Each `/dm:*` slash command injects ~300 lines of context-specific instructions and the full DM persona into Claude's prompt. This ensures the AI follows the exact right protocol for each situation — combat, exploration, social — and restricts tool access to only what's relevant. Without slash commands, the AI relies solely on the system prompt and has to figure out which of the 86 tools to chain together on its own.
 
 | Approach | Quality | How it works |
 |----------|---------|-------------|
 | **Claude Code + slash commands** | Best | Each command injects the full DM persona + situation-specific instructions + restricted tool access + dual-agent architecture |
-| **Any MCP client + natural language** | Good | AI uses the system prompt + all 84 tools, but may miss steps or lack the structured game loop |
+| **Any MCP client + natural language** | Good | AI uses the system prompt + all 86 tools, but may miss steps or lack the structured game loop |
 
 **Slash commands are not shortcuts — they fundamentally change the quality of the AI's output.** A single `/dm:combat I attack` delivers a detailed combat protocol with enemy tactics, death saves, and turn-by-turn resolution. Typing "I attack" in Claude Desktop gives the AI only the system prompt to work from.
 
@@ -259,9 +264,9 @@ For detailed instructions, see the [Player Guide](PLAYER_GUIDE.md).
 
 ---
 
-## Available Tools (84)
+## Available Tools (86)
 
-DM20 Protocol exposes 84 MCP tools organized into 16 categories. Each tool can be called by any MCP-compatible AI client through natural language.
+DM20 Protocol exposes 86 MCP tools organized into 17 categories. Each tool can be called by any MCP-compatible AI client through natural language.
 
 ### Campaign Management (5 tools)
 
@@ -463,6 +468,17 @@ Bidirectional sync between character JSON data and human-readable Markdown sheet
 
 **Example:** "Export Thalion's character sheet, then check if the player made any edits."
 
+### D&D Beyond Import (2 tools)
+
+Import existing characters from D&D Beyond into your campaign. Supports both URL-based import (for public characters) and local JSON file import (for private characters).
+
+| Tool | Description |
+|------|-------------|
+| `import_from_dndbeyond` | Import a character directly from D&D Beyond using a URL or character ID |
+| `import_character_file` | Import a character from a local D&D Beyond JSON file |
+
+**Example:** "Import my D&D Beyond character from https://www.dndbeyond.com/characters/12345678"
+
 ### Compendium Packs (4 tools)
 
 Export and import campaign content as portable JSON packs. Share NPCs, locations, quests, and encounters between campaigns with conflict resolution.
@@ -593,6 +609,85 @@ A full combat flow from initiative to XP distribution:
 9. calculate_experience party_size=1 party_level=1 encounter_xp=100
    → Calculates XP per player (adjusted for party size)
 ```
+
+---
+
+## Importing Characters from D&D Beyond
+
+If you already have a character on [D&D Beyond](https://www.dndbeyond.com/), you can import it directly instead of creating one from scratch.
+
+### Quick Import from URL
+
+Use the `import_from_dndbeyond` tool:
+
+```
+import_from_dndbeyond
+  url_or_id: "https://www.dndbeyond.com/characters/12345678"
+  player_name: "John"    (optional)
+```
+
+The tool accepts a full D&D Beyond character URL or just the numeric character ID.
+
+### Making Your Character Public
+
+Only public characters can be imported via URL. To make your character public:
+
+1. Go to [D&D Beyond](https://www.dndbeyond.com/) and open your character
+2. Click the **Settings** (gear icon)
+3. Find **Character Privacy**
+4. Set it to **Public**
+
+If you prefer not to make your character public, use the file import method below.
+
+### File Import (for Private Characters)
+
+If your character is private, or D&D Beyond is temporarily unavailable, you can export the character data manually:
+
+1. Open your browser's **Developer Tools** (press `F12`)
+2. Go to the **Network** tab
+3. Load your character page on D&D Beyond
+4. Filter for `character` in the network requests
+5. Find the request to `character-service.dndbeyond.com`
+6. Right-click the request → **Copy** → **Copy Response**
+7. Save the copied JSON to a `.json` file (e.g., `my-character.json`)
+8. Use the `import_character_file` tool:
+
+```
+import_character_file
+  file_path: "/path/to/my-character.json"
+  player_name: "John"    (optional)
+```
+
+### What Gets Imported
+
+The import process maps the following from your D&D Beyond character:
+
+- **Identity** — Name, race, class, level, subclass
+- **Ability scores** — All six scores with modifiers (including racial bonuses, ASIs, and other adjustments)
+- **Combat stats** — HP, AC, speed
+- **Proficiencies** — Skill proficiencies, saving throws, languages
+- **Inventory** — All items with their types
+- **Equipment** — Currently equipped items
+- **Spells** — Spells known and spell slots
+- **Features** — Class features, racial traits, feats
+- **Personality** — Traits, ideals, bonds, flaws
+- **Currency** — Gold, silver, copper, and other coins
+
+### What Doesn't Get Imported (Yet)
+
+- Homebrew content may import with limited detail
+- Custom class features without standard definitions
+- Character appearance/portrait
+- Prepared spell tracking for some classes
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "Character is private" | Set your character to **Public** on D&D Beyond (see above) |
+| "Character not found" | Check that the URL or ID is correct |
+| "D&D Beyond is not responding" | Try again later, or use the file import method |
+| "No active campaign" | Load or create a campaign first with `load_campaign` or `create_campaign` |
 
 ---
 
