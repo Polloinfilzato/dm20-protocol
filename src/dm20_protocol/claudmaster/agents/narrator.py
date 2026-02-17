@@ -166,10 +166,18 @@ You are the Narrator of a D&D campaign. Your task: {reasoning}
 
 {style_hint}
 
+{discovery_context}
+
 When describing a new place, character, or situation for the first time, give the players multiple \
 threads to pull on: curious details, half-noticed oddities, things that beg questions. On follow-up \
 requests for more detail, narrow your focus precisely to what was asked, and calibrate the depth of \
 revealed information to the difficulty of any check involved — not every secret is freely given.
+
+IMPORTANT: If discovery context is provided above, you MUST respect it. Only describe features the \
+party has actually discovered. For GLIMPSED features, use vague and uncertain language. For EXPLORED \
+features, describe fully. For FULLY MAPPED features, include mechanical and tactical detail. \
+For hidden features, weave the sensory hints naturally into the scene without revealing the feature \
+itself. Never explicitly mention features the party hasn't discovered.
 
 Occasionally, without forcing it, weave in fragments of history or culture — a faded crest on a \
 wall, a local superstition muttered by a passerby, the architectural echo of a fallen empire — so \
@@ -346,6 +354,7 @@ class NarratorAgent(Agent):
         self.max_tokens = max_tokens
         self._voice_profiles: dict[str, VoiceProfile] = {}  # cache for consistency
         self._current_style_preferences: dict[str, str] = {}  # populated during reason() phase
+        self._current_discovery_context: str = ""  # populated during reason() phase
 
     async def reason(self, context: dict[str, Any]) -> str:
         """Analyze context to determine what kind of description is needed.
@@ -355,7 +364,8 @@ class NarratorAgent(Agent):
 
         Args:
             context: Game context dict with keys like 'player_action',
-                'location', 'recent_events', 'setting', 'style_preferences', etc.
+                'location', 'recent_events', 'setting', 'style_preferences',
+                'discovery_context', etc.
 
         Returns:
             A reasoning string describing the intended narrative approach.
@@ -366,6 +376,9 @@ class NarratorAgent(Agent):
 
         # Store style preferences for use in act() phase
         self._current_style_preferences = context.get("style_preferences", {})
+
+        # Store discovery context for use in act() phase
+        self._current_discovery_context = context.get("discovery_context", "")
 
         # Determine the narrative task
         if not player_action:
@@ -435,10 +448,14 @@ class NarratorAgent(Agent):
         # Get style-specific guidance (falls back to descriptive)
         style_guide = STYLE_GUIDES.get(self.style, STYLE_GUIDES[NarrativeStyle.DESCRIPTIVE])
 
+        # Format discovery context
+        discovery_context = self._current_discovery_context or ""
+
         return SCENE_DESCRIPTION_TEMPLATE.format(
             reasoning=reasoning,
             style_guide=style_guide,
             style_hint=style_hint,
+            discovery_context=discovery_context,
         )
 
     def build_voice_profile(
