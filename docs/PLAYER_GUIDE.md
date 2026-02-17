@@ -465,7 +465,35 @@ dm20-protocol can be used in **two different ways**:
 
 Use the `/dm:*` commands and Claude becomes your full DM. It handles everything: narrative, NPCs, rules, combat. You are just the player. This is the primary mode and the focus of this guide.
 
-### 2. DM Assistant (You Are the DM)
+### 2. Party Mode (Multi-Player)
+
+Multiple players connect from their own devices (phone, tablet, PC) via browser. The host runs dm20-protocol on their machine and activates Party Mode:
+
+```
+/dm:party-mode              ← start web server, generate QR codes
+```
+
+Each player scans their personal QR code and gets a private game interface with:
+- **Narrative feed** — shared story, auto-updates via WebSocket
+- **Private messages** — DM whispers visible only to them
+- **Character sheet** — HP, AC, level, conditions
+- **Action input** — text field to submit actions
+
+The host processes player actions with `/dm:party-next` (one at a time) or `/dm:party-auto` (automatic). Responses are pushed to each player's browser in real time, filtered by the permission system — no player ever sees another player's private content.
+
+| Command | What it does |
+|---------|-------------|
+| `/dm:party-mode` | Start web server, generate tokens and QR codes |
+| `/dm:party-stop` | Stop web server, end Party Mode |
+| `/dm:party-next` | Process the next queued player action |
+| `/dm:party-auto` | Auto-process actions as they arrive |
+| `/dm:party-status` | Show connected players, pending actions |
+| `/dm:party-kick <player>` | Disconnect a player and invalidate their token |
+| `/dm:party-token <player>` | Regenerate access token for a player |
+
+For the full architecture and technical details, see the [Party Mode Guide](PARTY_MODE.md).
+
+### 3. DM Assistant (You Are the DM)
 
 If you are the DM for a group of players, you can use the MCP tools directly (without `/dm:*` commands) as a management assistant:
 

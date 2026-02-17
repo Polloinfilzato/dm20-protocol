@@ -26,6 +26,7 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **Narrative Fog of War** — Progressive location discovery (undiscovered → glimpsed → explored → fully mapped), sensory hints for hidden features, narrator-aware descriptions
 - **Party Knowledge** — Track what the party knows about the world, with source attribution and bidirectional NPC knowledge sharing
 - **Multi-User Permissions** — Role-based access (DM, Player, Observer) with output filtering, session coordination, and private messaging — zero overhead in single-player
+- **Party Mode** — Multi-player web relay: players connect from their phones/tablets via QR code, each getting a personal game interface with narrative feed, character sheet, and action input — all filtered by the permission system. WebSocket real-time push, combat turn coordination, reconnection with message replay, and JSONL queue persistence
 - **Multi-Source Rulebooks** — Load rules from SRD, Open5e, 5etools, or custom JSON
 - **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
 - **Bilingual Play** — Italian/English D&D terminology resolution (500+ terms)
@@ -304,6 +305,7 @@ See the **[Player Guide](docs/PLAYER_GUIDE.md)** for how to play, or the **[Road
 ## Documentation
 
 - [Player Guide](docs/PLAYER_GUIDE.md) — How to play solo D&D with the AI DM
+- [Party Mode](docs/PARTY_MODE.md) — Multi-player web relay architecture and setup
 - [User Guide](docs/GUIDE.md) — System prompt, tools reference, data structure, PDF library
 - [Storage Structure](docs/STORAGE_STRUCTURE.md) — How campaign data is organized on disk
 - [Development Guide](docs/DEVELOPMENT.md) — Architecture, contributing, API details

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Party Mode - {player_name}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+
+        <!-- Character Bar (Sticky Header) -->
+        <header class="character-bar">
+            <div class="character-bar__main">
+                <span class="character-bar__name">{player_name}</span>
+                <div class="character-bar__stats">
+                    <div class="hp-bar">
+                        <div class="hp-bar__fill" style="width: 100%"></div>
+                        <span class="hp-bar__text">--/--</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge__label">AC</span>
+                        <span class="stat-badge__value" id="stat-ac">--</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge__label">Lv</span>
+                        <span class="stat-badge__value" id="stat-level">--</span>
+                    </div>
+                </div>
+                <div class="indicators">
+                    <div class="connection-dot" title="Connection status"></div>
+                </div>
+            </div>
+            <div class="character-bar__conditions"></div>
+            <div class="character-bar__expand-hint">Tap for character sheet</div>
+        </header>
+
+        <!-- Combat Banner -->
+        <div class="combat-banner">
+            <div class="combat-banner__title">Combat</div>
+            <div class="combat-banner__info"></div>
+            <div class="countdown-timer" style="display:none"></div>
+            <div class="initiative-list"></div>
+        </div>
+
+        <!-- Turn gate overlay (shown when not your turn) -->
+        <div class="turn-gate-overlay"></div>
+
+        <!-- Narrative Feed -->
+        <main class="narrative-feed">
+            <!-- Private Messages Section -->
+            <div class="private-section">
+                <button class="private-section__toggle">
+                    <span class="private-section__toggle-arrow">&#9654;</span>
+                    Private Messages
+                    <span class="private-section__count">0</span>
+                </button>
+                <div class="private-section__messages"></div>
+            </div>
+
+            <!-- Messages appear here -->
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state__icon">&#9876;</div>
+                <div class="empty-state__title">Awaiting the adventure...</div>
+                <div class="empty-state__subtitle">Messages will appear here once the session begins.</div>
+            </div>
+        </main>
+
+        <!-- Action Bar (Fixed Bottom) -->
+        <footer class="action-bar">
+            <div class="action-bar__status"></div>
+            <form class="action-bar__form">
+                <input
+                    type="text"
+                    class="action-bar__input"
+                    placeholder="What do you do?"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="sentences"
+                >
+                <button type="submit" class="action-bar__send" title="Send action">&#9654;</button>
+            </form>
+        </footer>
+
+        <!-- Character Sheet (Slide-in Panel) -->
+        <div class="character-sheet-overlay"></div>
+        <aside class="character-sheet">
+            <button class="character-sheet__close">&times;</button>
+            <h2 class="character-sheet__title">{player_name}</h2>
+            <p class="character-sheet__subtitle"></p>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Ability Scores</h3>
+                <div class="ability-grid"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Skills</h3>
+                <div class="skills-list"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Inventory</h3>
+                <ul class="inventory-list"></ul>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Spell Slots</h3>
+                <div class="spell-slots"></div>
+            </div>
+
+            <div class="sheet-section">
+                <h3 class="sheet-section__title">Features</h3>
+                <ul class="features-list"></ul>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // Injected by server — do not edit
+        window.PARTY_CONFIG = {
+            token: '{token}',
+            playerName: '{player_name}',
+        };
+    </script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
