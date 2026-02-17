@@ -183,7 +183,7 @@
                 break;
 
             case 'action_status':
-                updateActionStatus(msg.action_id, msg.status);
+                updateActionStatus(msg.action_id, msg.status, msg.error);
                 break;
 
             case 'system':
@@ -317,7 +317,14 @@
             });
     }
 
-    function updateActionStatus(actionId, status) {
+    function updateActionStatus(actionId, status, errorMsg) {
+        if (status === 'rejected') {
+            // Turn gating rejection — not tied to a pending action
+            setActionStatus(errorMsg || 'Action rejected', 'error');
+            setTimeout(function () { setActionStatus('', ''); }, 3000);
+            return;
+        }
+
         if (actionId === pendingActionId) {
             if (status === 'processing') {
                 setActionStatus('Processing...', 'processing');
@@ -465,36 +472,210 @@
 
     // ===== Combat State =====
 
+    let combatActive = false;
+    let simultaneousTimer = null;
+
     function updateCombatState(data) {
         if (!data || !dom.combatBanner) return;
 
-        if (data.active) {
-            dom.combatBanner.classList.add('combat-banner--active');
-
-            if (dom.combatInfo) {
-                var current = data.active_player || 'Unknown';
-                var isMyTurn = current === PLAYER_NAME;
-                dom.combatInfo.innerHTML = isMyTurn
-                    ? '<span class="combat-banner__current">YOUR TURN</span>'
-                    : 'Current: <span class="combat-banner__current">' + escapeHtml(current) + '</span>';
+        if (!data.active) {
+            // Combat ended
+            if (combatActive) {
+                addSystemMessage('Combat ended');
             }
-
-            // Initiative order
-            if (dom.initiativeList && data.initiative) {
-                dom.initiativeList.innerHTML = '';
-                data.initiative.forEach(function (entry) {
-                    var el = document.createElement('span');
-                    var name = typeof entry === 'string' ? entry : entry.name || entry;
-                    el.className = 'initiative-entry';
-                    if (name === data.active_player) el.classList.add('initiative-entry--active');
-                    if (name === PLAYER_NAME) el.classList.add('initiative-entry--player');
-                    el.textContent = name;
-                    dom.initiativeList.appendChild(el);
-                });
-            }
-        } else {
+            combatActive = false;
             dom.combatBanner.classList.remove('combat-banner--active');
+            dom.combatBanner.classList.remove('combat-banner--your-turn');
+            dom.combatBanner.classList.remove('combat-banner--waiting');
+            dom.combatBanner.classList.remove('combat-banner--simultaneous');
+            enableActionInput();
+            clearSimultaneousTimer();
+            return;
         }
+
+        combatActive = true;
+        dom.combatBanner.classList.add('combat-banner--active');
+
+        if (data.mode === 'simultaneous') {
+            renderSimultaneousMode(data);
+        } else {
+            renderTurnBasedMode(data);
+        }
+    }
+
+    function renderTurnBasedMode(data) {
+        var isMyTurn = data.your_turn === true;
+
+        // Banner state
+        dom.combatBanner.classList.remove('combat-banner--simultaneous');
+        dom.combatBanner.classList.toggle('combat-banner--your-turn', isMyTurn);
+        dom.combatBanner.classList.toggle('combat-banner--waiting', !isMyTurn);
+        clearSimultaneousTimer();
+
+        // Banner text
+        if (dom.combatInfo) {
+            var roundText = data.round ? ' &mdash; Round ' + data.round : '';
+            if (isMyTurn) {
+                dom.combatInfo.innerHTML =
+                    '<span class="combat-banner__your-turn-text">YOUR TURN</span>' +
+                    roundText;
+            } else {
+                var current = data.current_turn || 'Unknown';
+                dom.combatInfo.innerHTML =
+                    'Waiting for <span class="combat-banner__current">' +
+                    escapeHtml(current) + '</span>' + roundText;
+            }
+        }
+
+        // Turn gating
+        if (isMyTurn) {
+            enableActionInput();
+        } else {
+            disableActionInput();
+        }
+
+        // Initiative list with enhanced entries
+        renderInitiativeList(data.initiative, data.current_turn);
+    }
+
+    function renderSimultaneousMode(data) {
+        dom.combatBanner.classList.remove('combat-banner--your-turn');
+        dom.combatBanner.classList.remove('combat-banner--waiting');
+        dom.combatBanner.classList.add('combat-banner--simultaneous');
+
+        // Show prompt
+        if (dom.combatInfo) {
+            var prompt = data.prompt || 'Everyone act simultaneously!';
+            var submitted = data.submitted || [];
+            var waiting = data.waiting_for || [];
+            var iHaveSubmitted = submitted.indexOf(PLAYER_NAME) !== -1;
+
+            dom.combatInfo.innerHTML =
+                '<div class="combat-banner__prompt">' + escapeHtml(prompt) + '</div>' +
+                '<div class="combat-banner__simul-status">' +
+                'Submitted: ' + (submitted.length > 0 ? submitted.map(escapeHtml).join(', ') : 'none') +
+                ' &mdash; Waiting: ' + (waiting.length > 0 ? waiting.map(escapeHtml).join(', ') : 'none') +
+                '</div>';
+
+            if (iHaveSubmitted) {
+                disableActionInput();
+            } else {
+                enableActionInput();
+            }
+        }
+
+        // Countdown timer
+        if (data.timeout_seconds && !simultaneousTimer) {
+            startSimultaneousTimer(data.timeout_seconds);
+        }
+
+        // Clear initiative list for simultaneous mode
+        if (dom.initiativeList) {
+            dom.initiativeList.innerHTML = '';
+        }
+    }
+
+    function renderInitiativeList(initiative, currentTurn) {
+        if (!dom.initiativeList || !initiative) return;
+        dom.initiativeList.innerHTML = '';
+
+        initiative.forEach(function (entry) {
+            var el = document.createElement('div');
+            el.className = 'initiative-entry';
+
+            var id = entry.id || entry.name || entry;
+            var name = entry.name || id;
+
+            if (id === currentTurn) el.classList.add('initiative-entry--current');
+            if (id === PLAYER_NAME || name === PLAYER_NAME) el.classList.add('initiative-entry--self');
+
+            // Build HP bar
+            var hp = entry.hp || 0;
+            var maxHp = entry.max_hp || 1;
+            var hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+            var hpColor = hpPercent > 50 ? '#22c55e' : (hpPercent > 25 ? '#eab308' : '#dc2626');
+
+            var conditionsHtml = '';
+            if (entry.conditions && entry.conditions.length > 0) {
+                conditionsHtml = '<div class="initiative-entry__conditions">' +
+                    entry.conditions.map(function (c) {
+                        return '<span class="initiative-entry__condition">' + escapeHtml(c) + '</span>';
+                    }).join('') + '</div>';
+            }
+
+            el.innerHTML =
+                '<div class="initiative-entry__header">' +
+                '<span class="initiative-entry__name">' + escapeHtml(name) + '</span>' +
+                '<span class="initiative-entry__init">' + (entry.initiative || 0) + '</span>' +
+                '</div>' +
+                '<div class="initiative-entry__stats">' +
+                '<div class="initiative-entry__hp-bar">' +
+                '<div class="initiative-entry__hp-fill" style="width:' + hpPercent + '%;background:' + hpColor + '"></div>' +
+                '</div>' +
+                '<span class="initiative-entry__hp-text">' + hp + '/' + maxHp + '</span>' +
+                '<span class="initiative-entry__ac">AC ' + (entry.ac || '?') + '</span>' +
+                '</div>' +
+                conditionsHtml;
+
+            dom.initiativeList.appendChild(el);
+        });
+    }
+
+    function enableActionInput() {
+        if (dom.actionInput) {
+            dom.actionInput.disabled = false;
+            dom.actionInput.placeholder = 'What do you do?';
+        }
+        if (dom.actionSend) dom.actionSend.disabled = false;
+        // Remove overlay
+        var overlay = document.querySelector('.turn-gate-overlay');
+        if (overlay) overlay.classList.remove('turn-gate-overlay--active');
+    }
+
+    function disableActionInput() {
+        if (dom.actionInput) {
+            dom.actionInput.disabled = true;
+            dom.actionInput.placeholder = 'Waiting for your turn...';
+        }
+        if (dom.actionSend) dom.actionSend.disabled = true;
+        // Show overlay
+        var overlay = document.querySelector('.turn-gate-overlay');
+        if (overlay) overlay.classList.add('turn-gate-overlay--active');
+    }
+
+    function startSimultaneousTimer(seconds) {
+        clearSimultaneousTimer();
+        var timerEl = document.querySelector('.countdown-timer');
+        if (!timerEl) return;
+
+        var remaining = seconds;
+        timerEl.style.display = 'block';
+        timerEl.textContent = formatCountdown(remaining);
+
+        simultaneousTimer = setInterval(function () {
+            remaining--;
+            if (remaining <= 0) {
+                clearSimultaneousTimer();
+                timerEl.textContent = 'Time up!';
+            } else {
+                timerEl.textContent = formatCountdown(remaining);
+            }
+        }, 1000);
+    }
+
+    function clearSimultaneousTimer() {
+        if (simultaneousTimer) {
+            clearInterval(simultaneousTimer);
+            simultaneousTimer = null;
+        }
+        var timerEl = document.querySelector('.countdown-timer');
+        if (timerEl) timerEl.style.display = 'none';
+    }
+
+    function formatCountdown(seconds) {
+        var m = Math.floor(seconds / 60);
+        var s = seconds % 60;
+        return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
 
