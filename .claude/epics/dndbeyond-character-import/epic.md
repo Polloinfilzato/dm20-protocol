@@ -1,8 +1,8 @@
 ---
 name: dndbeyond-character-import
-status: backlog
+status: in_progress
 created: 2026-02-17T16:55:58Z
-progress: 0%
+progress: 14%
 prd: .claude/prds/dndbeyond-character-import.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/158
 ---
