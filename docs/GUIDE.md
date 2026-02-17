@@ -175,16 +175,48 @@ Follow the player's lead — this is a framework, not a script.
 
 If you're using **Claude Code**, DM20 Protocol includes a complete AI Dungeon Master system for solo D&D play. Claude becomes your DM using a dedicated persona file and specialist sub-agents.
 
+### Slash Commands vs Natural Language
+
+**Why use slash commands?** Each `/dm:*` command injects ~300 lines of context-specific instructions and the full DM persona into Claude's prompt. This ensures the AI follows the exact right protocol for each situation (combat, exploration, social) and has access to only the relevant tools. Without slash commands, the AI relies solely on the system prompt and must figure out the workflow on its own — it works, but with less consistency and no sub-agent architecture.
+
+| Approach | Quality | How it works |
+|----------|---------|-------------|
+| **Slash commands** | Best | Each command injects the full DM persona + situation-specific instructions + restricted tool access |
+| **Natural language** | Good | AI uses the system prompt + all 84 tools, but may miss steps or skip the structured game loop |
+
+**Recommendation:** Use slash commands for the best experience. They're not just shortcuts — they fundamentally change the quality of the AI's output.
+
 ### Game Commands
 
-These slash commands are the player-facing interface:
+| Command | Description | When to use |
+|---------|-------------|-------------|
+| `/dm:start [campaign]` | Begin or resume a game session | Once, at the start of each play session |
+| `/dm:action <description>` | Exploration, social, and general actions | Every non-combat player action |
+| `/dm:combat [situation]` | Combat initiation and every combat turn | Every combat action (not just the first!) |
+| `/dm:save` | Save state and pause with narrative cliffhanger | When you want to stop playing |
 
-| Command | Description |
-|---------|-------------|
-| `/dm:start [campaign_name]` | Begin or resume a game session |
-| `/dm:action <description>` | Process a player action (exploration, social, combat) |
-| `/dm:combat [situation]` | Initiate or manage a combat encounter |
-| `/dm:save` | Save session state and pause with narrative cliffhanger |
+### Gameplay Workflow
+
+```
+/dm:start Curse of Strahd          ← start session (once)
+│
+├─ /dm:action I explore the tavern  ← exploration
+├─ /dm:action I talk to the barkeep ← social encounter
+│
+├─ /dm:combat Wolves attack!        ← combat starts
+├─ /dm:combat I attack with my sword   ← your combat turn
+├─ /dm:combat I cast healing word      ← still in combat
+├─ /dm:combat                          ← AI ends combat when enemies are defeated
+│
+├─ /dm:action I search the area     ← back to exploration
+│
+└─ /dm:save                         ← end session
+```
+
+**Important:** `/dm:combat` must be used for **every action during combat**, not just to start it. This is because:
+- `/dm:action` does not have access to `next_turn` or `end_combat` — it can trigger combat but cannot manage it
+- `/dm:combat` injects the full combat protocol (death saves, enemy tactics by difficulty, turn-by-turn resolution)
+- Combat ends automatically when the AI determines all enemies are defeated, fled, or surrendered — there is no separate "end combat" command
 
 ### How It Works
 
@@ -206,7 +238,7 @@ Game sessions consume context window quickly. When context reaches ~50-60%, save
 /dm:start Campaign    → reload everything with recap
 ```
 
-For detailed instructions, see the [Player Guide](../PLAYER_GUIDE.md).
+For detailed instructions, see the [Player Guide](PLAYER_GUIDE.md).
 
 ---
 
