@@ -1,5 +1,5 @@
 """
-CompendiumPack model and serializer for portable campaign content export.
+CompendiumPack model, serializer, validator, and importer for portable campaign content.
 
 Provides the ability to export campaign entities (NPCs, locations, quests,
 encounters) as self-contained pack files that can be shared, backed up,
@@ -9,15 +9,18 @@ Key classes:
 - PackMetadata: Creation timestamp, entity counts, source campaign info.
 - CompendiumPack: Portable pack containing metadata and entity collections.
 - PackSerializer: Extracts entities from a Campaign and produces pack JSON.
+- PackValidator: Schema and version checks for pack integrity.
+- PackImporter: Loads pack content into campaigns with conflict resolution.
 """
 
 import json
 import logging
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from shortuuid import random as shortuuid_random
 
 from .models import (
@@ -401,3 +404,609 @@ class PackSerializer:
             data = json.load(f)
 
         return CompendiumPack.model_validate(data)
+
+
+# ====================================================================== #
+# Validation
+# ====================================================================== #
+
+
+class ValidationResult(BaseModel):
+    """Result of a pack validation check."""
+
+    valid: bool = Field(description="Whether the pack is valid")
+    errors: list[str] = Field(default_factory=list, description="Validation error messages")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings")
+
+
+class PackValidator:
+    """Validates a CompendiumPack for schema conformance and version compatibility.
+
+    Checks:
+    - JSON structure can be parsed into a CompendiumPack (schema validation).
+    - schema_version is compatible with the current PACK_SCHEMA_VERSION.
+    - Entity counts in metadata match the actual entity lists.
+    - Required fields are present in entity dicts.
+    """
+
+    # Compatible schema versions (major version must match)
+    COMPATIBLE_MAJOR = "1"
+
+    @classmethod
+    def validate_file(cls, file_path: Path) -> ValidationResult:
+        """Validate a pack JSON file.
+
+        Args:
+            file_path: Path to the pack JSON file.
+
+        Returns:
+            ValidationResult with errors/warnings.
+        """
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        if not file_path.exists():
+            return ValidationResult(valid=False, errors=[f"File not found: {file_path}"])
+
+        # Step 1: JSON parse
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+        except json.JSONDecodeError as e:
+            return ValidationResult(valid=False, errors=[f"Invalid JSON: {e}"])
+
+        return cls.validate_data(raw_data)
+
+    @classmethod
+    def validate_data(cls, raw_data: dict[str, Any]) -> ValidationResult:
+        """Validate pack data (already parsed from JSON).
+
+        Args:
+            raw_data: Dictionary parsed from pack JSON.
+
+        Returns:
+            ValidationResult with errors/warnings.
+        """
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        # Step 1: Pydantic schema validation
+        try:
+            pack = CompendiumPack.model_validate(raw_data)
+        except ValidationError as e:
+            error_messages = [f"{err['loc']}: {err['msg']}" for err in e.errors()]
+            return ValidationResult(valid=False, errors=error_messages)
+
+        # Step 2: Version compatibility check
+        schema_version = pack.metadata.schema_version
+        try:
+            major = schema_version.split(".")[0]
+            if major != cls.COMPATIBLE_MAJOR:
+                errors.append(
+                    f"Incompatible schema version '{schema_version}'. "
+                    f"Expected major version {cls.COMPATIBLE_MAJOR}.x "
+                    f"(current: {PACK_SCHEMA_VERSION})"
+                )
+        except (IndexError, AttributeError):
+            errors.append(f"Invalid schema version format: '{schema_version}'")
+
+        if schema_version != PACK_SCHEMA_VERSION:
+            warnings.append(
+                f"Schema version '{schema_version}' differs from current "
+                f"'{PACK_SCHEMA_VERSION}'. Minor differences are tolerated."
+            )
+
+        # Step 3: Entity count consistency
+        expected_counts = pack.metadata.entity_counts
+        actual_counts = {
+            "npcs": len(pack.npcs),
+            "locations": len(pack.locations),
+            "quests": len(pack.quests),
+            "encounters": len(pack.encounters),
+        }
+        if pack.sessions:
+            actual_counts["sessions"] = len(pack.sessions)
+
+        for entity_type, actual in actual_counts.items():
+            expected = expected_counts.get(entity_type)
+            if expected is not None and expected != actual:
+                warnings.append(
+                    f"Metadata declares {expected} {entity_type} but pack "
+                    f"contains {actual}"
+                )
+
+        # Step 4: Required fields in entities
+        _npc_required = {"name"}
+        _loc_required = {"name", "location_type", "description"}
+        _quest_required = {"title", "description"}
+        _enc_required = {"name", "description"}
+
+        for i, npc_data in enumerate(pack.npcs):
+            missing = _npc_required - set(npc_data.keys())
+            if missing:
+                warnings.append(f"NPC #{i} missing fields: {missing}")
+
+        for i, loc_data in enumerate(pack.locations):
+            missing = _loc_required - set(loc_data.keys())
+            if missing:
+                warnings.append(f"Location #{i} missing fields: {missing}")
+
+        for i, quest_data in enumerate(pack.quests):
+            missing = _quest_required - set(quest_data.keys())
+            if missing:
+                warnings.append(f"Quest #{i} missing fields: {missing}")
+
+        for i, enc_data in enumerate(pack.encounters):
+            missing = _enc_required - set(enc_data.keys())
+            if missing:
+                warnings.append(f"Encounter #{i} missing fields: {missing}")
+
+        return ValidationResult(
+            valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+        )
+
+
+# ====================================================================== #
+# Import
+# ====================================================================== #
+
+
+class ConflictMode(str, Enum):
+    """Strategy for handling name collisions during import."""
+
+    SKIP = "skip"        # Keep existing entity, discard imported one
+    OVERWRITE = "overwrite"  # Replace existing entity with imported one
+    RENAME = "rename"    # Add numeric suffix to imported entity name
+
+
+class ImportEntityResult(BaseModel):
+    """Outcome of importing a single entity."""
+
+    entity_type: str
+    original_name: str
+    imported_name: str
+    action: str = Field(description="'created', 'skipped', 'overwritten', or 'renamed'")
+
+
+class ImportResult(BaseModel):
+    """Aggregate outcome of a pack import operation."""
+
+    pack_name: str
+    preview: bool = Field(description="True if this was a dry-run preview")
+    entities: list[ImportEntityResult] = Field(default_factory=list)
+
+    @property
+    def created_count(self) -> int:
+        return sum(1 for e in self.entities if e.action == "created")
+
+    @property
+    def skipped_count(self) -> int:
+        return sum(1 for e in self.entities if e.action == "skipped")
+
+    @property
+    def overwritten_count(self) -> int:
+        return sum(1 for e in self.entities if e.action == "overwritten")
+
+    @property
+    def renamed_count(self) -> int:
+        return sum(1 for e in self.entities if e.action == "renamed")
+
+    def summary(self) -> str:
+        """Human-readable import summary."""
+        mode = "Preview" if self.preview else "Imported"
+        parts = []
+        if self.created_count:
+            parts.append(f"{self.created_count} created")
+        if self.skipped_count:
+            parts.append(f"{self.skipped_count} skipped")
+        if self.overwritten_count:
+            parts.append(f"{self.overwritten_count} overwritten")
+        if self.renamed_count:
+            parts.append(f"{self.renamed_count} renamed")
+        detail = ", ".join(parts) if parts else "nothing to import"
+        return f"{mode} pack '{self.pack_name}': {detail}"
+
+
+class PackImporter:
+    """Imports a CompendiumPack into a Campaign with conflict resolution.
+
+    Supports:
+    - Three conflict modes: skip, overwrite, rename.
+    - Preview/dry-run mode (no mutations).
+    - Selective import by entity type or specific entity names.
+    - ID regeneration to avoid collisions across campaigns.
+    - Relationship re-linking after ID regeneration.
+    """
+
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def import_pack(
+        cls,
+        pack: CompendiumPack,
+        campaign: Campaign,
+        *,
+        conflict_mode: ConflictMode = ConflictMode.SKIP,
+        preview: bool = False,
+        entity_filter: list[str] | None = None,
+    ) -> ImportResult:
+        """Import pack entities into a campaign.
+
+        Args:
+            pack: The CompendiumPack to import.
+            campaign: Target campaign to import into.
+            conflict_mode: How to handle name collisions.
+            preview: If True, compute what would happen without mutating campaign.
+            entity_filter: Restrict to these entity types
+                (e.g. ``["npcs", "locations"]``). None = all types.
+
+        Returns:
+            ImportResult describing every entity action.
+        """
+        all_types = {"npcs", "locations", "quests", "encounters"}
+        requested = set(entity_filter) if entity_filter else all_types
+
+        invalid = requested - all_types
+        if invalid:
+            raise ValueError(
+                f"Invalid entity types: {invalid}. "
+                f"Valid types: {sorted(all_types)}"
+            )
+
+        result = ImportResult(pack_name=pack.metadata.name, preview=preview)
+
+        # Phase 1: Regenerate IDs and build old->new mapping
+        id_map: dict[str, str] = {}
+        name_map: dict[str, str] = {}  # old_name -> new_name (for renames)
+
+        # Collect entities to import, regenerating IDs
+        import_npcs: list[dict[str, Any]] = []
+        import_locations: list[dict[str, Any]] = []
+        import_quests: list[dict[str, Any]] = []
+        import_encounters: list[dict[str, Any]] = []
+
+        if "npcs" in requested:
+            for npc_data in pack.npcs:
+                new_data = cls._regenerate_id(npc_data, id_map)
+                import_npcs.append(new_data)
+
+        if "locations" in requested:
+            for loc_data in pack.locations:
+                new_data = cls._regenerate_id(loc_data, id_map)
+                import_locations.append(new_data)
+
+        if "quests" in requested:
+            for quest_data in pack.quests:
+                new_data = cls._regenerate_id(quest_data, id_map)
+                import_quests.append(new_data)
+
+        if "encounters" in requested:
+            for enc_data in pack.encounters:
+                new_data = cls._regenerate_id(enc_data, id_map)
+                import_encounters.append(new_data)
+
+        # Phase 2: Resolve conflicts and determine final names
+        cls._resolve_entities(
+            import_npcs, campaign.npcs, "npcs", "name",
+            conflict_mode, result, name_map,
+        )
+        cls._resolve_entities(
+            import_locations, campaign.locations, "locations", "name",
+            conflict_mode, result, name_map,
+        )
+        cls._resolve_entities(
+            import_quests, campaign.quests, "quests", "title",
+            conflict_mode, result, name_map,
+        )
+        cls._resolve_entities(
+            import_encounters, campaign.encounters, "encounters", "name",
+            conflict_mode, result, name_map,
+        )
+
+        # Phase 3: Re-link cross-references using name_map
+        cls._relink_npcs(import_npcs, name_map)
+        cls._relink_locations(import_locations, name_map)
+        cls._relink_quests(import_quests, name_map)
+        cls._relink_encounters(import_encounters, name_map)
+
+        # Phase 4: Apply to campaign (skip if preview)
+        if not preview:
+            cls._apply_npcs(import_npcs, campaign, result)
+            cls._apply_locations(import_locations, campaign, result)
+            cls._apply_quests(import_quests, campaign, result)
+            cls._apply_encounters(import_encounters, campaign, result)
+            campaign.updated_at = datetime.now()
+
+        return result
+
+    # ------------------------------------------------------------------ #
+    # ID Regeneration
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _regenerate_id(
+        entity_data: dict[str, Any],
+        id_map: dict[str, str],
+    ) -> dict[str, Any]:
+        """Create a copy of entity data with a new UUID, recording the mapping.
+
+        Args:
+            entity_data: Original entity dict.
+            id_map: Mutable mapping of old_id -> new_id (updated in-place).
+
+        Returns:
+            Shallow copy of entity_data with a fresh ``id`` field.
+        """
+        new_data = dict(entity_data)
+        old_id = new_data.get("id", "")
+        new_id = shortuuid_random(length=8)
+        new_data["id"] = new_id
+        if old_id:
+            id_map[old_id] = new_id
+        return new_data
+
+    # ------------------------------------------------------------------ #
+    # Conflict Resolution
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def _resolve_entities(
+        cls,
+        entities: list[dict[str, Any]],
+        existing: dict[str, Any],
+        entity_type: str,
+        name_field: str,
+        conflict_mode: ConflictMode,
+        result: ImportResult,
+        name_map: dict[str, str],
+    ) -> None:
+        """Determine the action (create/skip/overwrite/rename) for each entity.
+
+        Modifies ``entities`` in-place to update names for renames, and
+        populates ``result.entities`` with the action taken for each entity.
+
+        Conflict detection is case-insensitive by name/title.
+
+        Args:
+            entities: List of entity dicts to import.
+            existing: Current campaign entities dict (keyed by name/title).
+            entity_type: Type label (e.g., "npcs").
+            name_field: Key used for the entity name ("name" or "title").
+            conflict_mode: Conflict resolution strategy.
+            result: ImportResult to populate.
+            name_map: Mutable old_name -> new_name mapping (for renames).
+        """
+        # Build case-insensitive index of existing names
+        existing_lower = {k.lower(): k for k in existing.keys()}
+
+        for entity_data in entities:
+            original_name = entity_data.get(name_field, "Unknown")
+            name_lower = original_name.lower()
+
+            if name_lower in existing_lower:
+                # Conflict detected
+                if conflict_mode == ConflictMode.SKIP:
+                    result.entities.append(ImportEntityResult(
+                        entity_type=entity_type,
+                        original_name=original_name,
+                        imported_name=original_name,
+                        action="skipped",
+                    ))
+                elif conflict_mode == ConflictMode.OVERWRITE:
+                    result.entities.append(ImportEntityResult(
+                        entity_type=entity_type,
+                        original_name=original_name,
+                        imported_name=original_name,
+                        action="overwritten",
+                    ))
+                elif conflict_mode == ConflictMode.RENAME:
+                    new_name = cls._unique_name(original_name, existing_lower)
+                    entity_data[name_field] = new_name
+                    name_map[original_name] = new_name
+                    # Track the new name in existing_lower to avoid double-rename
+                    existing_lower[new_name.lower()] = new_name
+                    result.entities.append(ImportEntityResult(
+                        entity_type=entity_type,
+                        original_name=original_name,
+                        imported_name=new_name,
+                        action="renamed",
+                    ))
+            else:
+                # No conflict
+                # Track this name so subsequent pack entities don't collide
+                existing_lower[name_lower] = original_name
+                result.entities.append(ImportEntityResult(
+                    entity_type=entity_type,
+                    original_name=original_name,
+                    imported_name=original_name,
+                    action="created",
+                ))
+
+    @staticmethod
+    def _unique_name(base_name: str, existing_lower: dict[str, str]) -> str:
+        """Generate a unique name by appending a numeric suffix.
+
+        Args:
+            base_name: Original entity name.
+            existing_lower: Lowercase mapping of already-used names.
+
+        Returns:
+            A name like "Durnan (2)" that doesn't collide.
+        """
+        counter = 2
+        while True:
+            candidate = f"{base_name} ({counter})"
+            if candidate.lower() not in existing_lower:
+                return candidate
+            counter += 1
+
+    # ------------------------------------------------------------------ #
+    # Relationship Re-linking
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _relink_npcs(
+        npcs: list[dict[str, Any]],
+        name_map: dict[str, str],
+    ) -> None:
+        """Update NPC cross-references after renames.
+
+        Fields updated:
+        - ``location``: name of a Location.
+        - ``relationships``: dict mapping character/NPC names to descriptions.
+        """
+        for npc_data in npcs:
+            # Location reference
+            loc = npc_data.get("location")
+            if loc and loc in name_map:
+                npc_data["location"] = name_map[loc]
+
+            # Relationships dict: keys are character/NPC names
+            rels = npc_data.get("relationships")
+            if rels and isinstance(rels, dict):
+                new_rels = {}
+                for rel_name, rel_desc in rels.items():
+                    new_key = name_map.get(rel_name, rel_name)
+                    new_rels[new_key] = rel_desc
+                npc_data["relationships"] = new_rels
+
+    @staticmethod
+    def _relink_locations(
+        locations: list[dict[str, Any]],
+        name_map: dict[str, str],
+    ) -> None:
+        """Update Location cross-references after renames.
+
+        Fields updated:
+        - ``npcs``: list of NPC names.
+        - ``connections``: list of connected Location names.
+        """
+        for loc_data in locations:
+            # NPC name list
+            npc_names = loc_data.get("npcs")
+            if npc_names and isinstance(npc_names, list):
+                loc_data["npcs"] = [name_map.get(n, n) for n in npc_names]
+
+            # Connected location names
+            connections = loc_data.get("connections")
+            if connections and isinstance(connections, list):
+                loc_data["connections"] = [name_map.get(c, c) for c in connections]
+
+    @staticmethod
+    def _relink_quests(
+        quests: list[dict[str, Any]],
+        name_map: dict[str, str],
+    ) -> None:
+        """Update Quest cross-references after renames.
+
+        Fields updated:
+        - ``giver``: NPC name who gave the quest.
+        """
+        for quest_data in quests:
+            giver = quest_data.get("giver")
+            if giver and giver in name_map:
+                quest_data["giver"] = name_map[giver]
+
+    @staticmethod
+    def _relink_encounters(
+        encounters: list[dict[str, Any]],
+        name_map: dict[str, str],
+    ) -> None:
+        """Update CombatEncounter cross-references after renames.
+
+        Fields updated:
+        - ``location``: Location name.
+        """
+        for enc_data in encounters:
+            loc = enc_data.get("location")
+            if loc and loc in name_map:
+                enc_data["location"] = name_map[loc]
+
+    # ------------------------------------------------------------------ #
+    # Apply to Campaign
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _apply_npcs(
+        npcs: list[dict[str, Any]],
+        campaign: Campaign,
+        result: ImportResult,
+    ) -> None:
+        """Materialize NPC dicts into the campaign."""
+        # Build a quick lookup of result actions by (entity_type, original_name)
+        action_map: dict[str, str] = {}
+        for er in result.entities:
+            if er.entity_type == "npcs":
+                action_map[er.imported_name] = er.action
+
+        for npc_data in npcs:
+            name = npc_data.get("name", "")
+            action = action_map.get(name, "")
+            if action == "skipped":
+                continue
+            npc = NPC.model_validate(npc_data)
+            campaign.npcs[npc.name] = npc
+
+    @staticmethod
+    def _apply_locations(
+        locations: list[dict[str, Any]],
+        campaign: Campaign,
+        result: ImportResult,
+    ) -> None:
+        """Materialize Location dicts into the campaign."""
+        action_map: dict[str, str] = {}
+        for er in result.entities:
+            if er.entity_type == "locations":
+                action_map[er.imported_name] = er.action
+
+        for loc_data in locations:
+            name = loc_data.get("name", "")
+            action = action_map.get(name, "")
+            if action == "skipped":
+                continue
+            loc = Location.model_validate(loc_data)
+            campaign.locations[loc.name] = loc
+
+    @staticmethod
+    def _apply_quests(
+        quests: list[dict[str, Any]],
+        campaign: Campaign,
+        result: ImportResult,
+    ) -> None:
+        """Materialize Quest dicts into the campaign."""
+        action_map: dict[str, str] = {}
+        for er in result.entities:
+            if er.entity_type == "quests":
+                action_map[er.imported_name] = er.action
+
+        for quest_data in quests:
+            title = quest_data.get("title", "")
+            action = action_map.get(title, "")
+            if action == "skipped":
+                continue
+            quest = Quest.model_validate(quest_data)
+            campaign.quests[quest.title] = quest
+
+    @staticmethod
+    def _apply_encounters(
+        encounters: list[dict[str, Any]],
+        campaign: Campaign,
+        result: ImportResult,
+    ) -> None:
+        """Materialize CombatEncounter dicts into the campaign."""
+        action_map: dict[str, str] = {}
+        for er in result.entities:
+            if er.entity_type == "encounters":
+                action_map[er.imported_name] = er.action
+
+        for enc_data in encounters:
+            name = enc_data.get("name", "")
+            action = action_map.get(name, "")
+            if action == "skipped":
+                continue
+            enc = CombatEncounter.model_validate(enc_data)
+            campaign.encounters[enc.name] = enc

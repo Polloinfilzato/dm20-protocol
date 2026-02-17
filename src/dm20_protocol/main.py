@@ -4001,8 +4001,8 @@ def approve_sheet_change(
         return sync_manager.reject_changes(character_name)
 
 
-# Compendium Pack Export Tools
-from .compendium import PackSerializer
+# Compendium Pack Tools
+from .compendium import PackSerializer, PackImporter, PackValidator, ConflictMode
 
 
 @mcp.tool
@@ -4061,6 +4061,162 @@ def export_pack(
         )
     except ValueError as e:
         return f"Export error: {e}"
+
+
+@mcp.tool
+def import_pack(
+    file_path: Annotated[str, Field(description="Path to the pack JSON file to import")],
+    conflict_mode: Annotated[str, Field(description="Conflict resolution: 'skip' (keep existing), 'overwrite' (replace), 'rename' (add suffix)")] = "skip",
+    preview: Annotated[bool, Field(description="If true, show what would be imported without making changes")] = False,
+    entity_filter: Annotated[str | None, Field(description="Comma-separated entity types to import: npcs, locations, quests, encounters. Omit for all.")] = None,
+) -> str:
+    """Import a compendium pack into the current campaign.
+
+    Loads a CompendiumPack JSON file and imports its entities (NPCs, locations,
+    quests, encounters) into the active campaign. Handles name conflicts via
+    the chosen conflict mode. Regenerates all entity IDs and re-links cross-references.
+
+    Use preview=true for a dry-run that shows what would happen without changing anything.
+    """
+    campaign = storage.get_current_campaign()
+    if not campaign:
+        return "No active campaign. Load or create a campaign first."
+
+    pack_path = Path(file_path)
+    if not pack_path.is_absolute():
+        # Try resolving relative to packs_dir
+        pack_path = storage.packs_dir / file_path
+
+    # Validate first
+    validation = PackValidator.validate_file(pack_path)
+    if not validation.valid:
+        error_str = "\n".join(f"  - {e}" for e in validation.errors)
+        return f"Pack validation failed:\n{error_str}"
+
+    # Load the pack
+    try:
+        pack = PackSerializer.load_pack(pack_path)
+    except FileNotFoundError:
+        return f"Pack file not found: {pack_path}"
+    except Exception as e:
+        return f"Error loading pack: {e}"
+
+    # Parse conflict mode
+    try:
+        mode = ConflictMode(conflict_mode.lower())
+    except ValueError:
+        return f"Invalid conflict mode '{conflict_mode}'. Use: skip, overwrite, rename"
+
+    # Parse entity filter
+    filter_list = [t.strip() for t in entity_filter.split(",")] if entity_filter else None
+
+    try:
+        result = PackImporter.import_pack(
+            pack,
+            campaign,
+            conflict_mode=mode,
+            preview=preview,
+            entity_filter=filter_list,
+        )
+    except ValueError as e:
+        return f"Import error: {e}"
+
+    # Save campaign if not preview
+    if not preview:
+        storage.save()
+
+    # Build detailed output
+    lines = [result.summary()]
+
+    if validation.warnings:
+        lines.append("\nValidation warnings:")
+        for w in validation.warnings:
+            lines.append(f"  - {w}")
+
+    if result.entities:
+        lines.append("\nDetails:")
+        for er in result.entities:
+            suffix = f" -> {er.imported_name}" if er.imported_name != er.original_name else ""
+            lines.append(f"  [{er.action.upper()}] {er.entity_type}: {er.original_name}{suffix}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def list_packs() -> str:
+    """List all available compendium packs in the packs directory.
+
+    Scans the packs/ directory for JSON pack files and returns their names,
+    descriptions, entity counts, and file paths."""
+    packs_dir = storage.packs_dir
+    pack_files = sorted(packs_dir.glob("*.json"))
+
+    if not pack_files:
+        return f"No packs found in {packs_dir}"
+
+    lines = [f"Found {len(pack_files)} pack(s) in {packs_dir}:\n"]
+
+    for pack_file in pack_files:
+        try:
+            pack = PackSerializer.load_pack(pack_file)
+            meta = pack.metadata
+            counts = meta.entity_counts
+            count_parts = [f"{v} {k}" for k, v in counts.items() if v > 0]
+            count_str = ", ".join(count_parts) if count_parts else "empty"
+
+            lines.append(f"**{meta.name}**")
+            if meta.description:
+                lines.append(f"  Description: {meta.description}")
+            lines.append(f"  Contents: {count_str}")
+            if meta.author:
+                lines.append(f"  Author: {meta.author}")
+            if meta.source_campaign:
+                lines.append(f"  Source: {meta.source_campaign}")
+            if meta.tags:
+                lines.append(f"  Tags: {', '.join(meta.tags)}")
+            lines.append(f"  File: {pack_file.name}")
+            lines.append("")
+        except Exception as e:
+            lines.append(f"**{pack_file.name}** (error reading: {e})")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def validate_pack(
+    file_path: Annotated[str, Field(description="Path to the pack JSON file to validate")],
+) -> str:
+    """Validate a compendium pack file without importing it.
+
+    Checks the pack for schema conformance, version compatibility, entity
+    count consistency, and required fields. Returns a detailed validation report."""
+    pack_path = Path(file_path)
+    if not pack_path.is_absolute():
+        pack_path = storage.packs_dir / file_path
+
+    result = PackValidator.validate_file(pack_path)
+
+    lines = []
+    if result.valid:
+        lines.append(f"Pack '{pack_path.name}' is valid.")
+    else:
+        lines.append(f"Pack '{pack_path.name}' is INVALID.")
+
+    if result.errors:
+        lines.append("\nErrors:")
+        for e in result.errors:
+            lines.append(f"  - {e}")
+
+    if result.warnings:
+        lines.append("\nWarnings:")
+        for w in result.warnings:
+            lines.append(f"  - {w}")
+
+    if not result.errors and not result.warnings:
+        lines.append("No issues found.")
+
+    return "\n".join(lines)
 
 
 logger.debug("✅ All tools successfully registered. DM20 Protocol server running! 🎲")
