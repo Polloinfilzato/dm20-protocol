@@ -17,12 +17,18 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from dm20_protocol.permissions import PlayerRole
+
 
 class PCState(BaseModel):
     """Tracks the current state of a player character."""
 
     character_id: str = Field(description="Unique identifier for the character")
     player_name: str = Field(description="Name of the player controlling this character")
+    role: PlayerRole = Field(
+        default=PlayerRole.PLAYER,
+        description="The player's role in the session (DM, PLAYER, or OBSERVER)"
+    )
     current_action: Optional[str] = Field(
         default=None,
         description="Description of the character's current/last action"

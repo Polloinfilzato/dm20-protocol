@@ -3986,7 +3986,8 @@ async def load_adventure(
 
 @mcp.tool
 def export_character_sheet(
-    name_or_id: Annotated[str, Field(description="Character name, ID, or player name")]
+    name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
 ) -> str:
     """Export a character to a Markdown sheet file.
 
@@ -4000,6 +4001,8 @@ def export_character_sheet(
     character = storage.find_character(name_or_id)
     if not character:
         return f"Character '{name_or_id}' not found."
+    if not permission_resolver.check_permission(player_id, "export_character_sheet", str(character.id)):
+        return f"🔒 Permission denied: you cannot export '{character.name}'."
 
     if not sync_manager.is_active:
         _sheets_dir = data_path / "campaigns" / campaign.name / "sheets"
