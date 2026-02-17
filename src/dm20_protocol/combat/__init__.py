@@ -50,6 +50,24 @@ try:
 except ImportError:
     pass
 
+# Combat action pipeline
+try:
+    from .pipeline import (
+        CombatResult,
+        SpellSaveResult,
+        resolve_attack,
+        resolve_save_spell,
+    )
+
+    __all__ += [
+        "CombatResult",
+        "SpellSaveResult",
+        "resolve_attack",
+        "resolve_save_spell",
+    ]
+except ImportError:
+    pass
+
 # Positioning and AoE engine
 try:
     from .positioning import (
