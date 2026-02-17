@@ -189,6 +189,7 @@ _DM_ONLY_TOOLS: set[str] = {
     "approve_sheet_change",
     "export_pack",
     "import_pack",
+    "send_private_message",
 }
 
 

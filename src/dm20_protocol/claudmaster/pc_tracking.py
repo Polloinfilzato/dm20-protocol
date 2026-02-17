@@ -217,6 +217,85 @@ class PCRegistry:
         """
         return list(self._registry.values())
 
+    # ------------------------------------------------------------------
+    # Session Participant Tracking
+    # ------------------------------------------------------------------
+
+    def join_session(
+        self,
+        character_id: str,
+        player_name: str,
+        role: PlayerRole = PlayerRole.PLAYER,
+    ) -> PCState:
+        """Register a PC joining the session with participant tracking.
+
+        If the character is already registered but inactive, reactivates them.
+        If not registered at all, registers and activates them.
+
+        Args:
+            character_id: Unique identifier for the character.
+            player_name: Name of the player controlling this character.
+            role: The player's role (DM, PLAYER, OBSERVER).
+
+        Returns:
+            The PCState for the joined character.
+        """
+        if character_id in self._registry:
+            state = self._registry[character_id]
+            state.is_active = True
+            state.last_action_time = datetime.now()
+            state.role = role
+            return state
+
+        # New registration (bypasses max_players for rejoining)
+        state = PCState(
+            character_id=character_id,
+            player_name=player_name,
+            role=role,
+            is_active=True,
+            last_action_time=datetime.now(),
+        )
+        self._registry[character_id] = state
+        return state
+
+    def leave_session(self, character_id: str) -> bool:
+        """Mark a PC as leaving the session (deactivated, not removed).
+
+        Args:
+            character_id: Character ID to deactivate.
+
+        Returns:
+            True if the character was found and deactivated, False otherwise.
+        """
+        if character_id not in self._registry:
+            return False
+
+        self._registry[character_id].is_active = False
+        if self._active_pc == character_id:
+            self._active_pc = None
+        return True
+
+    def heartbeat(self, character_id: str) -> bool:
+        """Update a PC's last_action_time timestamp.
+
+        Used to track activity and detect idle/disconnected participants.
+
+        Args:
+            character_id: Character ID sending the heartbeat.
+
+        Returns:
+            True if the character was found and updated, False otherwise.
+        """
+        if character_id not in self._registry:
+            return False
+
+        state = self._registry[character_id]
+        if not state.is_active:
+            return False
+
+        state.last_action_time = datetime.now()
+        return True
+
     @property
     def count(self) -> int:
         """Get total number of registered PCs."""

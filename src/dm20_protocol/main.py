@@ -32,6 +32,7 @@ from .adventures.discovery import search_adventures, format_search_results
 from .sheets.sync import SheetSyncManager
 from .sheets.diff import SheetDiffEngine
 from .permissions import PermissionResolver, PlayerRole
+from .output_filter import OutputFilter, SessionCoordinator
 
 logger = logging.getLogger("dm20-protocol")
 
@@ -79,6 +80,11 @@ logger.debug("✅ Server initialized, registering tools")
 # Initialize permission resolver for multi-player role-based access control
 permission_resolver = PermissionResolver()
 logger.debug("🔐 Permission resolver initialized")
+
+# Initialize output filter and session coordinator for multi-user sessions
+session_coordinator = SessionCoordinator()
+output_filter = OutputFilter(permission_resolver, session_coordinator)
+logger.debug("🔒 Output filter and session coordinator initialized")
 
 
 
@@ -1256,39 +1262,17 @@ def create_npc(
 
 @mcp.tool
 def get_npc(
-    name: Annotated[str, Field(description="NPC name")]
+    name: Annotated[str, Field(description="NPC name")],
+    player_id: Annotated[str | None, Field(description="Caller's player ID for output filtering. When provided, DM-only fields (bio, notes, stats, relationships) are stripped for non-DM callers.")] = None,
 ) -> str:
     """Get NPC information."""
     npc = storage.get_npc(name)
     if not npc:
         return f"NPC '{name}' not found."
 
-    # Build stats section
-    stats_text = ""
-    if npc.stats:
-        stats_lines = [f"  - {k}: {v}" for k, v in npc.stats.items()]
-        stats_text = "\n**Stats:**\n" + "\n".join(stats_lines)
-
-    # Build relationships section
-    relationships_text = ""
-    if npc.relationships:
-        rel_lines = [f"  - {char_name}: {rel}" for char_name, rel in npc.relationships.items()]
-        relationships_text = "\n**Relationships:**\n" + "\n".join(rel_lines)
-
-    npc_info = f"""**{npc.name}** (`{npc.id}`)
-**Race:** {npc.race or 'Unknown'}
-**Occupation:** {npc.occupation or 'Unknown'}
-**Location:** {npc.location or 'Unknown'}
-**Attitude:** {npc.attitude or 'Neutral'}
-
-**Description:** {npc.description or 'No description available.'}
-**Bio:** {npc.bio or 'No bio available.'}
-{stats_text}
-{relationships_text}
-**Notes:** {npc.notes or 'No additional notes.'}
-"""
-
-    return npc_info
+    # Use OutputFilter when player_id is provided
+    result = output_filter.filter_npc_response(npc, player_id=player_id)
+    return result.content
 
 @mcp.tool
 def list_npcs() -> str:
@@ -1336,12 +1320,22 @@ def create_location(
 def get_location(
     name: Annotated[str, Field(description="Location name")],
     discovery_filter: Annotated[bool, Field(description="Filter notable features by discovery state. When True, only features the party has discovered (GLIMPSED+) are shown. Default: False")] = False,
+    player_id: Annotated[str | None, Field(description="Caller's player ID for output filtering. When provided, combines discovery filter + permission filter: non-DM callers see only discovered features and no DM notes.")] = None,
 ) -> str:
     """Get location information."""
     location = storage.get_location(name)
     if not location:
         return f"Location '{name}' not found."
 
+    # When player_id is provided, use OutputFilter (combines discovery + role filtering)
+    if player_id is not None:
+        tracker = storage.discovery_tracker if discovery_filter else None
+        result = output_filter.filter_location_response(
+            location, player_id=player_id, discovery_tracker=tracker
+        )
+        return result.content
+
+    # Legacy single-player path (no player_id): original behavior
     # Apply discovery filter if requested and tracker is available
     if discovery_filter and storage.discovery_tracker:
         from .consistency.narrator_discovery import filter_location_by_discovery
@@ -4370,6 +4364,32 @@ def party_knowledge(
         lines.append("")
 
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------
+# Output Filtering and Multi-User Session Coordination (Issue #147)
+# --------------------------------------------------------------------------
+
+@mcp.tool
+def send_private_message(
+    player_id: Annotated[str, Field(description="Recipient player ID")],
+    content: Annotated[str, Field(description="Message content to send privately")],
+    sender_id: Annotated[str, Field(description="Sender player ID (typically the DM)")] = "DM",
+) -> str:
+    """DM can send private messages to individual players via this tool.
+
+    Messages are stored in the session coordinator and can be retrieved
+    by the recipient player. Only visible to the specified recipient.
+    """
+    try:
+        message = session_coordinator.send_private_message(
+            sender_id=sender_id,
+            recipient_id=player_id,
+            content=content,
+        )
+        return f"Private message sent to '{player_id}': {content[:50]}{'...' if len(content) > 50 else ''}"
+    except ValueError as e:
+        return f"Error: {e}"
 
 
 logger.debug("✅ All tools successfully registered. DM20 Protocol server running! 🎲")
