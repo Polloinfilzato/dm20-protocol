@@ -180,7 +180,35 @@ Create a quest called "The Missing Amulet" given by Marta
 
 The AI will use DM20's tools automatically — no special syntax needed. Just describe what you want in plain English. With a rulebook loaded, the Character Builder auto-populates HP, proficiencies, features, equipment, and spell slots from official rules.
 
-For the full list of 66 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
+For the full list of 84 tools and advanced usage, see the [User Guide](docs/GUIDE.md). For a complete example campaign, see [example/dnd/](example/dnd/example.md).
+
+## Playing the Game
+
+### Claude Code (recommended — full AI DM experience)
+
+Claude Code includes slash commands that turn Claude into a complete Dungeon Master. Each command injects a detailed DM persona with situation-specific instructions and a dual-agent architecture (Narrator + Arbiter running in parallel).
+
+```
+/dm:start Curse of Strahd           ← start session (once)
+/dm:action I explore the tavern      ← exploration, social, any non-combat action
+/dm:action I talk to the innkeeper
+
+/dm:combat Wolves burst from the woods!   ← starts combat
+/dm:combat I attack with my longsword     ← each combat turn needs /dm:combat
+/dm:combat I cast Shield as a reaction    ← still in combat
+                                          ← combat ends automatically when enemies fall
+
+/dm:action I search the wolf den     ← back to exploration after combat
+/dm:save                             ← save and stop
+```
+
+**Important:** Use `/dm:combat` for **every action during combat**, not just to start it. `/dm:action` cannot advance combat turns — it's designed for exploration and social encounters only.
+
+### Other MCP Clients (Claude Desktop, Cursor, etc.)
+
+Without Claude Code, use DM20's tools through natural language. Add the [recommended system prompt](docs/GUIDE.md#system-prompt-recommendation) to your client's system prompt field for the best experience — it includes the full game loop, combat protocol, and DM behavior guidelines.
+
+The AI will chain tools automatically based on your requests. The experience is good, but slash commands provide more consistent results because they inject context-specific instructions on every message.
 
 ## Optional: Smarter Rulebook Search
 
