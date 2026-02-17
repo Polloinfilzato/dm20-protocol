@@ -103,3 +103,33 @@ try:
     ]
 except ImportError:
     pass
+
+# ASCII Tactical Map system
+try:
+    from .ascii_map import (
+        Terrain,
+        Cell,
+        ParticipantInfo,
+        TacticalGrid,
+        AsciiMapRenderer,
+        MoveValidationResult,
+        assign_labels,
+        validate_move,
+        check_opportunity_attacks,
+        generate_room,
+    )
+
+    __all__ += [
+        "Terrain",
+        "Cell",
+        "ParticipantInfo",
+        "TacticalGrid",
+        "AsciiMapRenderer",
+        "MoveValidationResult",
+        "assign_labels",
+        "validate_move",
+        "check_opportunity_attacks",
+        "generate_room",
+    ]
+except ImportError:
+    pass
