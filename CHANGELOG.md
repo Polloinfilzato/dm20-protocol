@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Compendium Pack Export** — New `compendium.py` module with `CompendiumPack` Pydantic model, `PackMetadata` for provenance tracking, and `PackSerializer` for extracting campaign entities into portable JSON pack files. Supports selective export by entity type (NPCs, locations, quests, encounters), location-based filtering, tag-based filtering, and full campaign backup (all entities + game state + sessions). Inter-entity relationships preserved. New `export_pack` MCP tool and `packs_dir` storage property. 33 unit tests
 - **Combat Mechanics Automation** — Complete combat subsystem in `combat/` package (521 new tests):
   - **Active Effects System** — `EffectsEngine` manages buffs, debuffs, and conditions with stat modifiers, advantage/disadvantage grants, immunities, and duration tracking (rounds, minutes, concentration, permanent). All 14 SRD conditions (blinded, charmed, etc.) with pre-built effect definitions. Stacking rules and auto-expiry on turn/round boundaries
   - **Concentration Tracking** — `ConcentrationState` model tracks which spell a caster is concentrating on. Automatic CON save triggers on damage, with DC = max(10, damage/2). Breaking concentration removes all linked `ActiveEffect` instances. Prevents casting a second concentration spell without breaking the first

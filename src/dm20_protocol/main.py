@@ -4001,6 +4001,68 @@ def approve_sheet_change(
         return sync_manager.reject_changes(character_name)
 
 
+# Compendium Pack Export Tools
+from .compendium import PackSerializer
+
+
+@mcp.tool
+def export_pack(
+    name: Annotated[str, Field(description="Name for the exported pack")],
+    description: Annotated[str, Field(description="Pack description")] = "",
+    author: Annotated[str, Field(description="Pack author")] = "",
+    tags: Annotated[str | None, Field(description="Comma-separated tags (e.g., 'horror,undead,ravenloft')")] = None,
+    entity_types: Annotated[str | None, Field(description="Comma-separated entity types to include: npcs, locations, quests, encounters. Omit for all.")] = None,
+    location_filter: Annotated[str | None, Field(description="Only include entities associated with this location (case-insensitive substring match)")] = None,
+    full_backup: Annotated[bool, Field(description="If true, export ALL entities plus game state and sessions as a full backup")] = False,
+) -> str:
+    """Export campaign content as a portable compendium pack.
+
+    Creates a JSON pack file containing selected campaign entities (NPCs,
+    locations, quests, encounters).  Supports selective export by entity
+    type, location filter, or full campaign backup.
+
+    The pack is saved to the packs/ directory inside the data folder.
+    """
+    campaign = storage.get_current_campaign()
+    if not campaign:
+        return "No active campaign. Load or create a campaign first."
+
+    tag_list = [t.strip() for t in tags.split(",")] if tags else []
+    type_list = [t.strip() for t in entity_types.split(",")] if entity_types else None
+
+    try:
+        if full_backup:
+            pack = PackSerializer.export_full_backup(
+                campaign,
+                name=name,
+                author=author,
+            )
+        else:
+            pack = PackSerializer.export_selective(
+                campaign,
+                name=name,
+                description=description,
+                author=author,
+                tags=tag_list,
+                entity_types=type_list,
+                location_filter=location_filter,
+            )
+
+        file_path = PackSerializer.save_pack(pack, storage.packs_dir)
+
+        # Build summary
+        counts = pack.metadata.entity_counts
+        count_parts = [f"{v} {k}" for k, v in counts.items() if v > 0]
+        count_str = ", ".join(count_parts) if count_parts else "no entities"
+
+        return (
+            f"Exported pack '{pack.metadata.name}' ({count_str}).\n"
+            f"Saved to: {file_path}"
+        )
+    except ValueError as e:
+        return f"Export error: {e}"
+
+
 logger.debug("✅ All tools successfully registered. DM20 Protocol server running! 🎲")
 
 def main() -> None:
