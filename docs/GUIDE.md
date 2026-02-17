@@ -8,11 +8,15 @@ For installation and quick start, see the main [README](../README.md).
 
 **TL;DR:** DM20 Protocol gives your AI assistant 84 tools to manage D&D campaigns — characters, NPCs, quests, locations, combat, session notes, rulebook lookups, a PDF library, and a full AI Dungeon Master — all through natural language.
 
-1. **[System Prompt](#system-prompt-recommendation)** — Paste the recommended prompt to prime your AI as a Dungeon Master
-   - Covers Session Zero setup flow and in-play guidance
-   - Works with any MCP-compatible AI client
+1. **[How to Use DM20](#how-to-use-dm20)** — Slash commands vs natural language, gameplay workflow, when to use which command
+   - Why slash commands matter (not just shortcuts — they change output quality)
+   - Game commands reference and visual workflow diagram
+   - Guidance for non-Claude Code clients
 
-2. **[Tools Reference](#available-tools-84)** — All 84 tools organized by 16 categories
+2. **[System Prompt](#system-prompt-recommendation)** — For non-Claude Code clients: paste this prompt to prime your AI as a DM
+   - Full game loop, combat protocol, authority rules, NPC voice guidelines
+
+3. **[Tools Reference](#available-tools-84)** — All 84 tools organized by 16 categories
    - Campaign, Character, NPC, Location, Quest management
    - Character builder, level-up, equipment, spells, rests
    - Combat system with tactical maps, AoE, effects, encounter builder
@@ -22,20 +26,76 @@ For installation and quick start, see the main [README](../README.md).
    - AI Dungeon Master (Claudmaster) with adventure modules
    - Character sheets, compendium packs, discovery, multi-user sessions
 
-3. **[Workflow Examples](#workflow-examples)** — Step-by-step practical flows
+4. **[Workflow Examples](#workflow-examples)** — Step-by-step practical flows
    - Character creation with rulebook validation
    - Solo play session with AI DM
    - Running a combat encounter
 
-4. **[Data Structure](#data-structure)** — How campaign data is organized
+5. **[Data Structure](#data-structure)** — How campaign data is organized
    - Central `Campaign` model with interconnected entities
    - Characters, NPCs, locations, and quests are cross-referenced
    - Split file format for easy version control
 
-5. **[PDF Library](#pdf-rulebook-library)** — Import and query your own rulebooks
+6. **[PDF Library](#pdf-rulebook-library)** — Import and query your own rulebooks
    - Drop PDFs/Markdown into the library folder
    - Smart indexing with on-demand content extraction
    - Semantic search with `ask_books`
+
+---
+
+## How to Use DM20
+
+DM20 Protocol works with any MCP-compatible client, but the experience differs significantly depending on whether you use **Claude Code with slash commands** or **other clients with natural language**.
+
+### Slash Commands vs Natural Language
+
+Each `/dm:*` slash command injects ~300 lines of context-specific instructions and the full DM persona into Claude's prompt. This ensures the AI follows the exact right protocol for each situation — combat, exploration, social — and restricts tool access to only what's relevant. Without slash commands, the AI relies solely on the system prompt and has to figure out which of the 84 tools to chain together on its own.
+
+| Approach | Quality | How it works |
+|----------|---------|-------------|
+| **Claude Code + slash commands** | Best | Each command injects the full DM persona + situation-specific instructions + restricted tool access + dual-agent architecture |
+| **Any MCP client + natural language** | Good | AI uses the system prompt + all 84 tools, but may miss steps or lack the structured game loop |
+
+**Slash commands are not shortcuts — they fundamentally change the quality of the AI's output.** A single `/dm:combat I attack` delivers a detailed combat protocol with enemy tactics, death saves, and turn-by-turn resolution. Typing "I attack" in Claude Desktop gives the AI only the system prompt to work from.
+
+### Game Commands (Claude Code)
+
+| Command | Description | When to use |
+|---------|-------------|-------------|
+| `/dm:start [campaign]` | Begin or resume a game session | Once, at the start of each play session |
+| `/dm:action <description>` | Exploration, social, and general actions | Every non-combat player action |
+| `/dm:combat [situation]` | Combat initiation and every combat turn | **Every** combat action (not just the first!) |
+| `/dm:save` | Save state and pause with narrative cliffhanger | When you want to stop playing |
+
+### Gameplay Workflow
+
+```
+/dm:start Curse of Strahd          ← start session (once)
+│
+├─ /dm:action I explore the tavern  ← exploration
+├─ /dm:action I talk to the barkeep ← social encounter
+│
+├─ /dm:combat Wolves attack!        ← combat starts
+├─ /dm:combat I attack with my sword   ← your combat turn
+├─ /dm:combat I cast healing word      ← still in combat
+├─ /dm:combat                          ← AI ends combat when enemies are defeated
+│
+├─ /dm:action I search the area     ← back to exploration
+│
+└─ /dm:save                         ← end session
+```
+
+> **Why `/dm:combat` for every turn?** `/dm:action` does not have access to `next_turn` or `end_combat` tools — it can trigger combat but cannot manage it. `/dm:combat` injects the full combat protocol with death saves, enemy tactics scaled by difficulty, and turn-by-turn resolution. Combat ends automatically when the AI determines all enemies are defeated, fled, or surrendered.
+
+### Without Claude Code
+
+If you use Claude Desktop, Cursor, or another MCP client, you don't have access to slash commands. Instead:
+
+1. Add the [recommended system prompt](#system-prompt-recommendation) to your client's system prompt field
+2. Interact through natural language — the AI will call MCP tools automatically
+3. The system prompt includes the game loop, combat protocol, and DM behavior guidelines
+
+This works well for campaign management and general play. For the full AI DM experience with sub-agents and context-specific instructions, use Claude Code.
 
 ---
 
@@ -173,50 +233,7 @@ Follow the player's lead — this is a framework, not a script.
 
 ## Solo Play with AI DM (Claude Code)
 
-If you're using **Claude Code**, DM20 Protocol includes a complete AI Dungeon Master system for solo D&D play. Claude becomes your DM using a dedicated persona file and specialist sub-agents.
-
-### Slash Commands vs Natural Language
-
-**Why use slash commands?** Each `/dm:*` command injects ~300 lines of context-specific instructions and the full DM persona into Claude's prompt. This ensures the AI follows the exact right protocol for each situation (combat, exploration, social) and has access to only the relevant tools. Without slash commands, the AI relies solely on the system prompt and must figure out the workflow on its own — it works, but with less consistency and no sub-agent architecture.
-
-| Approach | Quality | How it works |
-|----------|---------|-------------|
-| **Slash commands** | Best | Each command injects the full DM persona + situation-specific instructions + restricted tool access |
-| **Natural language** | Good | AI uses the system prompt + all 84 tools, but may miss steps or skip the structured game loop |
-
-**Recommendation:** Use slash commands for the best experience. They're not just shortcuts — they fundamentally change the quality of the AI's output.
-
-### Game Commands
-
-| Command | Description | When to use |
-|---------|-------------|-------------|
-| `/dm:start [campaign]` | Begin or resume a game session | Once, at the start of each play session |
-| `/dm:action <description>` | Exploration, social, and general actions | Every non-combat player action |
-| `/dm:combat [situation]` | Combat initiation and every combat turn | Every combat action (not just the first!) |
-| `/dm:save` | Save state and pause with narrative cliffhanger | When you want to stop playing |
-
-### Gameplay Workflow
-
-```
-/dm:start Curse of Strahd          ← start session (once)
-│
-├─ /dm:action I explore the tavern  ← exploration
-├─ /dm:action I talk to the barkeep ← social encounter
-│
-├─ /dm:combat Wolves attack!        ← combat starts
-├─ /dm:combat I attack with my sword   ← your combat turn
-├─ /dm:combat I cast healing word      ← still in combat
-├─ /dm:combat                          ← AI ends combat when enemies are defeated
-│
-├─ /dm:action I search the area     ← back to exploration
-│
-└─ /dm:save                         ← end session
-```
-
-**Important:** `/dm:combat` must be used for **every action during combat**, not just to start it. This is because:
-- `/dm:action` does not have access to `next_turn` or `end_combat` — it can trigger combat but cannot manage it
-- `/dm:combat` injects the full combat protocol (death saves, enemy tactics by difficulty, turn-by-turn resolution)
-- Combat ends automatically when the AI determines all enemies are defeated, fled, or surrendered — there is no separate "end combat" command
+DM20 includes a complete AI Dungeon Master for solo D&D play. See [How to Use DM20](#how-to-use-dm20) above for the full command reference and gameplay workflow.
 
 ### How It Works
 
