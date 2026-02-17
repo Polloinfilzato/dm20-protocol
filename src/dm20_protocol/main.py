@@ -4367,6 +4367,129 @@ def party_knowledge(
 
 
 # --------------------------------------------------------------------------
+# Character Import Tools (Epic: D&D Beyond Character Import)
+# --------------------------------------------------------------------------
+
+def _format_import_summary(result) -> str:
+    """Format an ImportResult into a user-friendly summary.
+
+    Args:
+        result: ImportResult object from the import operation
+
+    Returns:
+        Formatted string with character details, mapped fields, and warnings
+    """
+    from .importers.base import ImportResult
+
+    char = result.character
+    lines = [f"✅ Character imported: {char.name}\n"]
+    lines.append("Summary:")
+
+    # Class and subclass
+    if char.classes:
+        class_info = char.classes[0]
+        class_str = f"{class_info.name} {class_info.level}"
+        if class_info.subclass:
+            class_str += f" ({class_info.subclass})"
+        lines.append(f"  Class: {class_str}")
+
+    # Race
+    if char.race:
+        lines.append(f"  Race: {char.race}")
+
+    # HP and AC
+    if char.hit_points:
+        lines.append(f"  HP: {char.hit_points.current}/{char.hit_points.maximum}")
+    if char.armor_class:
+        lines.append(f"  AC: {char.armor_class}")
+
+    # Mapped fields count
+    lines.append(f"\n  Mapped: {len(result.mapped_fields)} fields")
+
+    # Warnings
+    if result.warnings:
+        lines.append(f"  Warnings: {len(result.warnings)}")
+        for warning in result.warnings:
+            lines.append(f"    ⚠ {warning}")
+
+    # Source information
+    source_display = "D&D Beyond"
+    if result.source == "url":
+        source_display += " (URL)"
+    elif result.source == "file":
+        source_display += " (file)"
+    if result.source_id:
+        source_display += f" - ID: {result.source_id}"
+    lines.append(f"\n  Source: {source_display}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+async def import_from_dndbeyond(
+    url_or_id: Annotated[str, Field(description="D&D Beyond character URL or numeric ID")],
+    player_name: Annotated[str | None, Field(description="Player name to assign to the character")] = None,
+) -> str:
+    """Import a public D&D Beyond character into the current campaign.
+
+    Provide a D&D Beyond character URL (e.g., https://www.dndbeyond.com/characters/12345678)
+    or just the numeric character ID. The character must be set to Public on D&D Beyond.
+    """
+    campaign = storage.get_current_campaign()
+    if not campaign:
+        return "❌ No active campaign. Load or create a campaign first."
+
+    try:
+        from .importers.dndbeyond.fetcher import fetch_character
+        from .importers.dndbeyond.mapper import map_ddb_to_character
+
+        ddb_json = await fetch_character(url_or_id)
+        result = map_ddb_to_character(ddb_json, player_name=player_name)
+        result.source = "url"
+
+        storage.add_character(result.character)
+
+        return _format_import_summary(result)
+
+    except Exception as e:
+        return f"❌ Import failed: {e}"
+
+
+@mcp.tool
+async def import_character_file(
+    file_path: Annotated[str, Field(description="Path to the D&D Beyond JSON file")],
+    player_name: Annotated[str | None, Field(description="Player name to assign to the character")] = None,
+    source_format: Annotated[str, Field(description="Format of the JSON file")] = "dndbeyond",
+) -> str:
+    """Import a character from a local JSON file into the current campaign.
+
+    Currently supports D&D Beyond JSON format. Save the JSON from your browser's
+    developer tools (Network tab -> character request -> Response).
+    """
+    campaign = storage.get_current_campaign()
+    if not campaign:
+        return "❌ No active campaign. Load or create a campaign first."
+
+    if source_format != "dndbeyond":
+        return f"❌ Unsupported format: '{source_format}'. Currently only 'dndbeyond' is supported."
+
+    try:
+        from .importers.dndbeyond.fetcher import read_character_file
+        from .importers.dndbeyond.mapper import map_ddb_to_character
+
+        ddb_json = read_character_file(file_path)
+        result = map_ddb_to_character(ddb_json, player_name=player_name)
+        result.source = "file"
+
+        storage.add_character(result.character)
+
+        return _format_import_summary(result)
+
+    except Exception as e:
+        return f"❌ Import failed: {e}"
+
+
+# --------------------------------------------------------------------------
 # Output Filtering and Multi-User Session Coordination (Issue #147)
 # --------------------------------------------------------------------------
 
