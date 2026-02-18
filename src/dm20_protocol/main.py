@@ -4588,8 +4588,8 @@ def start_party_mode(
     # Resolve campaign directory
     campaign_dir = storage._split_backend._get_campaign_dir(campaign.name)
 
-    # Get characters
-    characters = storage.list_characters()
+    # Get characters (need full Character objects, not just names)
+    characters = storage.list_characters_detailed()
     if not characters:
         return "Error: No player characters in the current campaign. Create characters before starting Party Mode."
 
