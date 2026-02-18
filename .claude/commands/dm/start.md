@@ -1,7 +1,7 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__roll_dice
+allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__get_race_info, mcp__dm20-protocol__roll_dice, mcp__dm20-protocol__search_rules
 ---
 
 # DM Start
@@ -143,37 +143,94 @@ Options:
 
 **If "Create from scratch":**
 
-1. Ask for **name**, **race**, and **class** conversationally.
-2. Then present a choice:
+1. Ask for the character's **name**.
+
+2. Present a choice for build depth:
 
 Use `AskUserQuestion`:
 ```
-Question: "How detailed would you like the character creation?"
+Question: "How would you like to build {name}?"
 Header: "Build Mode"
 Options:
-  - "Quick build — I'll handle the details for you (stats, subclass, equipment)"
-  - "Guided wizard — step-by-step choices for everything (subclass, ability scores, skills, equipment)"
+  - "Quick build — I'll handle race, class, stats, and everything for you"
+  - "Guided wizard — step-by-step choices where you decide everything"
 ```
 
 **If "Quick build":**
-- Auto-assign ability scores optimized for the chosen class
-- Auto-select a thematic subclass
+- Ask only for a brief concept (e.g., "stealthy archer", "holy warrior", "chaotic wizard")
+- Auto-select race, class, subclass, ability scores, and equipment to match the concept
 - Call `create_character()` with reasonable defaults
 - Summarize the created character
 
 **If "Guided wizard":**
-Guide the player through EACH decision interactively, using `AskUserQuestion` for each step:
+Guide the player through EACH decision interactively, using `AskUserQuestion` for each step. **CRITICAL: In guided mode, NEVER auto-assign anything. Every single choice must be presented to the player.**
 
-1. **Level** — Ask what level the character should be (especially important if another PC in the party is already higher level — suggest matching)
-2. **Ability Scores** — Ask the player to choose a method:
-   - "Standard Array (15, 14, 13, 12, 10, 8)"
-   - "Roll 4d6 drop lowest" (roll for them using `roll_dice` and let them assign)
-   - Let them assign scores to STR/DEX/CON/INT/WIS/CHA via conversation
-3. **Subclass** — If the character's level qualifies for a subclass, present the options from the SRD/loaded rulebook. Use `get_class_info` to retrieve available subclasses and explain each briefly.
-4. **Skills** — Present the class's skill list and let the player pick their proficiencies (the correct number for their class)
-5. **Equipment** — Offer starting equipment choices or a quick default loadout
+**Step W1 — Level:**
+Ask what level the character should be. If other PCs in the party are above level 1, suggest matching their level but always let the player decide.
 
-Call `create_character()` with all the player's choices. Summarize the final character.
+**Step W2 — Race:**
+Present race options in tiers, using `AskUserQuestion`:
+```
+Question: "Choose a race for {name}:"
+Header: "Race"
+Options:
+  - "Adventure races — races featured in the loaded adventure module" (ONLY if an adventure is loaded AND it provides specific races)
+  - "Classic races — Human, Elf, Dwarf, Halfling, Gnome, Half-Elf, Half-Orc, Tiefling, Dragonborn"
+  - "Exotic/uncommon races — browse an extended list with racial traits"
+```
+
+- **Adventure races:** If an adventure is loaded (e.g., Dragonlance provides Kender), use `search_rules` or adventure data to list the adventure-specific races with a brief description of each. Let the player pick.
+- **Classic races:** List the 9 standard PHB races. Let the player pick.
+- **Exotic/uncommon races:** Use `search_rules` to find all available races from loaded rulebooks. Present a numbered table showing: name, ability bonuses, speed, key traits. Let the player pick by number or name.
+
+After race selection, if the race has subraces (e.g., High Elf, Wood Elf), present them as choices.
+
+**IMPORTANT — Racial ability bonuses:** If the race grants ability score bonuses that the player can distribute (e.g., "+2 to one ability, +1 to another" or "Customizing Your Origin" rules), you MUST ask the player where to assign them. NEVER auto-assign racial bonuses in guided mode.
+
+**Step W3 — Class:**
+Present class options similarly:
+```
+Question: "Choose a class for {name}:"
+Header: "Class"
+Options:
+  - "Adventure classes — classes featured in the loaded adventure" (ONLY if applicable)
+  - "Standard classes — the 12 core D&D classes"
+  - "Show me all available classes from loaded rulebooks"
+```
+
+For standard classes, list all 12 with a one-line description. Let the player pick.
+
+**Step W4 — Subclass:**
+If the character's level qualifies for a subclass, use `get_class_info` to retrieve available subclasses. Present each with a brief description and let the player choose.
+
+**Step W5 — Ability Scores:**
+```
+Question: "How do you want to determine ability scores?"
+Header: "Abilities"
+Options:
+  - "Standard Array (15, 14, 13, 12, 10, 8)"
+  - "Roll 4d6 drop lowest — I'll roll, you assign"
+  - "Manual — tell me exactly what scores you want"
+```
+
+- **Standard Array / Roll:** Present the scores and ask the player to assign each to STR/DEX/CON/INT/WIS/CHA. Suggest an optimal distribution for their class but let them override.
+- **Manual:** Let the player specify each score.
+
+After base scores, apply racial bonuses (asking the player if distributable — see Step W2 note).
+
+**Step W6 — Skills:**
+Use `get_class_info` to show the class's skill proficiency list and how many they can pick. Present as a numbered list and let the player choose.
+
+**Step W7 — Equipment:**
+```
+Question: "How do you want to handle equipment?"
+Header: "Equipment"
+Options:
+  - "Default starting equipment for my class"
+  - "Let me choose from the starting equipment options"
+```
+
+Call `create_character()` with all the player's choices. Summarize the final character sheet.
 
 **Important:** If other PCs in the party are above level 1, proactively suggest matching their level but always let the player decide.
 

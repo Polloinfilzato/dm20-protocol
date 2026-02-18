@@ -4713,7 +4713,7 @@ def get_party_status() -> str:
         lines.append("_(No players currently connected)_")
 
     # Action queue stats
-    lines.append(f"\n**Actions in Queue:** {server.action_queue.qsize()}")
+    lines.append(f"\n**Actions in Queue:** {server.action_queue.get_pending_count()}")
 
     # Stale connections
     stale = server.connection_manager.get_stale_connections()

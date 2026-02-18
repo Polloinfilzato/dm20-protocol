@@ -228,32 +228,85 @@ def detect_host_ip() -> str:
     """
     Detect the host's LAN IP address for QR code generation.
 
-    Uses socket.gethostbyname(socket.gethostname()) to get the LAN IP.
-    Falls back to 127.0.0.1 if detection fails.
+    Enumerates network interfaces and prefers RFC 1918 private IPs
+    (192.168.x.x, 10.x.x.x, 172.16-31.x.x) over VPN/CGNAT IPs
+    (e.g. Tailscale 100.x.x.x). Falls back to 127.0.0.1 if no LAN IP found.
 
     Returns:
         The host IP address as a string
     """
+    import ipaddress
+    import re
+    import subprocess
+
+    rfc1918 = [
+        ipaddress.ip_network("192.168.0.0/16"),
+        ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("172.16.0.0/12"),
+    ]
+
+    def is_lan_ip(ip_str: str) -> bool:
+        """True for RFC 1918 private IPs (real LAN), excludes VPN/CGNAT."""
+        try:
+            ip = ipaddress.ip_address(ip_str)
+            return any(ip in net for net in rfc1918)
+        except ValueError:
+            return False
+
+    candidates: list[str] = []
+
+    # Method 1: Parse ifconfig output for all interface IPs (macOS/Linux)
+    try:
+        result = subprocess.run(
+            ["ifconfig"], capture_output=True, text=True, timeout=3
+        )
+        if result.returncode == 0:
+            for match in re.finditer(r"inet (\d+\.\d+\.\d+\.\d+)", result.stdout):
+                ip = match.group(1)
+                if not ip.startswith("127."):
+                    candidates.append(ip)
+    except Exception:
+        pass
+
+    # Method 2: UDP connect trick (fallback)
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            candidates.append(s.getsockname()[0])
+        finally:
+            s.close()
+    except Exception:
+        pass
+
+    # Method 3: Hostname resolution (last resort)
     try:
         hostname = socket.gethostname()
-        host_ip = socket.gethostbyname(hostname)
+        addrs = socket.getaddrinfo(hostname, None, socket.AF_INET)
+        for addr in addrs:
+            ip = addr[4][0]
+            if not ip.startswith("127."):
+                candidates.append(ip)
+    except Exception:
+        pass
 
-        # Sanity check: if we got localhost, try to find a better IP
-        if host_ip.startswith("127."):
-            # Try alternative method using a dummy socket
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                # Connect to a public DNS server (doesn't actually send data)
-                s.connect(("8.8.8.8", 80))
-                host_ip = s.getsockname()[0]
-            finally:
-                s.close()
+    # Prefer real LAN IPs: 192.168.x.x > 10.x.x.x > 172.16-31.x.x
+    lan_ips = [ip for ip in candidates if is_lan_ip(ip)]
 
-        logger.info(f"Detected host IP: {host_ip}")
-        return host_ip
-    except Exception as e:
-        logger.warning(f"Failed to detect host IP: {e}, falling back to 127.0.0.1")
-        return "127.0.0.1"
+    for prefix in ("192.168.", "10.", "172."):
+        for ip in lan_ips:
+            if ip.startswith(prefix):
+                logger.info(f"Detected host LAN IP: {ip}")
+                return ip
+
+    # Any non-localhost IP as fallback (may be VPN)
+    non_local = [ip for ip in candidates if not ip.startswith("127.")]
+    if non_local:
+        logger.warning(f"No LAN IP found, using: {non_local[0]} (may be VPN)")
+        return non_local[0]
+
+    logger.warning("Failed to detect host IP, falling back to 127.0.0.1")
+    return "127.0.0.1"
 
 
 __all__ = [

@@ -259,10 +259,14 @@ class TestDetectHostIP:
         assert ip != ""
         assert ip is not None
 
-    @patch("socket.gethostbyname")
-    def test_detect_host_ip_fallback(self, mock_gethostbyname) -> None:
-        """Test fallback to 127.0.0.1 on error."""
-        mock_gethostbyname.side_effect = Exception("Network error")
+    @patch("subprocess.run", side_effect=Exception("No ifconfig"))
+    @patch("socket.socket")
+    @patch("socket.getaddrinfo", side_effect=Exception("No network"))
+    def test_detect_host_ip_fallback(self, mock_getaddrinfo, mock_socket, mock_run) -> None:
+        """Test fallback to 127.0.0.1 when all detection methods fail."""
+        mock_socket.return_value.__enter__ = lambda s: s
+        mock_socket.return_value.__exit__ = lambda s, *a: None
+        mock_socket.return_value.connect.side_effect = Exception("No network")
 
         ip = detect_host_ip()
         assert ip == "127.0.0.1"
