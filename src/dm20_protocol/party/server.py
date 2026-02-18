@@ -463,6 +463,7 @@ class PartyServer:
         """
         static_dir = Path(__file__).parent / "static"
         routes = [
+            Route("/", self.get_root, methods=["GET"]),
             Route("/play", self.get_play, methods=["GET"]),
             Route("/action", self.post_action, methods=["POST"]),
             Route("/action/{action_id}/status", self.get_action_status, methods=["GET"]),
@@ -473,6 +474,24 @@ class PartyServer:
         ]
 
         return Starlette(debug=False, routes=routes)
+
+    async def get_root(self, request: Request) -> Response:
+        """Landing page confirming the server is running."""
+        connected = self.connection_manager.get_connected_players()
+        html = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DM20 Party Mode</title>
+<style>body{{font-family:system-ui,sans-serif;max-width:600px;margin:60px auto;padding:0 20px;background:#1a1a2e;color:#e0e0e0;text-align:center}}
+h1{{color:#e94560;font-size:2em}}p{{color:#a0a0b0;line-height:1.6}}.status{{background:#16213e;padding:20px;border-radius:12px;margin:30px 0}}
+.badge{{display:inline-block;background:#0f3460;padding:6px 14px;border-radius:20px;margin:4px;font-size:0.9em}}</style></head>
+<body><h1>DM20 Party Mode</h1>
+<div class="status"><p>Server is running</p>
+<p><strong>{len(connected)}</strong> player(s) connected</p>
+{"".join(f'<span class="badge">{p}</span>' for p in connected) if connected else '<p style="color:#666">No players connected yet</p>'}
+</div>
+<p>Players should use their personal QR code or URL to connect.<br>
+This page is for the DM to verify the server is running.</p></body></html>"""
+        return HTMLResponse(html)
 
     async def get_play(self, request: Request) -> Response:
         """

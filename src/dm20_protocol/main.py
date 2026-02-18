@@ -4654,6 +4654,13 @@ def start_party_mode(
 
     lines.append("---")
     lines.append("Players can scan QR codes or open URLs on their phones/tablets to join.")
+    lines.append(f"DM dashboard: http://{host_ip}:{port}/ (verify server is reachable)")
+    lines.append("")
+    lines.append("**Troubleshooting — players can't connect?**")
+    lines.append("- Ensure players are on the **same Wi-Fi network** as this machine")
+    lines.append("- Check **macOS Firewall**: System Settings → Network → Firewall — allow incoming connections for Python")
+    lines.append(f"- Test from this machine: open http://localhost:{port}/ in a browser")
+    lines.append("")
     lines.append("Use `get_party_status` to monitor connections.")
     lines.append("Use `stop_party_mode` to end Party Mode.")
 
@@ -4716,7 +4723,7 @@ def get_party_status() -> str:
     lines.append(f"\n**Actions in Queue:** {server.action_queue.get_pending_count()}")
 
     # Stale connections
-    stale = server.connection_manager.get_stale_connections()
+    stale = server.connection_manager.get_stale_players()
     if stale:
         lines.append(f"\n**Stale Connections:** {', '.join(stale)}")
 
