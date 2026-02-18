@@ -4581,8 +4581,12 @@ def start_party_mode(
         )
 
     # Check campaign loaded
-    if not storage.current_campaign:
+    campaign = storage.get_current_campaign()
+    if not campaign:
         return "Error: No campaign loaded. Use `/dm:start` to load a campaign first."
+
+    # Resolve campaign directory
+    campaign_dir = storage._split_backend._get_campaign_dir(campaign.name)
 
     # Get characters
     characters = storage.list_characters()
@@ -4601,7 +4605,7 @@ def start_party_mode(
             pc_registry=registry,
             permission_resolver=permission_resolver,
             storage=storage,
-            campaign_dir=storage.campaign_dir,
+            campaign_dir=campaign_dir,
             port=port,
         )
     except Exception as e:
@@ -4620,7 +4624,7 @@ def start_party_mode(
         url = f"http://{host_ip}:{port}/play?token={token}"
         try:
             qr_path = QRCodeGenerator.generate_player_qr(
-                char.name, token, host_ip, port, storage.campaign_dir
+                char.name, token, host_ip, port, campaign_dir
             )
             lines.append(f"### {char.name}")
             lines.append(f"- **URL:** {url}")
@@ -4635,7 +4639,7 @@ def start_party_mode(
     observer_url = f"http://{host_ip}:{port}/play?token={observer_token}"
     try:
         observer_qr = QRCodeGenerator.generate_player_qr(
-            "OBSERVER", observer_token, host_ip, port, storage.campaign_dir
+            "OBSERVER", observer_token, host_ip, port, campaign_dir
         )
         lines.append("### OBSERVER (read-only)")
         lines.append(f"- **URL:** {observer_url}")

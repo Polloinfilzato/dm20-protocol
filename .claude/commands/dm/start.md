@@ -1,7 +1,7 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode
+allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__roll_dice
 ---
 
 # DM Start
@@ -142,9 +142,40 @@ Options:
 4. If the import fails, explain the error and offer to try again or create from scratch
 
 **If "Create from scratch":**
-1. Ask for name, race, and class conversationally
-2. Call `create_character()` with reasonable defaults for ability scores
-3. Summarize the created character
+
+1. Ask for **name**, **race**, and **class** conversationally.
+2. Then present a choice:
+
+Use `AskUserQuestion`:
+```
+Question: "How detailed would you like the character creation?"
+Header: "Build Mode"
+Options:
+  - "Quick build — I'll handle the details for you (stats, subclass, equipment)"
+  - "Guided wizard — step-by-step choices for everything (subclass, ability scores, skills, equipment)"
+```
+
+**If "Quick build":**
+- Auto-assign ability scores optimized for the chosen class
+- Auto-select a thematic subclass
+- Call `create_character()` with reasonable defaults
+- Summarize the created character
+
+**If "Guided wizard":**
+Guide the player through EACH decision interactively, using `AskUserQuestion` for each step:
+
+1. **Level** — Ask what level the character should be (especially important if another PC in the party is already higher level — suggest matching)
+2. **Ability Scores** — Ask the player to choose a method:
+   - "Standard Array (15, 14, 13, 12, 10, 8)"
+   - "Roll 4d6 drop lowest" (roll for them using `roll_dice` and let them assign)
+   - Let them assign scores to STR/DEX/CON/INT/WIS/CHA via conversation
+3. **Subclass** — If the character's level qualifies for a subclass, present the options from the SRD/loaded rulebook. Use `get_class_info` to retrieve available subclasses and explain each briefly.
+4. **Skills** — Present the class's skill list and let the player pick their proficiencies (the correct number for their class)
+5. **Equipment** — Offer starting equipment choices or a quick default loadout
+
+Call `create_character()` with all the player's choices. Summarize the final character.
+
+**Important:** If other PCs in the party are above level 1, proactively suggest matching their level but always let the player decide.
 
 After each character is created/imported, confirm before proceeding to the next one.
 
