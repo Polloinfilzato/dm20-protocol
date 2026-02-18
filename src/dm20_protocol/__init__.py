@@ -6,5 +6,9 @@ from .main import mcp
 from .models import *
 from .storage import DnDStorage
 
-__version__ = "1.0.0"
+try:
+    from importlib.metadata import version as _get_version
+    __version__ = _get_version("dm20-protocol")
+except Exception:
+    __version__ = "0.3.0"  # Fallback if metadata unavailable
 __all__ = ["mcp", "DnDStorage"]

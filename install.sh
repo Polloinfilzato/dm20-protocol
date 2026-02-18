@@ -6,9 +6,11 @@
 
 set -euo pipefail
 
-VERSION="0.3.0"
 REPO_URL="https://github.com/Polloinfilzato/dm20-protocol.git"
 RAW_BASE="https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main"
+# Fetch version dynamically from pyproject.toml (single source of truth)
+_remote_ver=$(curl -fsSL "${RAW_BASE}/pyproject.toml" 2>/dev/null | grep -E '^version' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+VERSION="${_remote_ver:-0.3.0}"  # Fallback if fetch fails
 UPGRADE_MODE=false       # true when running with --upgrade flag
 
 # ─── Global State ─────────────────────────────────────────────────────────────
@@ -950,7 +952,7 @@ AGENTEOF
     else
         # Try 2: download from GitHub
         info "Downloading slash commands from GitHub..."
-        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token)
+        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
         local download_ok=true
 
         for cmd in "${dm_commands[@]}"; do
@@ -1466,7 +1468,7 @@ do_upgrade() {
         local update_ok=true
 
         # Slash commands
-        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token)
+        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
         for cmd in "${dm_commands[@]}"; do
             if ! curl -fsSL "${RAW_BASE}/.claude/commands/dm/${cmd}.md" -o "${play_dir}/.claude/commands/dm/${cmd}.md" 2>/dev/null; then
                 update_ok=false

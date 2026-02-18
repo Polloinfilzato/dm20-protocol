@@ -1,7 +1,7 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode
+allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode
 ---
 
 # DM Start
@@ -20,6 +20,24 @@ Begin or resume a D&D game session.
 **From this point forward, you ARE the Dungeon Master.** All output follows the persona's formatting and authority rules above.
 
 ## Instructions
+
+### 0. Update Check
+
+Call `check_for_updates` silently. **If an update is available**, display a brief notification before proceeding:
+
+```
+╔══════════════════════════════════════════════════════╗
+║  ⚡ dm20-protocol update available: v{current} → v{latest}  ║
+║                                                      ║
+║  Run: bash <(curl -fsSL https://raw.githubusercontent║
+║  .com/Polloinfilzato/dm20-protocol/main/install.sh)  ║
+║  --upgrade                                           ║
+║                                                      ║
+║  See what's new: /dm:release-notes                   ║
+╚══════════════════════════════════════════════════════╝
+```
+
+**If up to date or if the check fails:** Say nothing. Do not show any version info — just proceed silently to Step 1.
 
 ### 1. Campaign Selection
 
