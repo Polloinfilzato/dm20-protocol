@@ -1,7 +1,7 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-allowed-tools: Task, AskUserQuestion, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook
+allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode
 ---
 
 # DM Start
@@ -83,19 +83,56 @@ Options:
 ```
 
 - **SOLO selected:** Save `game_mode:solo` to game_state notes via `update_game_state(notes=...)`. Proceed to Step 3a.
-- **HUMAN PARTY selected:** Save `game_mode:human_party` to game_state notes via `update_game_state(notes=...)`. Then **immediately invoke `/dm:party-mode`** using the Skill tool (`skill: "dm:party-mode"`). This will start the Party Mode web server, generate invite links and QR codes, and handle player connections. Do NOT suggest the player run the command themselves — invoke it directly. Do NOT offer SOLO as a fallback — Party Mode is fully implemented.
+- **HUMAN PARTY selected:** Save `game_mode:human_party` to game_state notes via `update_game_state(notes=...)`. Proceed to Step 3b for character setup. Party Mode server will be started AFTER characters are created.
 
-**If game mode already set:** Proceed to Step 3a (if solo). If human_party, invoke `/dm:party-mode` to resume the party server.
+**If game mode already set:** Proceed to Step 3a (if solo) or Step 3b (if human_party). If human_party and characters already exist, invoke `/dm:party-mode` directly.
 
 ### 3a. SOLO Party Setup
 
 **If the campaign has no player characters:**
-Guide the player through creating their character:
-- Ask for name, class, race conversationally
-- Call `create_character()` with reasonable defaults for abilities
-- Equip starting gear
+Guide the player through character creation using Step 3c (Character Creation Flow).
 
-**If characters exist but no AI companions are registered:**
+After the player's character is created, proceed to AI companion setup below.
+
+### 3b. HUMAN PARTY Setup
+
+**If the campaign has no player characters:**
+
+1. Ask how many human players will participate.
+2. For EACH player, use Step 3c (Character Creation Flow) to create or import their character.
+3. **After ALL characters are created:** Invoke `/dm:party-mode` using the Skill tool (`skill: "dm:party-mode"`) to start the server and generate tokens/QR codes.
+
+**If characters already exist:** Invoke `/dm:party-mode` directly.
+
+### 3c. Character Creation Flow (shared by SOLO and HUMAN PARTY)
+
+For EACH player character that needs to be created, present this choice:
+
+Use `AskUserQuestion`:
+```
+Question: "How would you like to create {player_name}'s character?"
+Header: "Character"
+Options:
+  - "Import from D&D Beyond — paste a DDB URL or character ID"
+  - "Create from scratch — choose name, race, and class"
+```
+
+**If "Import from D&D Beyond":**
+1. Ask the player for their D&D Beyond character URL (e.g., `https://www.dndbeyond.com/characters/123456789`)
+2. Call `import_from_dndbeyond(url=...)` with the provided URL
+3. Provide a clear summary of the imported character (name, race, class, level, HP)
+4. If the import fails, explain the error and offer to try again or create from scratch
+
+**If "Create from scratch":**
+1. Ask for name, race, and class conversationally
+2. Call `create_character()` with reasonable defaults for ability scores
+3. Summarize the created character
+
+After each character is created/imported, confirm before proceeding to the next one.
+
+---
+
+**If characters exist but no AI companions are registered (SOLO mode only):**
 
 Use `AskUserQuestion`:
 ```
