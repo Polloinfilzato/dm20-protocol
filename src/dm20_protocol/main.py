@@ -4551,6 +4551,360 @@ def send_private_message(
         return f"Error: {e}"
 
 
+# --------------------------------------------------------------------------
+# Party Mode Server Management Tools
+# --------------------------------------------------------------------------
+
+
+@mcp.tool
+def start_party_mode(
+    port: Annotated[int, Field(description="Server port number", ge=1024, le=65535)] = 8080,
+) -> str:
+    """Start the Party Mode web server for multi-player sessions.
+
+    Launches a background HTTP server that allows multiple players to connect
+    via their phones or browsers. Automatically generates authentication tokens
+    and QR codes for each player character in the current campaign.
+
+    Returns connection URLs and QR code file paths for each player.
+    """
+    from .party.server import start_party_server, get_server_instance
+    from .party.auth import QRCodeGenerator
+    from .claudmaster.pc_tracking import PCRegistry, MultiPlayerConfig
+
+    # Check if already running
+    existing = get_server_instance()
+    if existing is not None:
+        return (
+            f"Party Mode is already running at http://{existing.host_ip}:{existing.port}\n"
+            "Use `stop_party_mode` to shut it down first, or `get_party_status` to see current state."
+        )
+
+    # Check campaign loaded
+    if not storage.current_campaign:
+        return "Error: No campaign loaded. Use `/dm:start` to load a campaign first."
+
+    # Get characters
+    characters = storage.list_characters()
+    if not characters:
+        return "Error: No player characters in the current campaign. Create characters before starting Party Mode."
+
+    # Build PCRegistry
+    config = MultiPlayerConfig()
+    registry = PCRegistry(config)
+    for char in characters:
+        registry.register_pc(char.name, char.player_name or char.name)
+
+    # Start the server in a background thread
+    try:
+        server = start_party_server(
+            pc_registry=registry,
+            permission_resolver=permission_resolver,
+            storage=storage,
+            campaign_dir=storage.campaign_dir,
+            port=port,
+        )
+    except Exception as e:
+        return f"Error starting Party Mode server: {e}"
+
+    # Generate tokens and QR codes
+    host_ip = server.host_ip
+    lines = []
+    lines.append("# Party Mode Active\n")
+    lines.append(f"**Server:** http://{host_ip}:{port}")
+    lines.append(f"**Players:** {len(characters)} PCs + 1 Observer\n")
+    lines.append("## Player Connections\n")
+
+    for char in characters:
+        token = server.token_manager.generate_token(char.name)
+        url = f"http://{host_ip}:{port}/play?token={token}"
+        try:
+            qr_path = QRCodeGenerator.generate_player_qr(
+                char.name, token, host_ip, port, storage.campaign_dir
+            )
+            lines.append(f"### {char.name}")
+            lines.append(f"- **URL:** {url}")
+            lines.append(f"- **QR Code:** {qr_path}\n")
+        except Exception:
+            lines.append(f"### {char.name}")
+            lines.append(f"- **URL:** {url}")
+            lines.append("- **QR Code:** (generation failed, use URL instead)\n")
+
+    # Observer token
+    observer_token = server.token_manager.generate_token("OBSERVER")
+    observer_url = f"http://{host_ip}:{port}/play?token={observer_token}"
+    try:
+        observer_qr = QRCodeGenerator.generate_player_qr(
+            "OBSERVER", observer_token, host_ip, port, storage.campaign_dir
+        )
+        lines.append("### OBSERVER (read-only)")
+        lines.append(f"- **URL:** {observer_url}")
+        lines.append(f"- **QR Code:** {observer_qr}\n")
+    except Exception:
+        lines.append("### OBSERVER (read-only)")
+        lines.append(f"- **URL:** {observer_url}")
+        lines.append("- **QR Code:** (generation failed, use URL instead)\n")
+
+    lines.append("---")
+    lines.append("Players can scan QR codes or open URLs on their phones/tablets to join.")
+    lines.append("Use `get_party_status` to monitor connections.")
+    lines.append("Use `stop_party_mode` to end Party Mode.")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def stop_party_mode() -> str:
+    """Stop the Party Mode web server and disconnect all players.
+
+    Gracefully shuts down the server and closes all WebSocket connections.
+    """
+    from .party.server import stop_party_server, get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running."
+
+    try:
+        stop_party_server()
+        return "Party Mode server stopped. All players have been disconnected."
+    except Exception as e:
+        return f"Error stopping Party Mode: {e}"
+
+
+@mcp.tool
+def get_party_status() -> str:
+    """Get the current status of the Party Mode server.
+
+    Shows server info, connected players, and action queue stats.
+    """
+    from .party.server import get_server_instance
+    from datetime import datetime
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running. Use `start_party_mode` to start it."
+
+    uptime = (datetime.now() - server.start_time).total_seconds()
+    hours, remainder = divmod(int(uptime), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    uptime_str = f"{hours}h {minutes}m {seconds}s" if hours else f"{minutes}m {seconds}s"
+
+    lines = []
+    lines.append("# Party Mode Status\n")
+    lines.append(f"**Server:** http://{server.host_ip}:{server.port}")
+    lines.append(f"**Uptime:** {uptime_str}")
+
+    # Connected players
+    connected = server.connection_manager.get_connected_players()
+    lines.append(f"**Connected Players:** {len(connected)}\n")
+
+    if connected:
+        for player_id in connected:
+            lines.append(f"- {player_id}")
+    else:
+        lines.append("_(No players currently connected)_")
+
+    # Action queue stats
+    lines.append(f"\n**Actions in Queue:** {server.action_queue.qsize()}")
+
+    # Stale connections
+    stale = server.connection_manager.get_stale_connections()
+    if stale:
+        lines.append(f"\n**Stale Connections:** {', '.join(stale)}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool
+def party_pop_action() -> str:
+    """Pop the next pending player action from the Party Mode queue.
+
+    Returns the action details (player_id, action_id, text, timestamp) and
+    remaining queue count, or reports that the queue is empty.
+    """
+    import json as _json
+    from .party.server import get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running. Use `start_party_mode` to start it."
+
+    action = server.action_queue.pop()
+    if action is None:
+        return _json.dumps({"empty": True, "pending": 0})
+
+    remaining = server.action_queue.get_pending_count()
+    return _json.dumps({
+        "empty": False,
+        "action": action,
+        "remaining": remaining,
+    })
+
+
+@mcp.tool
+def party_resolve_action(
+    action_id: Annotated[str, Field(description="The action_id returned by party_pop_action")],
+    narrative: Annotated[str, Field(description="The DM's narrative response to the player's action")],
+    private_messages: Annotated[str | None, Field(description="JSON object of player-specific private messages, e.g. {\"player\": \"secret\"}")] = None,
+    dm_notes: Annotated[str | None, Field(description="DM-only notes (not sent to players)")] = None,
+) -> str:
+    """Resolve a player action and broadcast the response to connected players.
+
+    After processing a player action (rolling dice, narrating outcome, updating state),
+    call this tool to push the response to the WebSocket broadcast queue.
+    """
+    import json as _json
+    from .party.server import get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running."
+
+    private = {}
+    if private_messages:
+        try:
+            private = _json.loads(private_messages)
+        except _json.JSONDecodeError:
+            pass
+
+    response_data = {
+        "action_id": action_id,
+        "narrative": narrative,
+        "private": private,
+        "dm_only": dm_notes or "",
+    }
+
+    response_id = server.response_queue.push(response_data)
+    server.action_queue.resolve(action_id, response_data)
+
+    return f"Response broadcast to connected players (response_id: {response_id})."
+
+
+@mcp.tool
+def party_kick_player(
+    player_name: Annotated[str, Field(description="Player name or character ID to kick")],
+) -> str:
+    """Kick a player from the Party Mode session.
+
+    Disconnects their WebSocket, revokes their token, and deactivates
+    them in the PC registry. They will need a new token to rejoin.
+    """
+    import json as _json
+    import asyncio
+    from .party.server import get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running."
+
+    player_id = player_name.strip()
+
+    # Check if player exists
+    tokens = server.token_manager.get_all_tokens()
+    if player_id not in tokens:
+        available = list(tokens.keys())
+        return f"Player '{player_id}' not found. Active players: {', '.join(available)}"
+
+    results = []
+
+    # Close WebSocket connections
+    closed_count = 0
+    if server._loop and not server._loop.is_closed():
+        async def _kick():
+            connections = server.connection_manager._connections.get(player_id, set()).copy()
+            for ws in connections:
+                try:
+                    await ws.close(code=1008, reason="Kicked by host")
+                except Exception:
+                    pass
+            server.connection_manager.disconnect(player_id, None)
+            return len(connections)
+
+        try:
+            future = asyncio.run_coroutine_threadsafe(_kick(), server._loop)
+            closed_count = future.result(timeout=5.0)
+        except Exception:
+            pass
+
+    results.append(f"Connections closed: {closed_count}")
+
+    # Revoke token
+    revoked = server.token_manager.revoke_token(player_id)
+    results.append(f"Token revoked: {revoked}")
+
+    # Deactivate in registry
+    try:
+        server.pc_registry.leave_session(player_id)
+        results.append("Registry: deactivated")
+    except Exception:
+        results.append("Registry: was not active")
+
+    # Broadcast notification
+    if server._loop and not server._loop.is_closed():
+        from datetime import datetime as _dt
+        async def _broadcast():
+            msg = {
+                "type": "system",
+                "content": f"{player_id} was removed from the session by the DM.",
+                "timestamp": _dt.now().isoformat(),
+            }
+            return await server.connection_manager.broadcast(msg)
+        try:
+            asyncio.run_coroutine_threadsafe(_broadcast(), server._loop).result(timeout=5.0)
+        except Exception:
+            pass
+
+    return f"Player '{player_id}' kicked.\n" + "\n".join(results)
+
+
+@mcp.tool
+def party_refresh_token(
+    player_name: Annotated[str, Field(description="Player name or character ID to refresh token for")],
+) -> str:
+    """Generate a new token and QR code for a player, invalidating their old token.
+
+    Use when a player needs a new connection link (lost QR code, security concern,
+    or after being kicked and readmitted).
+    """
+    from .party.server import get_server_instance
+    from .party.auth import QRCodeGenerator
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running. Use `start_party_mode` to start it."
+
+    player_id = player_name.strip()
+
+    # Generate new token (invalidates old one)
+    new_token = server.token_manager.refresh_token(player_id)
+    url = f"http://{server.host_ip}:{server.port}/play?token={new_token}"
+
+    lines = [f"# Token Refreshed: {player_id}\n"]
+    lines.append(f"**New URL:** {url}")
+
+    # Generate QR code
+    try:
+        qr_path = QRCodeGenerator.generate_player_qr(
+            player_id, new_token, server.host_ip, server.port, server.campaign_dir
+        )
+        lines.append(f"**QR Code:** {qr_path}")
+    except Exception:
+        lines.append("**QR Code:** (generation failed — use URL instead)")
+
+    lines.append("\nThe old token is now invalid. The player must use the new URL or scan the new QR code.")
+
+    # Reactivate in registry if needed
+    try:
+        from .permissions import PlayerRole
+        role = PlayerRole.OBSERVER if player_id == "OBSERVER" else PlayerRole.PLAYER
+        server.pc_registry.join_session(player_id, player_id, role=role)
+    except Exception:
+        pass
+
+    return "\n".join(lines)
+
+
 logger.debug("✅ All tools successfully registered. DM20 Protocol server running! 🎲")
 
 def main() -> None:

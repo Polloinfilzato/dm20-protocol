@@ -1,6 +1,6 @@
 ---
 description: Process the next pending player action from the Party Mode queue.
-allowed-tools: Bash, Read, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_character, mcp__dm20-protocol__get_npc, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_npcs, mcp__dm20-protocol__roll_dice, mcp__dm20-protocol__search_rules, mcp__dm20-protocol__get_spell_info, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__get_race_info, mcp__dm20-protocol__get_monster_info, mcp__dm20-protocol__update_character, mcp__dm20-protocol__bulk_update_characters, mcp__dm20-protocol__add_item_to_character, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__update_quest, mcp__dm20-protocol__add_event, mcp__dm20-protocol__create_npc, mcp__dm20-protocol__create_location, mcp__dm20-protocol__start_combat, mcp__dm20-protocol__player_action, mcp__dm20-protocol__configure_claudmaster
+allowed-tools: Read, mcp__dm20-protocol__party_pop_action, mcp__dm20-protocol__party_resolve_action, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_character, mcp__dm20-protocol__get_npc, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_npcs, mcp__dm20-protocol__roll_dice, mcp__dm20-protocol__search_rules, mcp__dm20-protocol__get_spell_info, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__get_race_info, mcp__dm20-protocol__get_monster_info, mcp__dm20-protocol__update_character, mcp__dm20-protocol__bulk_update_characters, mcp__dm20-protocol__add_item_to_character, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__update_quest, mcp__dm20-protocol__add_event, mcp__dm20-protocol__create_npc, mcp__dm20-protocol__create_location, mcp__dm20-protocol__start_combat, mcp__dm20-protocol__player_action, mcp__dm20-protocol__configure_claudmaster
 ---
 
 # Party Mode — Process Next Action
@@ -12,53 +12,13 @@ Pop the next pending player action from the queue and process it through the gam
 /dm:party-next
 ```
 
-## Prerequisites
-
-### Check Server is Running
-
-Run via `Bash`:
-
-```bash
-python3 -c "
-from dm20_protocol.party.server import get_server_instance
-srv = get_server_instance()
-if srv is None:
-    print('NOT_RUNNING')
-else:
-    print('RUNNING')
-"
-```
-
-**If not running:** Tell the user:
-```
-Party Mode is not running. Start it with /dm:party-mode first.
-```
-
 ## Instructions
 
 ### Step 1 — Pop Next Action
 
-Run via `Bash`:
+Call `party_pop_action` to get the next pending action.
 
-```bash
-python3 -c "
-import json
-from dm20_protocol.party.server import get_server_instance
-srv = get_server_instance()
-action = srv.action_queue.pop()
-if action is None:
-    print(json.dumps({'empty': True, 'pending': 0}))
-else:
-    pending = srv.action_queue.get_pending_count()
-    print(json.dumps({
-        'empty': False,
-        'action': action,
-        'remaining': pending,
-    }))
-"
-```
-
-**If no pending actions:** Tell the user:
+**If queue is empty:** Tell the user:
 ```
 +--------------------------------------------------+
 |          NO PENDING ACTIONS                       |
@@ -120,40 +80,11 @@ Now process this action exactly like `/dm:action` would. You ARE the DM. Follow 
 
 ### Step 4 — Push Response to Queue
 
-After narrating, push the response to the ResponseQueue so it gets broadcast to connected players via WebSocket.
-
-Run via `Bash`:
-
-```bash
-python3 -c "
-import json, sys
-from dm20_protocol.party.server import get_server_instance
-
-srv = get_server_instance()
-
-# Read response data from stdin
-response_data = json.loads(sys.stdin.read())
-response_id = srv.response_queue.push(response_data)
-
-# Resolve the action
-srv.action_queue.resolve(response_data.get('action_id', ''), response_data)
-
-print(json.dumps({'response_id': response_id, 'broadcast': True}))
-" <<'RESPONSE_JSON'
-{
-  "action_id": "{action_id}",
-  "narrative": "{the_narration_text_you_generated}",
-  "private": {},
-  "dm_only": ""
-}
-RESPONSE_JSON
-```
-
-Replace the placeholders:
-- `{action_id}` — the action_id from Step 1
-- `{the_narration_text_you_generated}` — the full narrative text from Step 3e
-- `"private"` — add player-specific private messages if needed: `{"player_id": "secret message"}`
-- `"dm_only"` — add DM-only notes if relevant (e.g., hidden trap status, NPC intentions)
+After narrating, call `party_resolve_action` with:
+- `action_id`: the action_id from Step 1
+- `narrative`: the full narrative text from Step 3e
+- `private_messages`: JSON string for player-specific secret messages (optional)
+- `dm_notes`: DM-only notes if relevant (optional)
 
 ### Step 5 — Confirm Broadcast
 
@@ -174,4 +105,3 @@ Run /dm:party-next to process the next action, or /dm:party-auto for continuous 
 2. **The action comes from a specific player.** Always process it as that player's character acting.
 3. **Push the response AFTER narrating.** The response queue triggers WebSocket broadcast automatically.
 4. **Never skip the resolution.** Even trivial actions get narrated and broadcast.
-5. **Escape JSON properly** when constructing the response payload. Use Python string escaping for quotes in narrative text.
