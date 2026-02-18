@@ -1,8 +1,9 @@
 /**
  * Party Mode Player UI — WebSocket Client & DOM Controller
  *
- * Handles WebSocket connection with auto-reconnect, message routing,
- * action submission, character data fetching, and UI updates.
+ * D&D Beyond-style tabbed interface with WebSocket connection,
+ * auto-reconnect, message routing, action submission, and
+ * character data rendering across 4 tabs.
  *
  * No external dependencies. Vanilla JavaScript only.
  */
@@ -11,7 +12,6 @@
     'use strict';
 
     // ===== Configuration =====
-    // Token and player name are injected via window.PARTY_CONFIG in the HTML
     var config = window.PARTY_CONFIG || {};
     var TOKEN = config.token || '';
     var PLAYER_NAME = config.playerName || '';
@@ -33,7 +33,8 @@
     let pendingActionId = null;
     let privateMessagesExpanded = false;
     let privateMessageCount = 0;
-    let characterSheetOpen = false;
+    let activeTab = 'game';
+    let cachedCharacterData = null;
 
     // ===== DOM References =====
     const $ = (sel) => document.querySelector(sel);
@@ -50,26 +51,50 @@
         actionSend: $('.action-bar__send'),
         actionStatus: $('.action-bar__status'),
         actionForm: $('.action-bar__form'),
-        characterName: $('.character-bar__name'),
+        headerName: $('.header__name'),
+        headerSubtitle: $('.header__subtitle'),
         hpFill: $('.hp-bar__fill'),
         hpText: $('.hp-bar__text'),
         acValue: $('#stat-ac'),
         levelValue: $('#stat-level'),
-        conditions: $('.character-bar__conditions'),
+        speedValue: $('#stat-speed'),
+        initValue: $('#stat-init'),
+        initBadge: $('#stat-init-badge'),
+        conditions: $('.header__conditions'),
         combatBanner: $('.combat-banner'),
         combatInfo: $('.combat-banner__info'),
         initiativeList: $('.initiative-list'),
-        sheetOverlay: $('.character-sheet-overlay'),
-        sheetPanel: $('.character-sheet'),
-        sheetClose: $('.character-sheet__close'),
-        sheetTitle: $('.character-sheet__title'),
-        sheetSubtitle: $('.character-sheet__subtitle'),
         abilityGrid: $('.ability-grid'),
+        savingThrowsList: $('.saving-throws-list'),
         skillsList: $('.skills-list'),
-        inventoryList: $('.inventory-list'),
-        spellSlots: $('.spell-slots'),
         featuresList: $('.features-list'),
+        proficienciesSummary: $('.proficiencies-summary'),
+        spellcastingHeader: $('.spellcasting-header'),
+        spellSlots: $('.spell-slots'),
+        spellsKnownList: $('.spells-known-list'),
+        equipmentSlots: $('.equipment-slots'),
+        inventoryList: $('.inventory-list'),
+        currencyDisplay: $('.currency-display'),
+        currencySection: $('#currency-section'),
     };
+
+
+    // ===== Tab Switching =====
+
+    function switchTab(tabName) {
+        if (tabName === activeTab) return;
+        activeTab = tabName;
+
+        // Update content visibility
+        $$('.tab-content').forEach(function (el) {
+            el.classList.toggle('tab-content--active', el.dataset.tab === tabName);
+        });
+
+        // Update tab bar buttons
+        $$('.tab-bar__btn').forEach(function (btn) {
+            btn.classList.toggle('tab-bar__btn--active', btn.dataset.tab === tabName);
+        });
+    }
 
 
     // ===== WebSocket Connection =====
@@ -88,7 +113,6 @@
             updateConnectionStatus('connected');
             startHeartbeat();
 
-            // Request history if reconnecting
             if (lastSeenTimestamp) {
                 ws.send(JSON.stringify({
                     type: 'history_request',
@@ -176,6 +200,7 @@
 
             case 'character_update':
                 updateCharacterBar(msg.data);
+                updateCharacterTabs(msg.data);
                 break;
 
             case 'combat_state':
@@ -223,7 +248,6 @@
     function appendToFeed(el) {
         if (!dom.narrativeFeed) return;
         dom.narrativeFeed.appendChild(el);
-        // Auto-scroll to bottom
         dom.narrativeFeed.scrollTop = dom.narrativeFeed.scrollHeight;
     }
 
@@ -236,7 +260,6 @@
         var sender = msg.from || 'DM';
         var el = createMessageEl('message--private', sender + ' (private)', msg.content, msg.timestamp);
 
-        // Add to private section
         if (dom.privateMessages) {
             dom.privateMessages.appendChild(el);
             privateMessageCount++;
@@ -245,7 +268,6 @@
             }
         }
 
-        // Also add to main feed
         var feedEl = createMessageEl('message--private', sender + ' (private)', msg.content, msg.timestamp);
         appendToFeed(feedEl);
     }
@@ -279,7 +301,6 @@
         var text = input.value.trim();
         if (!text) return;
 
-        // Disable input while processing
         input.disabled = true;
         if (dom.actionSend) dom.actionSend.disabled = true;
         setActionStatus('Sending...', 'queued');
@@ -299,7 +320,6 @@
                     input.value = '';
                     setActionStatus('Action queued', 'queued');
 
-                    // Also show the action in the feed
                     var el = createMessageEl('message--action', PLAYER_NAME, text, new Date().toISOString());
                     appendToFeed(el);
                 } else {
@@ -319,7 +339,6 @@
 
     function updateActionStatus(actionId, status, errorMsg) {
         if (status === 'rejected') {
-            // Turn gating rejection — not tied to a pending action
             setActionStatus(errorMsg || 'Action rejected', 'error');
             setTimeout(function () { setActionStatus('', ''); }, 3000);
             return;
@@ -331,7 +350,6 @@
             } else if (status === 'resolved') {
                 setActionStatus('Done', 'resolved');
                 pendingActionId = null;
-                // Clear status after a moment
                 setTimeout(function () { setActionStatus('', ''); }, 2000);
             }
         }
@@ -357,8 +375,9 @@
             })
             .then(function (data) {
                 if (data) {
+                    cachedCharacterData = data;
                     updateCharacterBar(data);
-                    updateCharacterSheet(data);
+                    updateCharacterTabs(data);
                 }
             })
             .catch(function (err) {
@@ -370,24 +389,37 @@
         if (!data) return;
 
         // Name
-        if (dom.characterName && data.name) {
-            dom.characterName.textContent = data.name;
+        if (dom.headerName && data.name) {
+            dom.headerName.textContent = data.name;
+        }
+
+        // Subtitle (race + class)
+        if (dom.headerSubtitle) {
+            var parts = [];
+            if (data.race) {
+                var raceName = typeof data.race === 'string' ? data.race : data.race.name || '';
+                if (data.race.subrace) raceName = data.race.subrace + ' ' + raceName;
+                parts.push(raceName);
+            }
+            if (data.classes) {
+                parts.push(data.classes.map(function (c) { return c.name + ' ' + c.level; }).join('/'));
+            }
+            dom.headerSubtitle.textContent = parts.join(' \u2022 ');
         }
 
         // HP
-        var hp = data.hit_points || data.hp || 0;
-        var maxHp = data.max_hit_points || data.max_hp || hp || 1;
+        var hp = data.hit_points_current || data.hit_points || data.hp || 0;
+        var maxHp = data.hit_points_max || data.max_hit_points || data.max_hp || hp || 1;
         var hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
 
         if (dom.hpFill) {
             dom.hpFill.style.width = hpPercent + '%';
-            // Color: green > 50%, yellow 25-50%, red < 25%
             if (hpPercent > 50) {
-                dom.hpFill.style.background = 'linear-gradient(90deg, #22c55e, #4ade80)';
+                dom.hpFill.style.background = 'linear-gradient(90deg, #28a745, #34d058)';
             } else if (hpPercent > 25) {
-                dom.hpFill.style.background = 'linear-gradient(90deg, #eab308, #facc15)';
+                dom.hpFill.style.background = 'linear-gradient(90deg, #e6a817, #f0c040)';
             } else {
-                dom.hpFill.style.background = 'linear-gradient(90deg, #dc2626, #f87171)';
+                dom.hpFill.style.background = 'linear-gradient(90deg, #c53131, #e74c3c)';
             }
         }
         if (dom.hpText) {
@@ -395,13 +427,19 @@
         }
 
         // AC
-        if (dom.acValue && (data.armor_class !== undefined || data.ac !== undefined)) {
-            dom.acValue.textContent = data.armor_class || data.ac;
+        if (dom.acValue && data.armor_class !== undefined) {
+            dom.acValue.textContent = data.armor_class;
         }
 
         // Level
-        if (dom.levelValue && data.level !== undefined) {
-            dom.levelValue.textContent = data.level;
+        if (dom.levelValue && data.classes) {
+            var totalLevel = data.classes.reduce(function (sum, c) { return sum + (c.level || 0); }, 0);
+            dom.levelValue.textContent = totalLevel;
+        }
+
+        // Speed
+        if (dom.speedValue && data.speed !== undefined) {
+            dom.speedValue.textContent = data.speed;
         }
 
         // Conditions
@@ -417,54 +455,439 @@
         }
     }
 
-    function updateCharacterSheet(data) {
+    // D&D 5e skill -> ability mapping
+    var SKILL_ABILITY_MAP = {
+        'Acrobatics': 'dexterity', 'Animal Handling': 'wisdom',
+        'Arcana': 'intelligence', 'Athletics': 'strength',
+        'Deception': 'charisma', 'History': 'intelligence',
+        'Insight': 'wisdom', 'Intimidation': 'charisma',
+        'Investigation': 'intelligence', 'Medicine': 'wisdom',
+        'Nature': 'intelligence', 'Perception': 'wisdom',
+        'Performance': 'charisma', 'Persuasion': 'charisma',
+        'Religion': 'intelligence', 'Sleight of Hand': 'dexterity',
+        'Stealth': 'dexterity', 'Survival': 'wisdom',
+    };
+
+    var ABILITY_SHORT = {
+        'strength': 'STR', 'dexterity': 'DEX', 'constitution': 'CON',
+        'intelligence': 'INT', 'wisdom': 'WIS', 'charisma': 'CHA',
+    };
+
+    function getAbilityMod(abilities, abilityName) {
+        var ab = (abilities || {})[abilityName];
+        var score = ab ? (ab.score || 10) : 10;
+        return Math.floor((score - 10) / 2);
+    }
+
+    function formatMod(mod) {
+        return mod >= 0 ? '+' + mod : '' + mod;
+    }
+
+    function updateCharacterTabs(data) {
         if (!data) return;
+        cachedCharacterData = data;
+        updateAbilityScores(data);
+        updateSavingThrows(data);
+        updateSkills(data);
+        updateFeatures(data);
+        updateProficiencies(data);
+        updateSpellcasting(data);
+        updateSpellSlots(data);
+        updateSpellsKnown(data);
+        updateEquipment(data);
+        updateInventory(data);
+        updateCurrency(data);
+    }
 
-        // Title
-        if (dom.sheetTitle) {
-            dom.sheetTitle.textContent = data.name || PLAYER_NAME;
-        }
-        if (dom.sheetSubtitle) {
-            var parts = [];
-            if (data.race) parts.push(data.race);
-            if (data.class_name || data.classes) {
-                parts.push(data.class_name || (data.classes || []).map(function (c) { return c.name; }).join('/'));
+    function updateAbilityScores(data) {
+        if (!dom.abilityGrid || !data.abilities) return;
+        dom.abilityGrid.innerHTML = '';
+
+        var abilityDefs = [
+            { short: 'STR', full: 'strength' },
+            { short: 'DEX', full: 'dexterity' },
+            { short: 'CON', full: 'constitution' },
+            { short: 'INT', full: 'intelligence' },
+            { short: 'WIS', full: 'wisdom' },
+            { short: 'CHA', full: 'charisma' },
+        ];
+
+        abilityDefs.forEach(function (a) {
+            var score = (data.abilities[a.full] || {}).score || 10;
+            var mod = Math.floor((score - 10) / 2);
+
+            var el = document.createElement('div');
+            el.className = 'ability-score';
+            el.innerHTML =
+                '<div class="ability-score__name">' + a.short + '</div>' +
+                '<div class="ability-score__value">' + score + '</div>' +
+                '<div class="ability-score__modifier">' + formatMod(mod) + '</div>';
+            dom.abilityGrid.appendChild(el);
+        });
+    }
+
+    function updateSavingThrows(data) {
+        if (!dom.savingThrowsList || !data.abilities) return;
+        dom.savingThrowsList.innerHTML = '';
+
+        var profBonus = data.proficiency_bonus || 2;
+        var saveProfList = (data.saving_throw_proficiencies || []).map(function (s) { return s.toLowerCase(); });
+
+        var abilityNames = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+        abilityNames.forEach(function (ability) {
+            var mod = getAbilityMod(data.abilities, ability);
+            var isProficient = saveProfList.indexOf(ability) !== -1;
+            var bonus = mod + (isProficient ? profBonus : 0);
+
+            var el = document.createElement('div');
+            el.className = 'save-item' + (isProficient ? ' save-item--proficient' : '');
+            el.innerHTML =
+                '<span class="save-item__dot"></span>' +
+                '<span class="save-item__name">' + ABILITY_SHORT[ability] + '</span>' +
+                '<span class="save-item__bonus">' + formatMod(bonus) + '</span>';
+            dom.savingThrowsList.appendChild(el);
+        });
+    }
+
+    function updateSkills(data) {
+        if (!dom.skillsList || !data.abilities) return;
+        dom.skillsList.innerHTML = '';
+
+        var profBonus = data.proficiency_bonus || 2;
+        var profList = (data.skill_proficiencies || []).map(function (s) { return s.toLowerCase(); });
+
+        Object.keys(SKILL_ABILITY_MAP).forEach(function (skillName) {
+            var ability = SKILL_ABILITY_MAP[skillName];
+            var mod = getAbilityMod(data.abilities, ability);
+            var isProficient = profList.indexOf(skillName.toLowerCase()) !== -1;
+            var bonus = mod + (isProficient ? profBonus : 0);
+
+            var el = document.createElement('div');
+            el.className = 'skill-item' + (isProficient ? ' skill-item--proficient' : '');
+            el.innerHTML =
+                '<span class="skill-item__dot"></span>' +
+                '<span class="skill-item__name">' + skillName + '</span>' +
+                '<span class="skill-item__ability">' + ABILITY_SHORT[ability] + '</span>' +
+                '<span class="skill-item__bonus">' + formatMod(bonus) + '</span>';
+            dom.skillsList.appendChild(el);
+        });
+    }
+
+    function updateFeatures(data) {
+        if (!dom.featuresList) return;
+        dom.featuresList.innerHTML = '';
+
+        var features = data.features || [];
+        var legacyFeatures = data.features_and_traits || [];
+
+        features.forEach(function (f) {
+            var li = document.createElement('li');
+            li.className = 'feature-item';
+            var html = '<span class="feature-item__name">' + escapeHtml(f.name) + '</span>';
+            if (f.source) {
+                html += '<span class="feature-item__source">(' + escapeHtml(f.source) + ')</span>';
             }
-            if (data.level) parts.push('Level ' + data.level);
-            dom.sheetSubtitle.textContent = parts.join(' | ');
+            if (f.description) {
+                html += '<div class="feature-item__desc">' + escapeHtml(f.description) + '</div>';
+            }
+            li.innerHTML = html;
+            dom.featuresList.appendChild(li);
+        });
+
+        legacyFeatures.forEach(function (f) {
+            var li = document.createElement('li');
+            li.className = 'feature-item';
+            li.innerHTML = '<span class="feature-item__name">' + escapeHtml(f) + '</span>';
+            dom.featuresList.appendChild(li);
+        });
+
+        if (features.length === 0 && legacyFeatures.length === 0) {
+            dom.featuresList.innerHTML = '<li class="feature-item" style="color:var(--text-muted)">No features yet</li>';
         }
+    }
 
-        // Ability Scores
-        if (dom.abilityGrid && data.ability_scores) {
-            dom.abilityGrid.innerHTML = '';
-            var abilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
-            abilities.forEach(function (name) {
-                var key = name.toLowerCase();
-                var score = data.ability_scores[key] || data.ability_scores[name] || 10;
-                var mod = Math.floor((score - 10) / 2);
-                var modStr = mod >= 0 ? '+' + mod : '' + mod;
+    function updateProficiencies(data) {
+        if (!dom.proficienciesSummary) return;
+        dom.proficienciesSummary.innerHTML = '';
 
-                var el = document.createElement('div');
-                el.className = 'ability-score';
-                el.innerHTML =
-                    '<div class="ability-score__name">' + name + '</div>' +
-                    '<div class="ability-score__value">' + score + '</div>' +
-                    '<div class="ability-score__modifier">' + modStr + '</div>';
-                dom.abilityGrid.appendChild(el);
+        var groups = [
+            { label: 'Languages', items: data.languages || [] },
+            { label: 'Tools', items: data.tool_proficiencies || [] },
+            { label: 'Armor & Weapons', items: data.armor_proficiencies || data.weapon_proficiencies || [] },
+        ];
+
+        groups.forEach(function (g) {
+            if (g.items.length === 0) return;
+            var div = document.createElement('div');
+            div.className = 'prof-group';
+            div.innerHTML =
+                '<div class="prof-group__label">' + g.label + '</div>' +
+                '<div class="prof-group__items">' + g.items.map(escapeHtml).join(', ') + '</div>';
+            dom.proficienciesSummary.appendChild(div);
+        });
+
+        if (dom.proficienciesSummary.children.length === 0) {
+            dom.proficienciesSummary.innerHTML = '<div class="prof-group" style="color:var(--text-muted);font-size:0.85rem">No proficiencies recorded</div>';
+        }
+    }
+
+    function updateSpellcasting(data) {
+        if (!dom.spellcastingHeader) return;
+        dom.spellcastingHeader.innerHTML = '';
+
+        var ability = data.spellcasting_ability;
+        if (!ability && data.classes) {
+            // Infer from class
+            var spellclasses = { 'wizard': 'intelligence', 'cleric': 'wisdom', 'druid': 'wisdom',
+                'bard': 'charisma', 'sorcerer': 'charisma', 'warlock': 'charisma',
+                'paladin': 'charisma', 'ranger': 'wisdom', 'artificer': 'intelligence' };
+            data.classes.forEach(function (c) {
+                if (!ability && spellclasses[c.name.toLowerCase()]) {
+                    ability = spellclasses[c.name.toLowerCase()];
+                }
             });
         }
 
-        // Inventory
-        if (dom.inventoryList && data.inventory) {
-            dom.inventoryList.innerHTML = '';
-            (data.inventory || []).forEach(function (item) {
-                var li = document.createElement('li');
-                li.className = 'inventory-item';
-                var name = typeof item === 'string' ? item : item.name || item;
-                var equipped = (typeof item === 'object' && item.equipped) ? '<span class="inventory-item__equipped">E</span>' : '';
-                var qty = (typeof item === 'object' && item.quantity > 1) ? '<span class="inventory-item__qty">x' + item.quantity + '</span>' : '';
-                li.innerHTML = '<span class="inventory-item__name">' + escapeHtml(name) + '</span>' + equipped + qty;
-                dom.inventoryList.appendChild(li);
+        if (!ability) return;
+
+        var profBonus = data.proficiency_bonus || 2;
+        var abilityMod = getAbilityMod(data.abilities || {}, ability);
+        var spellSaveDC = 8 + profBonus + abilityMod;
+        var spellAttack = profBonus + abilityMod;
+
+        var stats = [
+            { label: 'Ability', value: (ABILITY_SHORT[ability] || ability).toUpperCase() },
+            { label: 'Spell Save DC', value: spellSaveDC },
+            { label: 'Spell Attack', value: formatMod(spellAttack) },
+        ];
+
+        stats.forEach(function (s) {
+            var div = document.createElement('div');
+            div.className = 'spellcasting-stat';
+            div.innerHTML =
+                '<div class="spellcasting-stat__label">' + s.label + '</div>' +
+                '<div class="spellcasting-stat__value">' + s.value + '</div>';
+            dom.spellcastingHeader.appendChild(div);
+        });
+    }
+
+    function updateSpellSlots(data) {
+        if (!dom.spellSlots) return;
+        dom.spellSlots.innerHTML = '';
+
+        if (!data.spell_slots) {
+            dom.spellSlots.innerHTML = '<span style="font-size:0.82rem;color:var(--text-muted)">No spell slots</span>';
+            return;
+        }
+
+        var slotLevels = Object.keys(data.spell_slots).sort(function (a, b) { return a - b; });
+        if (slotLevels.length === 0) {
+            dom.spellSlots.innerHTML = '<span style="font-size:0.82rem;color:var(--text-muted)">No spell slots</span>';
+            return;
+        }
+
+        slotLevels.forEach(function (level) {
+            var max = data.spell_slots[level];
+            var used = (data.spell_slots_used || {})[level] || 0;
+            if (max <= 0) return;
+
+            var container = document.createElement('div');
+            container.className = 'spell-slot-level';
+
+            var label = document.createElement('div');
+            label.className = 'spell-slot-level__label';
+            label.textContent = level === '0' || level === 0 ? 'Cantrip' : 'Lv ' + level;
+            container.appendChild(label);
+
+            var dots = document.createElement('div');
+            dots.className = 'spell-slot-level__dots';
+            for (var i = 0; i < max; i++) {
+                var dot = document.createElement('div');
+                dot.className = 'spell-slot-dot' + (i < used ? ' spell-slot-dot--used' : '');
+                dots.appendChild(dot);
+            }
+            container.appendChild(dots);
+
+            dom.spellSlots.appendChild(container);
+        });
+    }
+
+    function updateSpellsKnown(data) {
+        if (!dom.spellsKnownList) return;
+        dom.spellsKnownList.innerHTML = '';
+
+        var spells = data.spells_known || [];
+        if (spells.length === 0) {
+            dom.spellsKnownList.innerHTML = '<div class="no-spells-message">No spells known</div>';
+            return;
+        }
+
+        // Group by level
+        var grouped = {};
+        spells.forEach(function (spell) {
+            var level = spell.level !== undefined ? spell.level : 0;
+            if (!grouped[level]) grouped[level] = [];
+            grouped[level].push(spell);
+        });
+
+        var levels = Object.keys(grouped).sort(function (a, b) { return a - b; });
+        levels.forEach(function (level) {
+            var group = document.createElement('div');
+            group.className = 'spell-level-group';
+
+            var header = document.createElement('div');
+            header.className = 'spell-level-group__header';
+            header.textContent = level === '0' || level === 0 ? 'Cantrips' : 'Level ' + level;
+            group.appendChild(header);
+
+            grouped[level].forEach(function (spell) {
+                var entry = document.createElement('div');
+                entry.className = 'spell-entry';
+
+                var nameHtml = '<span class="spell-entry__name">' + escapeHtml(spell.name || spell) + '</span>';
+                if (spell.school) {
+                    nameHtml += ' <span class="spell-entry__school">' + escapeHtml(spell.school) + '</span>';
+                }
+
+                var tagsHtml = '<div class="spell-entry__tags">';
+                if (spell.concentration) {
+                    tagsHtml += '<span class="spell-entry__tag spell-entry__tag--concentration">C</span>';
+                }
+                if (spell.ritual) {
+                    tagsHtml += '<span class="spell-entry__tag spell-entry__tag--ritual">R</span>';
+                }
+                tagsHtml += '</div>';
+
+                entry.innerHTML = '<div>' + nameHtml + '</div>' + tagsHtml;
+                group.appendChild(entry);
+            });
+
+            dom.spellsKnownList.appendChild(group);
+        });
+    }
+
+    function updateEquipment(data) {
+        if (!dom.equipmentSlots) return;
+        dom.equipmentSlots.innerHTML = '';
+
+        var equipment = data.equipment || {};
+        var slotDefs = [
+            { key: 'main_hand', label: 'Main Hand' },
+            { key: 'off_hand', label: 'Off Hand' },
+            { key: 'armor', label: 'Armor' },
+            { key: 'shield', label: 'Shield' },
+        ];
+
+        var hasAny = false;
+        slotDefs.forEach(function (slot) {
+            var item = equipment[slot.key];
+            if (item || hasAny) hasAny = true;
+
+            var el = document.createElement('div');
+            el.className = 'equip-slot';
+
+            var itemName = '';
+            if (item) {
+                itemName = typeof item === 'string' ? item : item.name || item;
+            }
+
+            el.innerHTML =
+                '<span class="equip-slot__label">' + slot.label + '</span>' +
+                '<span class="equip-slot__item' + (!itemName ? ' equip-slot__item--empty' : '') + '">' +
+                (itemName ? escapeHtml(itemName) : 'Empty') + '</span>';
+            dom.equipmentSlots.appendChild(el);
+        });
+
+        // Also show any equipped items from inventory
+        var inv = data.inventory || [];
+        inv.forEach(function (item) {
+            if (typeof item === 'object' && item.equipped) {
+                var alreadyShown = slotDefs.some(function (s) {
+                    var eq = equipment[s.key];
+                    return eq && (eq === item.name || (eq && eq.name === item.name));
+                });
+                if (!alreadyShown) {
+                    var el = document.createElement('div');
+                    el.className = 'equip-slot';
+                    el.innerHTML =
+                        '<span class="equip-slot__label">Equipped</span>' +
+                        '<span class="equip-slot__item">' + escapeHtml(item.name) + '</span>';
+                    dom.equipmentSlots.appendChild(el);
+                }
+            }
+        });
+    }
+
+    function updateInventory(data) {
+        if (!dom.inventoryList) return;
+        dom.inventoryList.innerHTML = '';
+
+        var inventory = data.inventory || [];
+        if (inventory.length === 0) {
+            dom.inventoryList.innerHTML = '<li class="inventory-item" style="color:var(--text-muted);justify-content:center">Inventory is empty</li>';
+            return;
+        }
+
+        inventory.forEach(function (item) {
+            var li = document.createElement('li');
+            li.className = 'inventory-item';
+
+            var name = typeof item === 'string' ? item : item.name || item;
+            var isObj = typeof item === 'object';
+            var qty = (isObj && item.quantity > 1) ? 'x' + item.quantity : '';
+            var weight = (isObj && item.weight) ? item.weight + ' lb' : '';
+            var type = (isObj && item.type) ? item.type : '';
+            var equipped = (isObj && item.equipped);
+
+            var html = '<div class="inventory-item__info">';
+            html += '<span class="inventory-item__name">' + escapeHtml(name) + '</span>';
+            if (type) html += '<span class="inventory-item__type">' + escapeHtml(type) + '</span>';
+            html += '</div>';
+            html += '<div class="inventory-item__meta">';
+            if (equipped) html += '<span class="inventory-item__equipped-badge">E</span>';
+            if (qty) html += '<span class="inventory-item__qty">' + qty + '</span>';
+            if (weight) html += '<span class="inventory-item__weight">' + weight + '</span>';
+            html += '</div>';
+
+            li.innerHTML = html;
+            dom.inventoryList.appendChild(li);
+        });
+    }
+
+    function updateCurrency(data) {
+        if (!dom.currencyDisplay || !dom.currencySection) return;
+
+        var currency = data.currency || data.gold || null;
+        if (!currency) {
+            dom.currencySection.style.display = 'none';
+            return;
+        }
+
+        dom.currencySection.style.display = 'block';
+        dom.currencyDisplay.innerHTML = '';
+
+        if (typeof currency === 'number') {
+            // Simple gold amount
+            var el = document.createElement('div');
+            el.className = 'currency-item';
+            el.innerHTML = '<span class="currency-item__value">' + currency + '</span><span class="currency-item__label">GP</span>';
+            dom.currencyDisplay.appendChild(el);
+        } else if (typeof currency === 'object') {
+            var coins = [
+                { key: 'pp', label: 'PP' },
+                { key: 'gp', label: 'GP' },
+                { key: 'ep', label: 'EP' },
+                { key: 'sp', label: 'SP' },
+                { key: 'cp', label: 'CP' },
+            ];
+            coins.forEach(function (c) {
+                var val = currency[c.key];
+                if (val !== undefined && val > 0) {
+                    var el = document.createElement('div');
+                    el.className = 'currency-item';
+                    el.innerHTML = '<span class="currency-item__value">' + val + '</span><span class="currency-item__label">' + c.label + '</span>';
+                    dom.currencyDisplay.appendChild(el);
+                }
             });
         }
     }
@@ -479,7 +902,6 @@
         if (!data || !dom.combatBanner) return;
 
         if (!data.active) {
-            // Combat ended
             if (combatActive) {
                 addSystemMessage('Combat ended');
             }
@@ -506,13 +928,11 @@
     function renderTurnBasedMode(data) {
         var isMyTurn = data.your_turn === true;
 
-        // Banner state
         dom.combatBanner.classList.remove('combat-banner--simultaneous');
         dom.combatBanner.classList.toggle('combat-banner--your-turn', isMyTurn);
         dom.combatBanner.classList.toggle('combat-banner--waiting', !isMyTurn);
         clearSimultaneousTimer();
 
-        // Banner text
         if (dom.combatInfo) {
             var roundText = data.round ? ' &mdash; Round ' + data.round : '';
             if (isMyTurn) {
@@ -527,14 +947,12 @@
             }
         }
 
-        // Turn gating
         if (isMyTurn) {
             enableActionInput();
         } else {
             disableActionInput();
         }
 
-        // Initiative list with enhanced entries
         renderInitiativeList(data.initiative, data.current_turn);
     }
 
@@ -543,7 +961,6 @@
         dom.combatBanner.classList.remove('combat-banner--waiting');
         dom.combatBanner.classList.add('combat-banner--simultaneous');
 
-        // Show prompt
         if (dom.combatInfo) {
             var prompt = data.prompt || 'Everyone act simultaneously!';
             var submitted = data.submitted || [];
@@ -564,12 +981,10 @@
             }
         }
 
-        // Countdown timer
         if (data.timeout_seconds && !simultaneousTimer) {
             startSimultaneousTimer(data.timeout_seconds);
         }
 
-        // Clear initiative list for simultaneous mode
         if (dom.initiativeList) {
             dom.initiativeList.innerHTML = '';
         }
@@ -589,11 +1004,10 @@
             if (id === currentTurn) el.classList.add('initiative-entry--current');
             if (id === PLAYER_NAME || name === PLAYER_NAME) el.classList.add('initiative-entry--self');
 
-            // Build HP bar
             var hp = entry.hp || 0;
             var maxHp = entry.max_hp || 1;
             var hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
-            var hpColor = hpPercent > 50 ? '#22c55e' : (hpPercent > 25 ? '#eab308' : '#dc2626');
+            var hpColor = hpPercent > 50 ? '#28a745' : (hpPercent > 25 ? '#e6a817' : '#c53131');
 
             var conditionsHtml = '';
             if (entry.conditions && entry.conditions.length > 0) {
@@ -627,7 +1041,6 @@
             dom.actionInput.placeholder = 'What do you do?';
         }
         if (dom.actionSend) dom.actionSend.disabled = false;
-        // Remove overlay
         var overlay = document.querySelector('.turn-gate-overlay');
         if (overlay) overlay.classList.remove('turn-gate-overlay--active');
     }
@@ -638,7 +1051,6 @@
             dom.actionInput.placeholder = 'Waiting for your turn...';
         }
         if (dom.actionSend) dom.actionSend.disabled = true;
-        // Show overlay
         var overlay = document.querySelector('.turn-gate-overlay');
         if (overlay) overlay.classList.add('turn-gate-overlay--active');
     }
@@ -679,23 +1091,6 @@
     }
 
 
-    // ===== Character Sheet Toggle =====
-
-    function openCharacterSheet() {
-        characterSheetOpen = true;
-        document.body.classList.add('sheet-open');
-        if (dom.sheetOverlay) dom.sheetOverlay.classList.add('character-sheet-overlay--visible');
-        if (dom.sheetPanel) dom.sheetPanel.classList.add('character-sheet--open');
-    }
-
-    function closeCharacterSheet() {
-        characterSheetOpen = false;
-        document.body.classList.remove('sheet-open');
-        if (dom.sheetOverlay) dom.sheetOverlay.classList.remove('character-sheet-overlay--visible');
-        if (dom.sheetPanel) dom.sheetPanel.classList.remove('character-sheet--open');
-    }
-
-
     // ===== Private Messages Toggle =====
 
     function togglePrivateMessages() {
@@ -720,36 +1115,17 @@
             });
         }
 
-        // Character bar -> open sheet
-        var charBar = $('.character-bar');
-        if (charBar) {
-            charBar.addEventListener('click', openCharacterSheet);
-        }
-
-        // Close sheet
-        if (dom.sheetClose) {
-            dom.sheetClose.addEventListener('click', function (e) {
-                e.stopPropagation();
-                closeCharacterSheet();
+        // Tab bar buttons
+        $$('.tab-bar__btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                switchTab(btn.dataset.tab);
             });
-        }
-
-        // Overlay click closes sheet
-        if (dom.sheetOverlay) {
-            dom.sheetOverlay.addEventListener('click', closeCharacterSheet);
-        }
+        });
 
         // Private messages toggle
         if (dom.privateToggle) {
             dom.privateToggle.addEventListener('click', togglePrivateMessages);
         }
-
-        // Keyboard: Enter to submit, Escape to close sheet
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && characterSheetOpen) {
-                closeCharacterSheet();
-            }
-        });
     }
 
 
@@ -760,7 +1136,6 @@
         connect();
     }
 
-    // Start when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

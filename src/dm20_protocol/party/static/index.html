@@ -5,37 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#12151e">
     <title>Party Mode - {player_name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div id="app">
 
-        <!-- Character Bar (Sticky Header) -->
-        <header class="character-bar">
-            <div class="character-bar__main">
-                <span class="character-bar__name">{player_name}</span>
-                <div class="character-bar__stats">
+        <!-- Header (Sticky) -->
+        <header class="header">
+            <div class="header__top">
+                <div class="header__identity">
+                    <span class="header__name">{player_name}</span>
+                    <div class="connection-dot" title="Connection status"></div>
+                </div>
+                <div class="header__hp-row">
                     <div class="hp-bar">
                         <div class="hp-bar__fill" style="width: 100%"></div>
                         <span class="hp-bar__text">--/--</span>
                     </div>
-                    <div class="stat-badge">
-                        <span class="stat-badge__label">AC</span>
-                        <span class="stat-badge__value" id="stat-ac">--</span>
-                    </div>
-                    <div class="stat-badge">
-                        <span class="stat-badge__label">Lv</span>
-                        <span class="stat-badge__value" id="stat-level">--</span>
-                    </div>
-                </div>
-                <div class="indicators">
-                    <div class="connection-dot" title="Connection status"></div>
                 </div>
             </div>
-            <div class="character-bar__conditions"></div>
-            <div class="character-bar__expand-hint">Tap for character sheet</div>
+            <div class="header__subtitle"></div>
+            <div class="header__stats">
+                <div class="stat-badge">
+                    <span class="stat-badge__label">AC</span>
+                    <span class="stat-badge__value" id="stat-ac">--</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-badge__label">Lv</span>
+                    <span class="stat-badge__value" id="stat-level">--</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-badge__label">Spd</span>
+                    <span class="stat-badge__value" id="stat-speed">--</span>
+                </div>
+                <div class="stat-badge" id="stat-init-badge" style="display:none">
+                    <span class="stat-badge__label">Init</span>
+                    <span class="stat-badge__value" id="stat-init">--</span>
+                </div>
+            </div>
+            <div class="header__conditions"></div>
         </header>
 
         <!-- Combat Banner -->
@@ -49,74 +62,135 @@
         <!-- Turn gate overlay (shown when not your turn) -->
         <div class="turn-gate-overlay"></div>
 
-        <!-- Narrative Feed -->
-        <main class="narrative-feed">
-            <!-- Private Messages Section -->
-            <div class="private-section">
-                <button class="private-section__toggle">
-                    <span class="private-section__toggle-arrow">&#9654;</span>
-                    Private Messages
-                    <span class="private-section__count">0</span>
-                </button>
-                <div class="private-section__messages"></div>
+        <!-- Tab Content Area -->
+        <div class="tab-content-area">
+
+            <!-- Game Tab (default) -->
+            <div class="tab-content tab-content--active" data-tab="game">
+                <main class="narrative-feed">
+                    <!-- Private Messages Section -->
+                    <div class="private-section">
+                        <button class="private-section__toggle">
+                            <span class="private-section__toggle-arrow">&#9654;</span>
+                            Private Messages
+                            <span class="private-section__count">0</span>
+                        </button>
+                        <div class="private-section__messages"></div>
+                    </div>
+
+                    <!-- Messages appear here -->
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-state__icon">&#9876;</div>
+                        <div class="empty-state__title">Awaiting the adventure...</div>
+                        <div class="empty-state__subtitle">Messages will appear here once the session begins.</div>
+                    </div>
+                </main>
+
+                <!-- Action Bar (inside Game tab, above tab nav) -->
+                <footer class="action-bar">
+                    <div class="action-bar__status"></div>
+                    <form class="action-bar__form">
+                        <input
+                            type="text"
+                            class="action-bar__input"
+                            placeholder="What do you do?"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="sentences"
+                        >
+                        <button type="submit" class="action-bar__send" title="Send action">&#9654;</button>
+                    </form>
+                </footer>
             </div>
 
-            <!-- Messages appear here -->
-            <div class="empty-state" id="empty-state">
-                <div class="empty-state__icon">&#9876;</div>
-                <div class="empty-state__title">Awaiting the adventure...</div>
-                <div class="empty-state__subtitle">Messages will appear here once the session begins.</div>
-            </div>
-        </main>
+            <!-- Character Tab -->
+            <div class="tab-content" data-tab="character">
+                <div class="tab-scroll">
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Ability Scores</h3>
+                        <div class="ability-grid"></div>
+                    </section>
 
-        <!-- Action Bar (Fixed Bottom) -->
-        <footer class="action-bar">
-            <div class="action-bar__status"></div>
-            <form class="action-bar__form">
-                <input
-                    type="text"
-                    class="action-bar__input"
-                    placeholder="What do you do?"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="sentences"
-                >
-                <button type="submit" class="action-bar__send" title="Send action">&#9654;</button>
-            </form>
-        </footer>
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Saving Throws</h3>
+                        <div class="saving-throws-list"></div>
+                    </section>
 
-        <!-- Character Sheet (Slide-in Panel) -->
-        <div class="character-sheet-overlay"></div>
-        <aside class="character-sheet">
-            <button class="character-sheet__close">&times;</button>
-            <h2 class="character-sheet__title">{player_name}</h2>
-            <p class="character-sheet__subtitle"></p>
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Skills</h3>
+                        <div class="skills-list"></div>
+                    </section>
 
-            <div class="sheet-section">
-                <h3 class="sheet-section__title">Ability Scores</h3>
-                <div class="ability-grid"></div>
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Features & Traits</h3>
+                        <ul class="features-list"></ul>
+                    </section>
+
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Proficiencies</h3>
+                        <div class="proficiencies-summary"></div>
+                    </section>
+                </div>
             </div>
 
-            <div class="sheet-section">
-                <h3 class="sheet-section__title">Skills</h3>
-                <div class="skills-list"></div>
+            <!-- Spells Tab -->
+            <div class="tab-content" data-tab="spells">
+                <div class="tab-scroll">
+                    <section class="sheet-section">
+                        <div class="spellcasting-header"></div>
+                    </section>
+
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Spell Slots</h3>
+                        <div class="spell-slots"></div>
+                    </section>
+
+                    <section class="sheet-section">
+                        <div class="spells-known-list"></div>
+                    </section>
+                </div>
             </div>
 
-            <div class="sheet-section">
-                <h3 class="sheet-section__title">Inventory</h3>
-                <ul class="inventory-list"></ul>
-            </div>
+            <!-- Inventory Tab -->
+            <div class="tab-content" data-tab="inventory">
+                <div class="tab-scroll">
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Equipment</h3>
+                        <div class="equipment-slots"></div>
+                    </section>
 
-            <div class="sheet-section">
-                <h3 class="sheet-section__title">Spell Slots</h3>
-                <div class="spell-slots"></div>
-            </div>
+                    <section class="sheet-section">
+                        <h3 class="sheet-section__title">Inventory</h3>
+                        <ul class="inventory-list"></ul>
+                    </section>
 
-            <div class="sheet-section">
-                <h3 class="sheet-section__title">Features</h3>
-                <ul class="features-list"></ul>
+                    <section class="sheet-section" id="currency-section" style="display:none">
+                        <h3 class="sheet-section__title">Currency</h3>
+                        <div class="currency-display"></div>
+                    </section>
+                </div>
             </div>
-        </aside>
+        </div>
+
+        <!-- Bottom Tab Navigation (Fixed) -->
+        <nav class="tab-bar">
+            <button class="tab-bar__btn tab-bar__btn--active" data-tab="game">
+                <span class="tab-bar__icon">&#9876;</span>
+                <span class="tab-bar__label">Game</span>
+            </button>
+            <button class="tab-bar__btn" data-tab="character">
+                <span class="tab-bar__icon">&#9823;</span>
+                <span class="tab-bar__label">Char</span>
+            </button>
+            <button class="tab-bar__btn" data-tab="spells">
+                <span class="tab-bar__icon">&#10024;</span>
+                <span class="tab-bar__label">Spells</span>
+            </button>
+            <button class="tab-bar__btn" data-tab="inventory">
+                <span class="tab-bar__icon">&#127890;</span>
+                <span class="tab-bar__label">Inv</span>
+            </button>
+        </nav>
     </div>
 
     <script>
