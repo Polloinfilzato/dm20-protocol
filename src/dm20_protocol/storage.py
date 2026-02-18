@@ -557,7 +557,13 @@ class DnDStorage:
             campaigns_dir = (self.data_dir / "campaigns").resolve()
             if not dir_path.resolve().is_relative_to(campaigns_dir):
                 raise ValueError(f"Unsafe path detected: {dir_path}")
-            shutil.rmtree(dir_path)
+            try:
+                shutil.rmtree(dir_path)
+            except OSError:
+                # Retry: macOS race condition with file watchers / .DS_Store
+                import time
+                time.sleep(0.3)
+                shutil.rmtree(dir_path)
             logger.info(f"🗑️ Deleted split campaign directory: {dir_path}")
 
         # If deleting the active campaign, clear all state

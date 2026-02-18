@@ -178,6 +178,9 @@ def delete_campaign(
 ) -> str:
     """Delete a campaign permanently. This cannot be undone."""
     try:
+        # Stop file watcher before deleting to avoid race conditions
+        if sync_manager.is_active and storage._current_campaign and storage._current_campaign.name == name:
+            sync_manager.stop()
         deleted_name = storage.delete_campaign(name)
         return f"🗑️ Campaign '{deleted_name}' has been permanently deleted."
     except FileNotFoundError:
