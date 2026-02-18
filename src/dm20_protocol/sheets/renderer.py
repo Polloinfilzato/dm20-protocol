@@ -201,11 +201,15 @@ def _render_body(character: Character) -> str:
 
     parts: list[str] = []
 
-    # Title
-    subclass_str = f" ({cls.subclass})" if cls.subclass else ""
+    # Title (multiclass-aware)
+    if c.is_multiclass:
+        class_str = c.class_string()
+    else:
+        subclass_str = f" ({cls.subclass})" if cls.subclass else ""
+        class_str = f"Level {cls.level} {cls.name}{subclass_str}"
     parts.append(f"# {c.name}\n")
     parts.append(
-        f"> *Level {cls.level} {race.name} {cls.name}{subclass_str}*\n"
+        f"> *{class_str} {race.name}*\n"
         f"> **Player:** {c.player_name or 'N/A'} | "
         f"**Background:** {c.background or 'N/A'} | "
         f"**Alignment:** {c.alignment or 'N/A'}\n"

@@ -40,18 +40,28 @@ Header: "Campaign"
 Options:
   - [Each existing campaign name as an option]
   - "Create a new campaign"
-  - "Load a pre-made adventure"
+  - "Adventure module — start an official published adventure"
 ```
 
 - **If "Create a new campaign":** Ask for name and description conversationally, call `create_campaign()`, then `load_rulebook(source="srd")` to set up rules.
-- **If "Load a pre-made adventure":** Call `discover_adventures()` to show options, let the player pick, then call `load_adventure()`.
+- **If "Adventure module":** Call `discover_adventures()` to show options, let the player pick, then call `load_adventure()`.
+  - **IMPORTANT:** When presenting the adventure list, always inform the player about the source: *"These adventure modules are indexed from the 5etools open database, which catalogs official D&D 5th Edition adventures published by Wizards of the Coast."*
 - **If an existing campaign:** Call `load_campaign(name=chosen)`.
+
+**After loading an adventure module:** Always provide a clear, human-readable summary to the player. Do NOT just show raw tool output. Summarize:
+  - The adventure name and a brief (1-2 sentence) spoiler-free teaser
+  - Whether the module was loaded successfully
+  - Whether Chapter 1 was populated (locations, NPCs, starting quest)
+  - If there were any warnings, explain them in plain language
+  - Example: *"Baldur's Gate: Descent Into Avernus is ready! Chapter 1 has been populated with starting locations and NPCs. You're all set to begin your descent into the Nine Hells."*
 
 **If load fails:** "No campaign named '$ARGUMENTS' found. Available campaigns:" then list them.
 
 ### 2. Gather World State
 
-Call these in parallel to build your context:
+**If the campaign was just created (fresh from Step 1):** Only call `get_campaign_info` and `get_game_state`. Do NOT call `list_characters` or `list_quests` — there are none yet, and showing "No characters" is confusing noise.
+
+**If loading an existing campaign:** Call these in parallel to build your context:
 - `get_campaign_info` — campaign name, description, entity counts
 - `list_characters` — all PCs in the campaign
 - `get_game_state` — current location, session number, combat status, in-game date
@@ -69,13 +79,13 @@ Question: "How would you like to play?"
 Header: "Game Mode"
 Options:
   - "SOLO — Just me + AI companions + AI DM"
-  - "HUMAN PARTY — Multiple players + AI DM (coming soon)"
+  - "HUMAN PARTY — Multiple human players + AI DM via Party Mode"
 ```
 
 - **SOLO selected:** Save `game_mode:solo` to game_state notes via `update_game_state(notes=...)`. Proceed to Step 3a.
-- **HUMAN PARTY selected:** Inform the player this mode is coming soon. Ask if they'd like to play SOLO instead.
+- **HUMAN PARTY selected:** Save `game_mode:human_party` to game_state notes via `update_game_state(notes=...)`. Then **immediately invoke `/dm:party-mode`** using the Skill tool (`skill: "dm:party-mode"`). This will start the Party Mode web server, generate invite links and QR codes, and handle player connections. Do NOT suggest the player run the command themselves — invoke it directly. Do NOT offer SOLO as a fallback — Party Mode is fully implemented.
 
-**If game mode already set:** Proceed to Step 3a (if solo) or Step 4 (if human_party).
+**If game mode already set:** Proceed to Step 3a (if solo). If human_party, invoke `/dm:party-mode` to resume the party server.
 
 ### 3a. SOLO Party Setup
 

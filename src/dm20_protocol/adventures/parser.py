@@ -135,7 +135,9 @@ class AdventureParser:
         Raises:
             AdventureParserError: If download or parsing fails.
         """
-        cache_file = self.cache_dir / f"{adventure_id}.json"
+        # Normalize to lowercase for URL/cache consistency
+        normalized_id = adventure_id.lower()
+        cache_file = self.cache_dir / f"{normalized_id}.json"
 
         # Return cached if available
         if cache_file.exists():
@@ -161,7 +163,9 @@ class AdventureParser:
         Raises:
             AdventureParserError: If download fails after retries.
         """
-        url = ADVENTURE_BASE_URL.format(id=adventure_id)
+        # Normalize to lowercase for URL consistency (5etools uses lowercase IDs)
+        normalized_id = adventure_id.lower()
+        url = ADVENTURE_BASE_URL.format(id=normalized_id)
         last_error: Exception | None = None
 
         async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
@@ -184,7 +188,7 @@ class AdventureParser:
                     data = response.json()
 
                     # Write to cache
-                    cache_file = self.cache_dir / f"{adventure_id}.json"
+                    cache_file = self.cache_dir / f"{normalized_id}.json"
                     cache_file.write_text(
                         json.dumps(data, indent=2), encoding="utf-8"
                     )
@@ -219,28 +223,50 @@ class AdventureParser:
         )
 
     def _parse_adventure_data(
-        self, adventure_id: str, data: dict[str, Any]
+        self, adventure_id: str, data: dict[str, Any] | list[dict[str, Any]]
     ) -> ModuleStructure:
         """Parse raw adventure JSON into ModuleStructure.
 
+        Handles two 5etools JSON formats:
+        - Nested (wrapper): {"data": [{"name": ..., "data": [...sections...]}]}
+        - Flat (sections directly): [{"type": "section", ...}, ...]
+
         Args:
             adventure_id: Short adventure ID.
-            data: Raw JSON data from 5etools.
+            data: Raw JSON data from 5etools (dict or list).
 
         Returns:
             Parsed module structure.
         """
-        # Extract top-level metadata
-        adventure_root = data.get("data", [{}])[0] if data.get("data") else {}
-        title = adventure_root.get("name", adventure_id)
-        source = adventure_root.get("source", adventure_id)
+        # Detect format: list = flat, dict = nested wrapper
+        if isinstance(data, list):
+            # Flat format: list of sections directly
+            title = adventure_id
+            source = adventure_id
+
+            # Check if first entry has adventure metadata
+            if data and isinstance(data[0], dict):
+                if data[0].get("type") == "section" and data[0].get("name"):
+                    title = data[0].get("name", adventure_id)
+                elif "adventure" in data[0]:
+                    # Some flat formats have metadata in first entry
+                    meta = data[0]["adventure"]
+                    title = meta.get("name", adventure_id)
+                    source = meta.get("source", adventure_id)
+
+            data_entries = data
+        else:
+            # Nested format: {"data": [{"name": ..., "data": [...]}]}
+            adventure_root = data.get("data", [{}])[0] if data.get("data") else {}
+            title = adventure_root.get("name", adventure_id)
+            source = adventure_root.get("source", adventure_id)
+            data_entries = adventure_root.get("data", [])
 
         # Initialize parser context
         context = ParserContext()
 
         # Parse all data entries (chapters/sections)
         chapters: list[ModuleElement] = []
-        data_entries = adventure_root.get("data", [])
 
         for idx, entry in enumerate(data_entries):
             if isinstance(entry, dict) and entry.get("type") == "section":
@@ -249,10 +275,11 @@ class AdventureParser:
                     chapters.append(chapter)
 
         # Build module structure
+        normalized_id = adventure_id.lower()
         return ModuleStructure(
             module_id=adventure_id,
             title=title,
-            source_file=f"adventure-{adventure_id}.json",
+            source_file=f"adventure-{normalized_id}.json",
             chapters=chapters,
             npcs=list(context.npcs.values()),
             encounters=context.encounters,

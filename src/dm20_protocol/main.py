@@ -191,16 +191,17 @@ def delete_campaign(
 @mcp.tool
 def create_character(
     name: Annotated[str, Field(description="Character name")],
-    character_class: Annotated[str, Field(description="Character class")],
-    class_level: Annotated[int, Field(description="Class level", ge=1, le=20)],
+    character_class: Annotated[str, Field(description="Primary character class")],
+    class_level: Annotated[int, Field(description="Primary class level", ge=1, le=20)],
     race: Annotated[str, Field(description="Character race")],
     player_name: Annotated[str | None, Field(description="The name of the player in control of this character")] = None,
     description: Annotated[str | None, Field(description="A brief description of the character's appearance and demeanor.")] = None,
     bio: Annotated[str | None, Field(description="The character's backstory, personality, and motivations.")] = None,
     background: Annotated[str | None, Field(description="Character background")] = None,
     alignment: Annotated[str | None, Field(description="Character alignment")] = None,
-    subclass: Annotated[str | None, Field(description="Subclass name (required if level >= subclass level)")] = None,
+    subclass: Annotated[str | None, Field(description="Primary class subclass name (required if level >= subclass level)")] = None,
     subrace: Annotated[str | None, Field(description="Subrace name (e.g., 'Hill Dwarf')")] = None,
+    additional_classes: Annotated[str | None, Field(description='JSON list for multiclass: [{"name": "Wizard", "level": 3, "subclass": "Evocation"}]')] = None,
     ability_method: Annotated[str, Field(description="Ability score method: 'manual' (default), 'standard_array', or 'point_buy'")] = "manual",
     ability_assignments: Annotated[str | None, Field(description="JSON dict for standard_array/point_buy: {\"strength\": 15, \"dexterity\": 14, ...}")] = None,
     strength: Annotated[int, Field(description="Strength score (manual mode)", ge=1, le=30)] = 10,
@@ -237,6 +238,16 @@ def create_character(
         except json.JSONDecodeError:
             return f"❌ Invalid ability_assignments JSON: {ability_assignments}"
 
+    # Parse additional_classes JSON if provided
+    parsed_extra_classes = None
+    if additional_classes:
+        try:
+            parsed_extra_classes = json.loads(additional_classes)
+            if not isinstance(parsed_extra_classes, list):
+                return "❌ additional_classes must be a JSON array."
+        except json.JSONDecodeError:
+            return f"❌ Invalid additional_classes JSON: {additional_classes}"
+
     builder = CharacterBuilder(storage.rulebook_manager)
     try:
         character = builder.build(
@@ -263,6 +274,13 @@ def create_character(
     except CharacterBuilderError as e:
         return f"❌ Character creation failed: {e}"
 
+    # Add additional classes for multiclass characters
+    if parsed_extra_classes:
+        try:
+            builder.add_classes(character, parsed_extra_classes)
+        except CharacterBuilderError as e:
+            return f"❌ Multiclass setup failed: {e}"
+
     storage.add_character(character)
 
     # Build a summary of what was populated
@@ -285,16 +303,26 @@ def create_character(
     populated.append(f"Prof bonus: +{character.proficiency_bonus}")
 
     summary = "\n".join(f"  • {p}" for p in populated)
+
+    # Class display
+    if character.is_multiclass:
+        class_display = character.class_string()
+    else:
+        class_display = (
+            f"Level {character.character_class.level} "
+            f"{character.character_class.name}"
+        )
+
     return (
         f"✅ Created character '{character.name}' "
-        f"(Level {character.character_class.level} {character.race.name} "
-        f"{character.character_class.name})\n\n"
+        f"({class_display} {character.race.name})\n\n"
         f"Auto-populated from rulebook:\n{summary}"
     )
 
 @mcp.tool
 def level_up_character(
     name_or_id: Annotated[str, Field(description="Character name, ID, or player name")],
+    class_name: Annotated[str | None, Field(description="Which class to level up (for multiclass characters). If omitted, levels up primary class.")] = None,
     hp_method: Annotated[str, Field(description="HP increase method: 'average' (default, PHB standard) or 'roll'")] = "average",
     asi_choices: Annotated[str | None, Field(description="JSON dict for ASI: {\"strength\": 2} or {\"strength\": 1, \"dexterity\": 1}")] = None,
     subclass: Annotated[str | None, Field(description="Subclass to select (at subclass level, typically 3)")] = None,
@@ -306,6 +334,9 @@ def level_up_character(
     Increments level, calculates HP increase, adds class features, updates
     spell slots for casters, handles ASI at appropriate levels, and manages
     subclass selection. Requires a rulebook to be loaded.
+
+    Multiclass: if class_name is a class the character doesn't have yet,
+    this acts as a multiclass dip — adding that class at level 1.
     """
     if not storage.rulebook_manager or not storage.rulebook_manager.sources:
         return (
@@ -341,6 +372,7 @@ def level_up_character(
     try:
         result = engine.level_up(
             character,
+            class_name=class_name,
             hp_method=hp_method,
             asi_choices=parsed_asi,
             subclass=subclass,
@@ -1028,8 +1060,8 @@ def _long_rest_logic(character: Character, restore_hp: bool = True) -> str:
         messages.append("Spell slots restored")
 
     # 2. Restore hit dice (half of total, minimum 1)
-    # hit_dice_remaining is stored as e.g. "3d10", total = class level
-    total_dice = character.character_class.level
+    # hit_dice_remaining is stored as e.g. "3d10", total = total character level
+    total_dice = character.total_level
     match = re.match(r'(\d+)d(\d+)', character.hit_dice_remaining)
     if match:
         current_remaining = int(match.group(1))
@@ -3926,7 +3958,7 @@ async def load_adventure(
     - ToA: Tomb of Annihilation
     - WDH: Waterdeep: Dragon Heist
     - WDMM: Waterdeep: Dungeon of the Mad Mage
-    - BGDiA: Baldur's Gate: Descent into Avernus
+    - BGDIA: Baldur's Gate: Descent into Avernus
 
     Use the `discover_adventures` tool to search for more adventures by theme or level range.
     """
@@ -4385,21 +4417,25 @@ def _format_import_summary(result) -> str:
     lines = [f"✅ Character imported: {char.name}\n"]
     lines.append("Summary:")
 
-    # Class and subclass
-    if char.classes:
-        class_info = char.classes[0]
-        class_str = f"{class_info.name} {class_info.level}"
-        if class_info.subclass:
-            class_str += f" ({class_info.subclass})"
+    # Class and subclass (multiclass-aware)
+    if char.is_multiclass:
+        lines.append(f"  Class: {char.class_string()}")
+        for cls in char.classes:
+            sub = f" ({cls.subclass})" if cls.subclass else ""
+            lines.append(f"    - {cls.name} {cls.level}{sub}")
+    else:
+        cls = char.character_class
+        class_str = f"{cls.name} {cls.level}"
+        if cls.subclass:
+            class_str += f" ({cls.subclass})"
         lines.append(f"  Class: {class_str}")
 
     # Race
     if char.race:
-        lines.append(f"  Race: {char.race}")
+        lines.append(f"  Race: {char.race.name}")
 
     # HP and AC
-    if char.hit_points:
-        lines.append(f"  HP: {char.hit_points.current}/{char.hit_points.maximum}")
+    lines.append(f"  HP: {char.hit_points_current}/{char.hit_points_max}")
     if char.armor_class:
         lines.append(f"  AC: {char.armor_class}")
 

@@ -297,7 +297,7 @@ class Character(BaseModel):
     id: str = Field(default_factory=lambda: random(length=8))
     name: str
     player_name: str | None = None
-    character_class: CharacterClass
+    classes: list[CharacterClass] = Field(min_length=1)
     race: Race
     background: str | None = None
     alignment: str | None = None
@@ -377,10 +377,47 @@ class Character(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_character_class(cls, data: Any) -> Any:
+        """Migrate old character_class field to classes list.
+
+        Supports both old format (character_class: CharacterClass)
+        and new format (classes: [CharacterClass, ...]).
+        """
+        if isinstance(data, dict):
+            if "character_class" in data and "classes" not in data:
+                cc = data.pop("character_class")
+                data["classes"] = [cc]
+        return data
+
+    @property
+    def character_class(self) -> CharacterClass:
+        """Backward-compatible access to primary class.
+
+        Returns a reference to classes[0], so mutations like
+        char.character_class.level = X work in-place.
+        """
+        return self.classes[0]
+
+    @property
+    def total_level(self) -> int:
+        """Total character level across all classes."""
+        return sum(c.level for c in self.classes)
+
+    @property
+    def is_multiclass(self) -> bool:
+        """Whether the character has more than one class."""
+        return len(self.classes) > 1
+
+    def class_string(self) -> str:
+        """Human-readable class string, e.g. 'Fighter 5 / Wizard 3'."""
+        return " / ".join(f"{c.name} {c.level}" for c in self.classes)
+
     @model_validator(mode="after")
     def _compute_proficiency_bonus(self) -> "Character":
-        """Auto-calculate proficiency bonus from class level."""
-        self.proficiency_bonus = 2 + (self.character_class.level - 1) // 4
+        """Auto-calculate proficiency bonus from total level."""
+        self.proficiency_bonus = 2 + (self.total_level - 1) // 4
         return self
 
 

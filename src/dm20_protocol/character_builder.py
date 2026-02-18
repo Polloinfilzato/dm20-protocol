@@ -165,12 +165,12 @@ class CharacterBuilder:
         character = Character(
             name=name,
             player_name=player_name,
-            character_class=CharacterClass(
+            classes=[CharacterClass(
                 name=class_def.name,
                 level=level,
                 hit_dice=f"{level}{hit_dice_type}",
                 subclass=subclass,
-            ),
+            )],
             race=Race(
                 name=race_def.name,
                 subrace=subrace,
@@ -199,6 +199,75 @@ class CharacterBuilder:
         )
 
         return character
+
+    def add_classes(
+        self,
+        character: Character,
+        extra_classes: list[dict],
+    ) -> None:
+        """Add additional classes to an already-built character (multiclass at creation).
+
+        For each extra class, adds the CharacterClass, level features, and HP.
+        Does NOT duplicate starting equipment or saving throw proficiencies
+        (those come from the primary class only per D&D 5e multiclass rules).
+
+        Args:
+            character: Character to modify (already built with primary class).
+            extra_classes: List of dicts with keys: name, level, subclass (optional).
+
+        Raises:
+            CharacterBuilderError: If a class is not found or total level exceeds 20.
+        """
+        for cls_spec in extra_classes:
+            cls_name = cls_spec.get("name")
+            cls_level = cls_spec.get("level", 1)
+            cls_subclass = cls_spec.get("subclass")
+
+            if not cls_name:
+                raise CharacterBuilderError("Each additional class must have a 'name'.")
+
+            if character.total_level + cls_level > 20:
+                raise CharacterBuilderError(
+                    f"Total level would exceed 20: current {character.total_level} "
+                    f"+ {cls_name} {cls_level} = {character.total_level + cls_level}"
+                )
+
+            class_def = self._get_class(cls_name)
+            hit_dice_type = f"d{class_def.hit_die}"
+
+            # Add the class
+            character.classes.append(CharacterClass(
+                name=class_def.name,
+                level=cls_level,
+                hit_dice=f"{cls_level}{hit_dice_type}",
+                subclass=cls_subclass,
+            ))
+
+            # Add HP for secondary class levels (level 1 uses average, not max die)
+            con_mod = character.abilities["constitution"].mod
+            avg_roll = class_def.hit_die // 2 + 1
+            for _ in range(cls_level):
+                hp_gain = max(avg_roll + con_mod, 1)
+                character.hit_points_max += hp_gain
+                character.hit_points_current += hp_gain
+
+            # Add class features for all levels of this class
+            for lvl in range(1, cls_level + 1):
+                level_info = class_def.class_levels.get(lvl)
+                if level_info:
+                    for feat_name in level_info.features:
+                        desc = level_info.feature_details.get(feat_name, "")
+                        character.features.append(Feature(
+                            name=feat_name,
+                            source=f"{class_def.name} {lvl}",
+                            description=desc,
+                            level_gained=lvl,
+                        ))
+                        if feat_name not in character.features_and_traits:
+                            character.features_and_traits.append(feat_name)
+
+        # Recalculate proficiency bonus based on new total level
+        character.proficiency_bonus = 2 + (character.total_level - 1) // 4
 
     # ------------------------------------------------------------------
     # Ability Score Methods

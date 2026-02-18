@@ -51,33 +51,37 @@ def map_identity(ddb: dict) -> tuple[dict, list[str]]:
     else:
         result["race"] = Race(name=race_name)
 
-    # Character class: pick highest-level class
-    classes = ddb.get("classes", [])
-    if classes:
-        # Sort by level descending, take first
-        primary_class = max(classes, key=lambda c: c.get("level", 0))
-        class_def = primary_class.get("definition", {})
-        class_name = class_def.get("name", "Unknown")
-        class_level = primary_class.get("level", 1)
-        subclass_def = primary_class.get("subclassDefinition")
-        subclass_name = subclass_def.get("name") if subclass_def else None
+    # Character classes: map ALL classes for multiclass support
+    ddb_classes = ddb.get("classes", [])
+    if ddb_classes:
+        # Sort by level descending (primary class first)
+        sorted_classes = sorted(ddb_classes, key=lambda c: c.get("level", 0), reverse=True)
+        mapped_classes: list[CharacterClass] = []
 
-        # Get hit dice type from schema
-        hit_dice_type = CLASS_HIT_DICE.get(class_name, "d8")
+        for cls_data in sorted_classes:
+            class_def = cls_data.get("definition", {})
+            class_name = class_def.get("name", "Unknown")
+            class_level = cls_data.get("level", 1)
+            subclass_def = cls_data.get("subclassDefinition")
+            subclass_name = subclass_def.get("name") if subclass_def else None
+            hit_dice_type = CLASS_HIT_DICE.get(class_name, "d8")
 
-        result["character_class"] = CharacterClass(
-            name=class_name,
-            level=class_level,
-            hit_dice=hit_dice_type,
-            subclass=subclass_name,
-        )
+            mapped_classes.append(CharacterClass(
+                name=class_name,
+                level=class_level,
+                hit_dice=hit_dice_type,
+                subclass=subclass_name,
+            ))
 
-        # Set spellcasting ability if applicable
-        if class_name in CLASS_SPELLCASTING_ABILITY:
-            result["spellcasting_ability"] = CLASS_SPELLCASTING_ABILITY[class_name]
+        result["classes"] = mapped_classes
+
+        # Set spellcasting ability from primary (highest-level) class
+        primary_name = mapped_classes[0].name
+        if primary_name in CLASS_SPELLCASTING_ABILITY:
+            result["spellcasting_ability"] = CLASS_SPELLCASTING_ABILITY[primary_name]
     else:
         warnings.append("No classes found, defaulting to Fighter level 1")
-        result["character_class"] = CharacterClass(name="Fighter", level=1, hit_dice="d10")
+        result["classes"] = [CharacterClass(name="Fighter", level=1, hit_dice="d10")]
 
     # Background
     background_data = ddb.get("background", {})
@@ -652,7 +656,7 @@ def map_ddb_to_character(ddb: dict, player_name: str | None = None) -> ImportRes
     character_data: dict = {
         "name": "Unknown Character",
         "race": Race(name="Unknown"),
-        "character_class": CharacterClass(name="Fighter", level=1, hit_dice="d10"),
+        "classes": [CharacterClass(name="Fighter", level=1, hit_dice="d10")],
         "abilities": {
             "strength": AbilityScore(score=10),
             "dexterity": AbilityScore(score=10),
@@ -672,10 +676,10 @@ def map_ddb_to_character(ddb: dict, player_name: str | None = None) -> ImportRes
         identity, warnings = map_identity(ddb)
         character_data.update(identity)
         all_warnings.extend(warnings)
-        mapped_fields.extend(["name", "race", "character_class", "background", "alignment"])
+        mapped_fields.extend(["name", "race", "classes", "background", "alignment"])
     except Exception as e:
         all_warnings.append(f"Failed to map identity: {e}")
-        unmapped_fields.extend(["name", "race", "character_class", "background", "alignment"])
+        unmapped_fields.extend(["name", "race", "classes", "background", "alignment"])
 
     # Map abilities
     try:
@@ -689,14 +693,15 @@ def map_ddb_to_character(ddb: dict, player_name: str | None = None) -> ImportRes
 
     # Map combat stats (requires abilities and level)
     try:
-        level = character_data.get("character_class", CharacterClass(name="Fighter", level=1)).level
-        combat, warnings = map_combat(ddb, character_data["abilities"], level)
+        classes_list = character_data.get("classes", [CharacterClass(name="Fighter", level=1)])
+        total_level = sum(c.level for c in classes_list)
+        combat, warnings = map_combat(ddb, character_data["abilities"], total_level)
 
-        # Update hit_dice fields from character_class
-        class_obj = character_data.get("character_class")
-        if class_obj:
-            combat["hit_dice_type"] = class_obj.hit_dice
-            combat["hit_dice_remaining"] = f"{level}{class_obj.hit_dice}"
+        # Update hit_dice fields from primary class
+        primary_class = classes_list[0] if classes_list else None
+        if primary_class:
+            combat["hit_dice_type"] = primary_class.hit_dice
+            combat["hit_dice_remaining"] = f"{total_level}{primary_class.hit_dice}"
 
         character_data.update(combat)
         all_warnings.extend(warnings)

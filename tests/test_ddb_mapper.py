@@ -38,10 +38,10 @@ class TestMapIdentity:
         assert result["name"] == "Thalion Nightbreeze"
         assert result["race"].name == "Wood Elf"
         assert result["race"].subrace == "Wood"
-        assert result["character_class"].name == "Ranger"
-        assert result["character_class"].level == 7
-        assert result["character_class"].subclass == "Gloom Stalker"
-        assert result["character_class"].hit_dice == "d10"
+        assert result["classes"][0].name == "Ranger"
+        assert result["classes"][0].level == 7
+        assert result["classes"][0].subclass == "Gloom Stalker"
+        assert result["classes"][0].hit_dice == "d10"
         assert result["background"] == "Outlander"
         assert result["alignment"] == "Chaotic Good"
         assert result["spellcasting_ability"] == "wisdom"
@@ -56,8 +56,8 @@ class TestMapIdentity:
 
         result, warnings = map_identity(ddb)
 
-        assert result["character_class"].name == "Fighter"
-        assert result["character_class"].level == 1
+        assert result["classes"][0].name == "Fighter"
+        assert result["classes"][0].level == 1
         assert len(warnings) > 0
         assert "Fighter" in warnings[0]
 
@@ -77,7 +77,7 @@ class TestMapIdentity:
 
         result, warnings = map_identity(ddb)
 
-        assert result["character_class"].subclass is None
+        assert result["classes"][0].subclass is None
 
     def test_map_identity_multiclass(self):
         """Pick highest level class for multiclass character."""
@@ -92,9 +92,12 @@ class TestMapIdentity:
 
         result, warnings = map_identity(ddb)
 
-        # Should pick Fighter (level 5)
-        assert result["character_class"].name == "Fighter"
-        assert result["character_class"].level == 5
+        # Should have Fighter first (level 5, highest)
+        assert result["classes"][0].name == "Fighter"
+        assert result["classes"][0].level == 5
+        # Should also preserve Rogue
+        assert result["classes"][1].name == "Rogue"
+        assert result["classes"][1].level == 3
 
 
 class TestMapAbilities:

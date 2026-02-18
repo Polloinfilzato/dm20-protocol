@@ -314,7 +314,7 @@ class TestPartyServerRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Aragorn"
-        assert data["character_class"]["name"] == "Ranger"
+        assert data["classes"][0]["name"] == "Ranger"
 
     def test_get_character_unauthorized(self, party_server: PartyServer) -> None:
         """Test GET /character/{player_id} without authorization."""

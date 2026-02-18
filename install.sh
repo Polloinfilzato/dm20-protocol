@@ -900,7 +900,7 @@ except Exception:
         # Download from GitHub (uv tool install doesn't include .claude/ files)
         info "Downloading agent templates from GitHub..."
         local agents_ok=true
-        for agent_file in narrator.md combat-handler.md rules-lookup.md; do
+        for agent_file in narrator.md combat-handler.md rules-lookup.md python-pro.md; do
             local target="${PLAY_DIR}/.claude/agents/${agent_file}"
             if [[ ! -f "$target" ]]; then
                 if ! curl -fsSL "${RAW_BASE}/.claude/agents/${agent_file}" -o "$target" 2>/dev/null; then
@@ -950,7 +950,7 @@ AGENTEOF
     else
         # Try 2: download from GitHub
         info "Downloading slash commands from GitHub..."
-        local dm_commands=(start action combat save profile help)
+        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token)
         local download_ok=true
 
         for cmd in "${dm_commands[@]}"; do
@@ -1466,7 +1466,7 @@ do_upgrade() {
         local update_ok=true
 
         # Slash commands
-        local dm_commands=(start action combat save profile help)
+        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token)
         for cmd in "${dm_commands[@]}"; do
             if ! curl -fsSL "${RAW_BASE}/.claude/commands/dm/${cmd}.md" -o "${play_dir}/.claude/commands/dm/${cmd}.md" 2>/dev/null; then
                 update_ok=false
@@ -1480,7 +1480,7 @@ do_upgrade() {
 
         # Agent templates
         mkdir -p "${play_dir}/.claude/agents"
-        for agent_file in narrator.md combat-handler.md rules-lookup.md; do
+        for agent_file in narrator.md combat-handler.md rules-lookup.md python-pro.md; do
             if ! curl -fsSL "${RAW_BASE}/.claude/agents/${agent_file}" -o "${play_dir}/.claude/agents/${agent_file}" 2>/dev/null; then
                 update_ok=false
             fi

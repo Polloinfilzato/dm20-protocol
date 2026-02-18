@@ -653,7 +653,7 @@ async def test_full_parse_cycle(parser: AdventureParser):
     # Verify all components
     assert result.module_id == "LMoP"
     assert result.title == "Lost Mine of Phandelver"
-    assert result.source_file == "adventure-LMoP.json"
+    assert result.source_file == "adventure-lmop.json"
     assert result.metadata["source"] == "LMoP"
 
     # Chapters

@@ -165,50 +165,48 @@ class CharacterValidator:
         )
 
     def _validate_class(self, character: Character) -> list[ValidationIssue]:
-        """Validate character class and subclass."""
+        """Validate all character classes and subclasses."""
         issues: list[ValidationIssue] = []
 
-        # Normalize class name to index format (lowercase with hyphens)
-        class_index = character.character_class.name.lower().replace(" ", "-")
-        class_def = self.manager.get_class(class_index)
+        for idx, char_class in enumerate(character.classes):
+            field_prefix = f"classes[{idx}]" if character.is_multiclass else "character_class"
 
-        if class_def is None:
-            # Class not found - may be homebrew
-            issues.append(ValidationIssue(
-                severity=ValidationSeverity.WARNING,
-                type="unknown_class",
-                message=f"Class '{character.character_class.name}' not found in loaded rulebooks. This may be homebrew content.",
-                field="character_class.name",
-                suggestion="If this is custom content, consider adding it to a custom rulebook source.",
-            ))
-            return issues
+            # Normalize class name to index format (lowercase with hyphens)
+            class_index = char_class.name.lower().replace(" ", "-")
+            class_def = self.manager.get_class(class_index)
 
-        # Validate subclass if provided
-        if character.character_class.subclass:
-            subclass_normalized = character.character_class.subclass.lower().replace(" ", "-")
+            if class_def is None:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    type="unknown_class",
+                    message=f"Class '{char_class.name}' not found in loaded rulebooks. This may be homebrew content.",
+                    field=f"{field_prefix}.name",
+                    suggestion="If this is custom content, consider adding it to a custom rulebook source.",
+                ))
+                continue
 
-            # Check if subclass is in the class's available subclasses (case-insensitive)
-            valid_subclasses_lower = [sc.lower() for sc in class_def.subclasses]
+            # Validate subclass if provided
+            if char_class.subclass:
+                subclass_normalized = char_class.subclass.lower().replace(" ", "-")
+                valid_subclasses_lower = [sc.lower() for sc in class_def.subclasses]
 
-            if subclass_normalized not in valid_subclasses_lower:
-                # Try to get the subclass directly from the manager
-                subclass_def = self.manager.get_subclass(subclass_normalized)
+                if subclass_normalized not in valid_subclasses_lower:
+                    subclass_def = self.manager.get_subclass(subclass_normalized)
 
-                if subclass_def is None or subclass_def.parent_class != class_index:
-                    # Invalid subclass
-                    if class_def.subclasses:
-                        valid_names = ", ".join(class_def.subclasses)
-                        suggestion = f"Valid subclasses for {class_def.name}: {valid_names}"
-                    else:
-                        suggestion = f"{class_def.name} has no subclasses defined in loaded rulebooks."
+                    if subclass_def is None or subclass_def.parent_class != class_index:
+                        if class_def.subclasses:
+                            valid_names = ", ".join(class_def.subclasses)
+                            suggestion = f"Valid subclasses for {class_def.name}: {valid_names}"
+                        else:
+                            suggestion = f"{class_def.name} has no subclasses defined in loaded rulebooks."
 
-                    issues.append(ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        type="invalid_subclass",
-                        message=f"Subclass '{character.character_class.subclass}' is not valid for class '{character.character_class.name}'.",
-                        field="character_class.subclass",
-                        suggestion=suggestion,
-                    ))
+                        issues.append(ValidationIssue(
+                            severity=ValidationSeverity.ERROR,
+                            type="invalid_subclass",
+                            message=f"Subclass '{char_class.subclass}' is not valid for class '{char_class.name}'.",
+                            field=f"{field_prefix}.subclass",
+                            suggestion=suggestion,
+                        ))
 
         return issues
 
@@ -264,45 +262,43 @@ class CharacterValidator:
         """Validate ability scores meet multiclass requirements."""
         issues: list[ValidationIssue] = []
 
-        # Normalize class name
-        class_name = character.character_class.name.lower().replace(" ", "-")
+        # Check requirements for each class
+        for char_class in character.classes:
+            class_name = char_class.name.lower().replace(" ", "-")
 
-        # Get multiclass requirements
-        requirements = MULTICLASS_REQUIREMENTS.get(class_name)
-        if not requirements:
-            # No requirements defined or unknown class
-            return issues
+            requirements = MULTICLASS_REQUIREMENTS.get(class_name)
+            if not requirements:
+                continue
 
-        # Check each requirement
-        unmet_requirements: list[str] = []
+            unmet_requirements: list[str] = []
 
-        for ability, minimum in requirements.items():
-            # Special case for fighter: strength OR dexterity
-            if class_name == "fighter":
-                str_score = character.abilities.get("strength")
-                dex_score = character.abilities.get("dexterity")
-                if str_score and dex_score:
-                    if str_score.score >= 13 or dex_score.score >= 13:
-                        continue
-                    else:
-                        unmet_requirements.append("Strength 13 OR Dexterity 13")
-                        continue
+            for ability, minimum in requirements.items():
+                # Special case for fighter: strength OR dexterity
+                if class_name == "fighter":
+                    str_score = character.abilities.get("strength")
+                    dex_score = character.abilities.get("dexterity")
+                    if str_score and dex_score:
+                        if str_score.score >= 13 or dex_score.score >= 13:
+                            continue
+                        else:
+                            unmet_requirements.append("Strength 13 OR Dexterity 13")
+                            continue
 
-            # Normal requirement check
-            if ability in character.abilities:
-                score = character.abilities[ability].score
-                if score < minimum:
-                    unmet_requirements.append(f"{ability.capitalize()} {minimum}")
+                # Normal requirement check
+                if ability in character.abilities:
+                    score = character.abilities[ability].score
+                    if score < minimum:
+                        unmet_requirements.append(f"{ability.capitalize()} {minimum}")
 
-        if unmet_requirements:
-            req_text = ", ".join(unmet_requirements)
-            issues.append(ValidationIssue(
-                severity=ValidationSeverity.WARNING,
-                type="multiclass_requirements",
-                message=f"Character does not meet multiclass requirements for {character.character_class.name}. Required: {req_text}",
-                field="abilities",
-                suggestion="This is informational. If the character is not multiclassing, this can be ignored.",
-            ))
+            if unmet_requirements:
+                req_text = ", ".join(unmet_requirements)
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    type="multiclass_requirements",
+                    message=f"Character does not meet multiclass requirements for {char_class.name}. Required: {req_text}",
+                    field="abilities",
+                    suggestion="This is informational. If the character is not multiclassing, this can be ignored.",
+                ))
 
         return issues
 
@@ -310,47 +306,45 @@ class CharacterValidator:
         """Check for missing class features at character's level."""
         issues: list[ValidationIssue] = []
 
-        # Normalize class name
-        class_index = character.character_class.name.lower().replace(" ", "-")
-        class_def = self.manager.get_class(class_index)
+        # Check features across all classes
+        for char_class in character.classes:
+            class_index = char_class.name.lower().replace(" ", "-")
+            class_def = self.manager.get_class(class_index)
 
-        if class_def is None:
-            # Can't validate if class not found
-            return issues
+            if class_def is None:
+                continue
 
-        # Get expected features for character's level
-        expected_features: set[str] = set()
+            # Get expected features for this class's level
+            expected_features: set[str] = set()
+            for level in range(1, char_class.level + 1):
+                level_info = class_def.class_levels.get(level)
+                if level_info:
+                    expected_features.update(level_info.features)
 
-        for level in range(1, character.character_class.level + 1):
-            level_info = class_def.class_levels.get(level)
-            if level_info:
-                expected_features.update(level_info.features)
+            # Normalize character features for comparison (lowercase)
+            character_features_lower = {f.lower() for f in character.features_and_traits}
 
-        # Normalize character features for comparison (lowercase)
-        character_features_lower = {f.lower() for f in character.features_and_traits}
+            # Find missing features
+            missing_features: list[str] = []
+            for feature in expected_features:
+                if feature.lower() not in character_features_lower:
+                    missing_features.append(feature)
 
-        # Find missing features
-        missing_features: list[str] = []
-        for feature in expected_features:
-            if feature.lower() not in character_features_lower:
-                missing_features.append(feature)
+            if missing_features:
+                if len(missing_features) <= 3:
+                    feature_list = ", ".join(missing_features)
+                    message = f"Character may be missing class features: {feature_list}"
+                else:
+                    feature_list = ", ".join(missing_features[:3])
+                    message = f"Character may be missing {len(missing_features)} class features including: {feature_list}"
 
-        if missing_features:
-            # Group features by count for better readability
-            if len(missing_features) <= 3:
-                feature_list = ", ".join(missing_features)
-                message = f"Character may be missing class features: {feature_list}"
-            else:
-                feature_list = ", ".join(missing_features[:3])
-                message = f"Character may be missing {len(missing_features)} class features including: {feature_list}"
-
-            issues.append(ValidationIssue(
-                severity=ValidationSeverity.INFO,
-                type="missing_features",
-                message=message,
-                field="features_and_traits",
-                suggestion=f"Consider adding expected features for a level {character.character_class.level} {character.character_class.name}.",
-            ))
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.INFO,
+                    type="missing_features",
+                    message=message,
+                    field="features_and_traits",
+                    suggestion=f"Consider adding expected features for a level {char_class.level} {char_class.name}.",
+                ))
 
         return issues
 

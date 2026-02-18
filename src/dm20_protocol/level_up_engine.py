@@ -69,6 +69,7 @@ class LevelUpEngine:
         self,
         character: Character,
         *,
+        class_name: str | None = None,
         hp_method: str = "average",
         asi_choices: dict[str, int] | None = None,
         subclass: str | None = None,
@@ -78,6 +79,8 @@ class LevelUpEngine:
 
         Args:
             character: The character to level up (modified in-place).
+            class_name: Which class to level up (required for multiclass).
+                        If None, levels up the primary (first) class.
             hp_method: "average" (default, PHB standard) or "roll".
             asi_choices: Ability score improvements, e.g. {"strength": 2}
                          or {"strength": 1, "dexterity": 1}. Total must be 2.
@@ -90,21 +93,35 @@ class LevelUpEngine:
         Raises:
             LevelUpError: If level-up cannot proceed.
         """
-        current_level = character.character_class.level
-        new_level = current_level + 1
-
-        if new_level > 20:
+        # Check total level cap before proceeding
+        total_before = character.total_level
+        if total_before >= 20:
             raise LevelUpError("Character is already at maximum level (20).")
 
+        # Find the target class to level up (may add a new class for multiclass dip)
+        target_class, is_new_class = self._find_target_class(character, class_name)
+
+        if is_new_class:
+            # Multiclass dip: class already added at level 1 by _find_target_class.
+            # total_level is now total_before + 1 (the new class at level 1).
+            new_level = 1
+            current_level = 0
+        else:
+            current_level = target_class.level
+            new_level = current_level + 1
+            target_class.level = new_level
+
         # Look up class definition
-        class_def = self._get_class_def(character.character_class.name)
+        class_def = self._get_class_def(target_class.name)
 
         old_prof_bonus = character.proficiency_bonus
         changes: list[str] = []
 
-        # 1. Increment level
-        character.character_class.level = new_level
-        changes.append(f"Level: {current_level} -> {new_level}")
+        # 1. Report level change
+        if is_new_class:
+            changes.append(f"Multiclass: added {target_class.name} (level 1)")
+        else:
+            changes.append(f"{target_class.name} Level: {current_level} -> {new_level}")
 
         # 2. Calculate and apply HP increase
         hp_gained = self._calculate_hp_increase(
@@ -117,8 +134,9 @@ class LevelUpEngine:
         # 3. Update hit dice
         hit_dice_type = f"d{class_def.hit_die}"
         character.hit_dice_type = hit_dice_type
-        character.hit_dice_remaining = f"{new_level}{hit_dice_type}"
-        character.character_class.hit_dice = f"{new_level}{hit_dice_type}"
+        total_level = character.total_level
+        character.hit_dice_remaining = f"{total_level}{hit_dice_type}"
+        target_class.hit_dice = f"{new_level}{hit_dice_type}"
 
         # 4. Add class features from this level
         features_added = self._add_level_features(character, class_def, new_level)
@@ -129,7 +147,7 @@ class LevelUpEngine:
         subclass_set = None
         if new_level == class_def.subclass_level:
             if subclass:
-                subclass_set = self._set_subclass(character, class_def, subclass)
+                subclass_set = self._set_subclass(target_class, class_def, subclass)
                 changes.append(f"Subclass: {subclass_set}")
             else:
                 changes.append(
@@ -168,7 +186,7 @@ class LevelUpEngine:
 
         # 9. Proficiency bonus — model_validator only runs on construction,
         # so we must recalculate manually after mutating level in-place.
-        character.proficiency_bonus = 2 + (new_level - 1) // 4
+        character.proficiency_bonus = 2 + (character.total_level - 1) // 4
         new_prof_bonus = character.proficiency_bonus
         prof_changed = new_prof_bonus != old_prof_bonus
         if prof_changed:
@@ -178,8 +196,8 @@ class LevelUpEngine:
 
         # Build summary
         summary = (
-            f"{character.name} advanced to level {new_level} "
-            f"{character.character_class.name}!\n"
+            f"{character.name} advanced to {target_class.name} level {new_level}"
+            f" (total level {character.total_level})!\n"
             + "\n".join(f"  - {c}" for c in changes)
         )
 
@@ -257,9 +275,11 @@ class LevelUpEngine:
 
     @staticmethod
     def _set_subclass(
-        character: Character, class_def: ClassDefinition, subclass: str
+        target_class: "CharacterClass", class_def: ClassDefinition, subclass: str
     ) -> str:
-        """Set the character's subclass, validating against available options."""
+        """Set the target class's subclass, validating against available options."""
+        from .models import CharacterClass as _CC  # noqa: F811 - for type hint only
+
         # Normalize for comparison
         subclass_lower = subclass.lower().replace(" ", "-").replace("_", "-")
 
@@ -271,7 +291,7 @@ class LevelUpEngine:
                     f"Available: {', '.join(class_def.subclasses)}"
                 )
 
-        character.character_class.subclass = subclass
+        target_class.subclass = subclass
         return subclass
 
     # ------------------------------------------------------------------
@@ -373,6 +393,38 @@ class LevelUpEngine:
     # ------------------------------------------------------------------
     # Lookups
     # ------------------------------------------------------------------
+
+    def _find_target_class(
+        self, character: Character, class_name: str | None
+    ) -> tuple["CharacterClass", bool]:
+        """Find the class to level up, or add a new class (multiclass dip).
+
+        Returns:
+            Tuple of (target_class, is_new_class).
+            is_new_class=True means this is a multiclass dip into a brand new class.
+        """
+        from .models import CharacterClass as _CC
+
+        if class_name is None:
+            return character.classes[0], False
+
+        # Search by name (case-insensitive)
+        name_lower = class_name.strip().lower()
+        for cls in character.classes:
+            if cls.name.lower() == name_lower:
+                return cls, False
+
+        # Not found — this is a multiclass dip into a new class.
+        # Validate the class exists in rulebooks before adding.
+        class_def = self._get_class_def(class_name)
+        hit_dice_type = f"d{class_def.hit_die}"
+        new_class = _CC(
+            name=class_def.name,
+            level=1,  # Starts at level 1
+            hit_dice=hit_dice_type,
+        )
+        character.classes.append(new_class)
+        return new_class, True
 
     def _get_class_def(self, class_name: str) -> ClassDefinition:
         """Look up class definition from rulebook manager."""

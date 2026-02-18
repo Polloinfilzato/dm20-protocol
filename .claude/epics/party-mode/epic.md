@@ -1,8 +1,8 @@
 ---
 name: party-mode
-status: backlog
+status: completed
 created: 2026-02-17T16:50:44Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/party-mode.md
 github: https://github.com/Polloinfilzato/dm20-protocol/issues/150
 ---
