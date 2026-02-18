@@ -4659,6 +4659,7 @@ def start_party_mode(
     lines.append("**Troubleshooting — players can't connect?**")
     lines.append("- Ensure players are on the **same Wi-Fi network** as this machine")
     lines.append("- Check **macOS Firewall**: System Settings → Network → Firewall — allow incoming connections for Python")
+    lines.append("- If you just added the firewall rule, **restart Party Mode** (`stop_party_mode` then `start_party_mode`) — macOS applies rules only when the process opens the socket")
     lines.append(f"- Test from this machine: open http://localhost:{port}/ in a browser")
     lines.append("")
     lines.append("Use `get_party_status` to monitor connections.")
