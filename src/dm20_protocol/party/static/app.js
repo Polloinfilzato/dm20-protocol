@@ -252,13 +252,17 @@
     }
 
     function addNarrativeMessage(msg) {
-        var el = createMessageEl('message--narrative', 'Narrator', msg.content, msg.timestamp);
+        // Server sends narrative text in "narrative" field, not "content"
+        var text = msg.content || msg.narrative || '';
+        var el = createMessageEl('message--narrative', 'Narrator', text, msg.timestamp);
         appendToFeed(el);
     }
 
     function addPrivateMessage(msg) {
         var sender = msg.from || 'DM';
-        var el = createMessageEl('message--private', sender + ' (private)', msg.content, msg.timestamp);
+        // Server sends private text in "private" field
+        var text = msg.content || msg.private || msg.narrative || '';
+        var el = createMessageEl('message--private', sender + ' (private)', text, msg.timestamp);
 
         if (dom.privateMessages) {
             dom.privateMessages.appendChild(el);
@@ -268,7 +272,7 @@
             }
         }
 
-        var feedEl = createMessageEl('message--private', sender + ' (private)', msg.content, msg.timestamp);
+        var feedEl = createMessageEl('message--private', sender + ' (private)', text, msg.timestamp);
         appendToFeed(feedEl);
     }
 
