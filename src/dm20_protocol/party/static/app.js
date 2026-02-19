@@ -399,9 +399,13 @@
     function updateCharacterBar(data) {
         if (!data) return;
 
-        // Name
+        // Name (with player name if available)
         if (dom.headerName && data.name) {
-            dom.headerName.textContent = data.name;
+            var displayName = data.name;
+            if (data.player_name) {
+                displayName += ' (Player: ' + data.player_name + ')';
+            }
+            dom.headerName.textContent = displayName;
         }
 
         // Subtitle (race + class)
