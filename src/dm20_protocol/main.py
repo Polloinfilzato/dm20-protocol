@@ -86,6 +86,54 @@ session_coordinator = SessionCoordinator()
 output_filter = OutputFilter(permission_resolver, session_coordinator)
 logger.debug("🔒 Output filter and session coordinator initialized")
 
+# Initialize global RulebookManager for standalone rules access (no campaign required).
+# Uses 5etools as default source with 2024 rules version.
+# This allows rules tools to work immediately without loading a campaign.
+global_rulebook_manager: RulebookManager | None = None
+
+def _init_global_rulebook_manager() -> RulebookManager | None:
+    """Initialize the global RulebookManager with 5etools source.
+
+    Returns the initialized manager, or None if initialization fails.
+    This runs at import time so it must handle errors gracefully.
+    """
+    import asyncio
+    try:
+        manager = RulebookManager()  # No campaign_dir = no manifest persistence
+        from .rulebooks.sources.fivetools import FiveToolsSource
+        cache_dir = data_path / "rulebook_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        fivetools_source = FiveToolsSource(cache_dir=cache_dir / "5etools")
+
+        # Run async load in sync context
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(manager.load_source(fivetools_source))
+        counts = fivetools_source.content_counts()
+        logger.info(
+            f"✅ Global RulebookManager initialized with 5etools: "
+            f"{counts.classes} classes, {counts.races} races, "
+            f"{counts.spells} spells, {counts.monsters} monsters"
+        )
+        return manager
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to initialize global RulebookManager: {e}")
+        return None
+
+global_rulebook_manager = _init_global_rulebook_manager()
+
+
+def _get_rulebook_manager() -> RulebookManager | None:
+    """Get the active RulebookManager using the fallback chain.
+
+    Returns the campaign's RulebookManager if a campaign is loaded and has one,
+    otherwise falls back to the global RulebookManager.
+    """
+    return storage.rulebook_manager or global_rulebook_manager
 
 
 # ----------------------------------------------------------------------
@@ -101,18 +149,29 @@ def create_campaign(
     setting: Annotated[str | Path | None, Field(description="""
         Campaign setting - a full description of the setting of the campaign in markdown format, or the path to a `.txt` or `.md` file containing the same.
         """)] = None,
+    rules_version: Annotated[str, Field(description="D&D rules version: '2014' or '2024' (default: '2024')")] = "2024",
 ) -> str:
-    """Create a new D&D campaign."""
+    """Create a new D&D campaign.
+
+    The rules_version parameter selects which edition of the D&D 5e rules
+    to use for this campaign. '2024' uses the revised 2024 rules, '2014'
+    uses the original 5th edition rules. The chosen version is stored in
+    the campaign manifest and used when loading rulebooks.
+    """
+    if rules_version not in ("2014", "2024"):
+        return f"❌ Invalid rules_version '{rules_version}'. Must be '2014' or '2024'."
+
     campaign = storage.create_campaign(
         name=name,
         description=description,
         dm_name=dm_name,
-        setting=setting
+        setting=setting,
+        rules_version=rules_version,
     )
     # Start sheet sync for the new campaign
     _sheets_dir = data_path / "campaigns" / campaign.name / "sheets"
     sync_manager.start(_sheets_dir)
-    return f"🌟 Created campaign: '{campaign.name} and set as active 🌟'"
+    return f"🌟 Created campaign: '{campaign.name}' (rules: {rules_version}) and set as active 🌟"
 
 @mcp.tool
 def get_campaign_info() -> str:
@@ -1248,10 +1307,12 @@ def list_characters() -> str:
     if not characters:
         return "No characters in the current campaign."
 
-    char_list = [
-        f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
-        for char in characters
-    ]
+    char_list = []
+    for char in characters:
+        line = f"• {char.name} (Level {char.character_class.level} {char.race.name} {char.character_class.name})"
+        if char.player_name:
+            line += f" — Player: {char.player_name}"
+        char_list.append(line)
 
     return "**Characters:**\n" + "\n".join(char_list)
 
@@ -2753,19 +2814,23 @@ def search_rules(
 ) -> str:
     """Search for rules content across all loaded rulebooks.
 
+    Works without a campaign loaded (uses global rulebook manager).
+    When a campaign is active, its rulebook manager takes priority.
+
     Examples:
         - search_rules(query="fire", category="spell") - Find spells with 'fire' in name
         - search_rules(class_filter="ranger", category="spell") - All ranger spells
         - search_rules(query="cure", class_filter="ranger", category="spell") - Ranger spells with 'cure' in name
     """
-    if not storage.rulebook_manager:
-        return "❌ No rulebooks loaded. Use `load_rulebook` first."
+    manager = _get_rulebook_manager()
+    if not manager:
+        return "❌ No rulebooks loaded. Use `load_rulebook` first or ensure the global rulebook manager is initialized."
 
     if not query and not class_filter:
         return "❌ Please provide either a search query or a class_filter."
 
     categories = [category] if category and category != "all" else None
-    results = storage.rulebook_manager.search(
+    results = manager.search(
         query=query,
         categories=categories,
         limit=limit,
@@ -2788,6 +2853,11 @@ def search_rules(
     for r in results:
         lines.append(f"- **{r.name}** ({r.category}) — _{r.source}_")
 
+    # Source attribution
+    source_names = sorted({r.source for r in results if r.source})
+    if source_names:
+        lines.append(f"\n*Source: {', '.join(source_names)}*")
+
     return "\n".join(lines)
 
 @mcp.tool
@@ -2795,11 +2865,16 @@ def get_class_info(
     name: Annotated[str, Field(description="Class name (e.g., 'wizard', 'fighter')")],
     level: Annotated[int | None, Field(description="Show features up to this level", ge=1, le=20)] = None,
 ) -> str:
-    """Get full class definition from loaded rulebooks."""
-    if not storage.rulebook_manager:
+    """Get full class definition from loaded rulebooks.
+
+    Works without a campaign loaded (uses global rulebook manager).
+    When a campaign is active, its rulebook manager takes priority.
+    """
+    manager = _get_rulebook_manager()
+    if not manager:
         return "❌ No rulebooks loaded."
 
-    class_def = storage.rulebook_manager.get_class(name.lower())
+    class_def = manager.get_class(name.lower())
     if not class_def:
         return f"❌ Class '{name}' not found in loaded rulebooks."
 
@@ -2818,11 +2893,16 @@ def get_class_info(
 def get_race_info(
     name: Annotated[str, Field(description="Race name (e.g., 'elf', 'dwarf')")],
 ) -> str:
-    """Get full race definition from loaded rulebooks."""
-    if not storage.rulebook_manager:
+    """Get full race definition from loaded rulebooks.
+
+    Works without a campaign loaded (uses global rulebook manager).
+    When a campaign is active, its rulebook manager takes priority.
+    """
+    manager = _get_rulebook_manager()
+    if not manager:
         return "❌ No rulebooks loaded."
 
-    race_def = storage.rulebook_manager.get_race(name.lower())
+    race_def = manager.get_race(name.lower())
     if not race_def:
         return f"❌ Race '{name}' not found in loaded rulebooks."
 
@@ -2846,13 +2926,18 @@ def get_race_info(
 def get_spell_info(
     name: Annotated[str, Field(description="Spell name (e.g., 'fireball', 'cure wounds')")],
 ) -> str:
-    """Get spell details from loaded rulebooks."""
-    if not storage.rulebook_manager:
+    """Get spell details from loaded rulebooks.
+
+    Works without a campaign loaded (uses global rulebook manager).
+    When a campaign is active, its rulebook manager takes priority.
+    """
+    manager = _get_rulebook_manager()
+    if not manager:
         return "❌ No rulebooks loaded."
 
     # Normalize name for lookup
     spell_index = name.lower().replace(" ", "-")
-    spell = storage.rulebook_manager.get_spell(spell_index)
+    spell = manager.get_spell(spell_index)
     if not spell:
         return f"❌ Spell '{name}' not found."
 
@@ -2882,12 +2967,17 @@ def get_spell_info(
 def get_monster_info(
     name: Annotated[str, Field(description="Monster name (e.g., 'goblin', 'adult red dragon')")],
 ) -> str:
-    """Get monster stat block from loaded rulebooks."""
-    if not storage.rulebook_manager:
+    """Get monster stat block from loaded rulebooks.
+
+    Works without a campaign loaded (uses global rulebook manager).
+    When a campaign is active, its rulebook manager takes priority.
+    """
+    manager = _get_rulebook_manager()
+    if not manager:
         return "❌ No rulebooks loaded."
 
     monster_index = name.lower().replace(" ", "-")
-    monster = storage.rulebook_manager.get_monster(monster_index)
+    monster = manager.get_monster(monster_index)
     if not monster:
         return f"❌ Monster '{name}' not found."
 
@@ -4406,52 +4496,22 @@ def party_knowledge(
 # --------------------------------------------------------------------------
 
 def _format_import_summary(result) -> str:
-    """Format an ImportResult into a user-friendly summary.
+    """Format an ImportResult into a structured, user-friendly import report.
+
+    Builds an ImportReport from the ImportResult and formats it as readable text.
+    Includes status (success/success_with_warnings/failed), imported fields grouped
+    by category with value summaries, warnings with suggestions, not-imported fields,
+    and actionable suggestions.
 
     Args:
         result: ImportResult object from the import operation
 
     Returns:
-        Formatted string with character details, mapped fields, and warnings
+        Formatted string with structured import report
     """
-    from .importers.base import ImportResult
+    report = result.build_report()
 
-    char = result.character
-    lines = [f"✅ Character imported: {char.name}\n"]
-    lines.append("Summary:")
-
-    # Class and subclass (multiclass-aware)
-    if char.is_multiclass:
-        lines.append(f"  Class: {char.class_string()}")
-        for cls in char.classes:
-            sub = f" ({cls.subclass})" if cls.subclass else ""
-            lines.append(f"    - {cls.name} {cls.level}{sub}")
-    else:
-        cls = char.character_class
-        class_str = f"{cls.name} {cls.level}"
-        if cls.subclass:
-            class_str += f" ({cls.subclass})"
-        lines.append(f"  Class: {class_str}")
-
-    # Race
-    if char.race:
-        lines.append(f"  Race: {char.race.name}")
-
-    # HP and AC
-    lines.append(f"  HP: {char.hit_points_current}/{char.hit_points_max}")
-    if char.armor_class:
-        lines.append(f"  AC: {char.armor_class}")
-
-    # Mapped fields count
-    lines.append(f"\n  Mapped: {len(result.mapped_fields)} fields")
-
-    # Warnings
-    if result.warnings:
-        lines.append(f"  Warnings: {len(result.warnings)}")
-        for warning in result.warnings:
-            lines.append(f"    ⚠ {warning}")
-
-    # Source information
+    # Add source information to the report output
     source_display = "D&D Beyond"
     if result.source == "url":
         source_display += " (URL)"
@@ -4459,9 +4519,11 @@ def _format_import_summary(result) -> str:
         source_display += " (file)"
     if result.source_id:
         source_display += f" - ID: {result.source_id}"
-    lines.append(f"\n  Source: {source_display}")
 
-    return "\n".join(lines)
+    formatted = report.format()
+    formatted += f"\n\nSource: {source_display}"
+
+    return formatted
 
 
 @mcp.tool
@@ -4622,9 +4684,18 @@ def start_party_mode(
     lines.append(f"**Players:** {len(characters)} PCs + 1 Observer\n")
     lines.append("## Player Connections\n")
 
+    # Collect QR terminal art for printing to stderr after response
+    qr_terminal_lines: list[str] = []
+
     for char in characters:
         token = server.token_manager.generate_token(char.name)
         url = f"http://{host_ip}:{port}/play?token={token}"
+
+        # Render QR as terminal ASCII art (for DM's terminal)
+        qr_terminal_lines.append(
+            QRCodeGenerator.render_qr_terminal(url, char.name)
+        )
+
         try:
             qr_path = QRCodeGenerator.generate_player_qr(
                 char.name, token, host_ip, port, campaign_dir
@@ -4640,6 +4711,12 @@ def start_party_mode(
     # Observer token
     observer_token = server.token_manager.generate_token("OBSERVER")
     observer_url = f"http://{host_ip}:{port}/play?token={observer_token}"
+
+    # Render observer QR as terminal ASCII art
+    qr_terminal_lines.append(
+        QRCodeGenerator.render_qr_terminal(observer_url, "OBSERVER (read-only)")
+    )
+
     try:
         observer_qr = QRCodeGenerator.generate_player_qr(
             "OBSERVER", observer_token, host_ip, port, campaign_dir
@@ -4651,6 +4728,18 @@ def start_party_mode(
         lines.append("### OBSERVER (read-only)")
         lines.append(f"- **URL:** {observer_url}")
         lines.append("- **QR Code:** (generation failed, use URL instead)\n")
+
+    # Print QR codes as ASCII art to terminal (stderr, visible to DM)
+    # This allows the DM to see scannable QR codes directly in the terminal
+    # without needing to open the saved PNG files.
+    import sys
+    try:
+        print("\n\n=== Party Mode QR Codes (scan with phone) ===", file=sys.stderr)
+        for qr_art in qr_terminal_lines:
+            print(qr_art, file=sys.stderr)
+        print("=== End QR Codes ===\n", file=sys.stderr)
+    except Exception:
+        pass  # Graceful fallback: terminal rendering failure is non-fatal
 
     lines.append("---")
     lines.append("Players can scan QR codes or open URLs on their phones/tablets to join.")
@@ -4908,6 +4997,14 @@ def party_refresh_token(
         lines.append("**QR Code:** (generation failed — use URL instead)")
 
     lines.append("\nThe old token is now invalid. The player must use the new URL or scan the new QR code.")
+
+    # Print refreshed QR code as ASCII art to terminal
+    import sys
+    try:
+        qr_art = QRCodeGenerator.render_qr_terminal(url, player_id)
+        print(qr_art, file=sys.stderr)
+    except Exception:
+        pass  # Graceful fallback: terminal rendering failure is non-fatal
 
     # Reactivate in registry if needed
     try:
