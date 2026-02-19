@@ -318,7 +318,14 @@
                 if (data.success) {
                     pendingActionId = data.action_id;
                     input.value = '';
-                    setActionStatus('Action queued', 'queued');
+                    setActionStatus('Action sent', 'queued');
+
+                    // Clear "sent" status after 3s if not yet processing
+                    setTimeout(function () {
+                        if (pendingActionId === data.action_id) {
+                            setActionStatus('', '');
+                        }
+                    }, 3000);
 
                     var el = createMessageEl('message--action', PLAYER_NAME, text, new Date().toISOString());
                     appendToFeed(el);
