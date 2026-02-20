@@ -33,25 +33,135 @@ _SCHEMA_VERSION = 1
 # --- Default registry template (written when none exists) ---
 _DEFAULT_REGISTRY: dict = {
     "version": _SCHEMA_VERSION,
-    "default_language": "en",
+    "default_language": "it",
     "dm_voice": {
         "engine": "edge-tts",
         "voice_id": "default",
-        "voice_design": "A warm, deep voice with authority",
+        "language": "it",
+        "speed": 0.95,
+        "pitch": 0.0,
+        "voice_design": "A warm, authoritative narrator voice",
     },
     "combat_voice": {
         "engine": "edge-tts",
         "voice_id": "default",
+        "language": "it",
+        "speed": 1.1,
+        "pitch": -5.0,
         "voice_design": "A tense, urgent narrator voice",
     },
     "npc_defaults": {
+        # --- Humans (neutral baseline) ---
         "male_human": {
             "engine": "edge-tts",
-            "voice_design": "A middle-aged male voice, neutral and calm",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 1.0,
+            "pitch": 0.0,
         },
         "female_human": {
             "engine": "edge-tts",
-            "voice_design": "A young female voice, clear and friendly",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 1.0,
+            "pitch": 0.0,
+        },
+        # --- Dwarves (deep, slow) ---
+        "male_dwarf": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 0.85,
+            "pitch": -30.0,
+        },
+        "female_dwarf": {
+            "engine": "edge-tts",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 0.88,
+            "pitch": -20.0,
+        },
+        # --- Elves (light, slightly faster) ---
+        "male_elf": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 1.05,
+            "pitch": 20.0,
+        },
+        "female_elf": {
+            "engine": "edge-tts",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 1.05,
+            "pitch": 15.0,
+        },
+        # --- Halflings/Gnomes (high-pitched, quick) ---
+        "male_halfling": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 1.1,
+            "pitch": 30.0,
+        },
+        "female_halfling": {
+            "engine": "edge-tts",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 1.1,
+            "pitch": 25.0,
+        },
+        "male_gnome": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 1.15,
+            "pitch": 35.0,
+        },
+        # --- Orcs/Half-Orcs (very deep, slow) ---
+        "male_orc": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 0.80,
+            "pitch": -40.0,
+        },
+        "male_half-orc": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 0.82,
+            "pitch": -35.0,
+        },
+        # --- Tieflings (slightly lower, deliberate) ---
+        "male_tiefling": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 0.92,
+            "pitch": -15.0,
+        },
+        "female_tiefling": {
+            "engine": "edge-tts",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 0.92,
+            "pitch": -10.0,
+        },
+        # --- Gender wildcards (fallback when race unknown) ---
+        "male_*": {
+            "engine": "edge-tts",
+            "voice_id": "default",
+            "language": "it",
+            "speed": 1.0,
+            "pitch": 0.0,
+        },
+        "female_*": {
+            "engine": "edge-tts",
+            "voice_id": "female",
+            "language": "it",
+            "speed": 1.0,
+            "pitch": 0.0,
         },
     },
     "npc_overrides": {},

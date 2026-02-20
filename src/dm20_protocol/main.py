@@ -4810,10 +4810,12 @@ def start_party_mode(
 
     async def _init_tts(srv):
         try:
-            from .voice import TTSRouter
+            from .voice import TTSRouter, VoiceRegistry
             srv.tts_router = TTSRouter()
             await srv.tts_router.initialize()
             logger.info("TTSRouter ready: %s", srv.tts_router.get_status())
+            srv.voice_registry = VoiceRegistry(srv.campaign_dir)
+            srv.setup_audio(srv.tts_router, srv.voice_registry)
         except Exception as exc:
             logger.warning("TTSRouter init failed, TTS disabled: %s", exc)
             srv.tts_router = None
@@ -5050,7 +5052,7 @@ def _party_tts_speak(narrative: str, server) -> None:
 
     # 3. Import voice subsystem (optional dependency)
     try:
-        from .voice import TTSRouter
+        from .voice import TTSRouter, VoiceConfig, VoiceRegistry
     except ImportError:
         logger.debug("TTS skipped: voice dependencies not installed")
         return
@@ -5080,7 +5082,9 @@ def _party_tts_speak(narrative: str, server) -> None:
     # 6. Run async synthesis on the server event loop
     async def _synth_and_play():
         try:
-            result = await router.synthesize(text, context="narration")
+            _vr = getattr(server, "voice_registry", None)
+            _vc = _vr.get_dm_voice() if _vr is not None else VoiceConfig(language="it")
+            result = await router.synthesize(text, context="narration", voice_config=_vc)
             # Write WAV to a temp file and play with afplay (non-blocking)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(result.audio_data)

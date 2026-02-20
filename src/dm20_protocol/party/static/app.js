@@ -234,6 +234,12 @@
                 handleAudioChunk(msg);
                 break;
 
+            case 'ping':
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'pong' }));
+                }
+                break;
+
             default:
                 console.log('Unknown message type:', msg.type, msg);
         }
