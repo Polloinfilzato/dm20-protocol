@@ -1066,6 +1066,7 @@
             dom.actionInput.placeholder = 'What do you do?';
         }
         if (dom.actionSend) dom.actionSend.disabled = false;
+        if (domMic && sttSupported && !sttDenied) domMic.disabled = false;
         var overlay = document.querySelector('.turn-gate-overlay');
         if (overlay) overlay.classList.remove('turn-gate-overlay--active');
     }
@@ -1076,6 +1077,12 @@
             dom.actionInput.placeholder = 'Waiting for your turn...';
         }
         if (dom.actionSend) dom.actionSend.disabled = true;
+        if (domMic) domMic.disabled = true;
+        // Stop STT if listening while input gets disabled
+        if (sttListening && sttRecognition) {
+            sttRecognition.abort();
+            stopSTT();
+        }
         var overlay = document.querySelector('.turn-gate-overlay');
         if (overlay) overlay.classList.add('turn-gate-overlay--active');
     }
@@ -1224,6 +1231,196 @@
     }
 
 
+    // ===== Speech-to-Text (STT) =====
+
+    var sttSupported = false;
+    var sttRecognition = null;
+    var sttListening = false;
+    var sttDenied = false;
+
+    var domMic = null;
+    var domMicDot = null;
+    var domTranscriptPreview = null;
+
+    function initSTT() {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            // STT not available — mic button stays hidden, text input works normally
+            return;
+        }
+
+        sttSupported = true;
+        sttRecognition = new SpeechRecognition();
+        sttRecognition.continuous = false;
+        sttRecognition.interimResults = true;
+        sttRecognition.maxAlternatives = 1;
+
+        // Default to browser locale, fallback to en-US
+        var lang = navigator.language || 'en-US';
+        sttRecognition.lang = lang;
+
+        // Cache DOM references
+        domMic = $('.action-bar__mic');
+        domMicDot = $('.mic-listening-dot');
+        domTranscriptPreview = $('.voice-transcript-preview');
+
+        // Show mic button
+        if (domMic) {
+            domMic.hidden = false;
+            domMic.addEventListener('click', toggleSTT);
+        }
+
+        sttRecognition.onresult = function (event) {
+            var transcript = '';
+            var isFinal = false;
+
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+                transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    isFinal = true;
+                }
+            }
+
+            if (isFinal) {
+                // Send the transcribed text as an action
+                hideTranscriptPreview();
+                submitVoiceAction(transcript.trim());
+                stopSTT();
+            } else {
+                // Show interim transcript
+                showTranscriptPreview(transcript);
+            }
+        };
+
+        sttRecognition.onerror = function (event) {
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                sttDenied = true;
+                if (domMic) {
+                    domMic.classList.add('action-bar__mic--denied');
+                    domMic.title = 'Microphone access denied';
+                }
+            } else if (event.error === 'no-speech') {
+                // Timeout — no speech detected, just stop quietly
+            } else {
+                console.warn('STT error:', event.error);
+            }
+            stopSTT();
+        };
+
+        sttRecognition.onend = function () {
+            // Recognition ended (timeout, manual stop, or after final result)
+            if (sttListening) {
+                stopSTT();
+            }
+        };
+    }
+
+    function toggleSTT() {
+        if (sttDenied || !sttSupported) return;
+
+        if (sttListening) {
+            sttRecognition.abort();
+            stopSTT();
+        } else {
+            startSTT();
+        }
+    }
+
+    function startSTT() {
+        if (!sttRecognition || sttListening || sttDenied) return;
+
+        // Ensure AudioContext is resumed (needed for some browsers)
+        getAudioContext();
+
+        try {
+            sttRecognition.start();
+            sttListening = true;
+
+            if (domMic) {
+                domMic.classList.add('action-bar__mic--listening');
+            }
+            if (domMicDot) {
+                domMicDot.hidden = false;
+            }
+            showTranscriptPreview('Listening...');
+        } catch (e) {
+            console.warn('Failed to start STT:', e);
+            stopSTT();
+        }
+    }
+
+    function stopSTT() {
+        sttListening = false;
+
+        if (domMic) {
+            domMic.classList.remove('action-bar__mic--listening');
+        }
+        if (domMicDot) {
+            domMicDot.hidden = true;
+        }
+        hideTranscriptPreview();
+    }
+
+    function submitVoiceAction(text) {
+        if (!text) return;
+
+        // Use the same action submission path, but add voice source
+        if (dom.actionInput) {
+            dom.actionInput.disabled = true;
+        }
+        if (dom.actionSend) dom.actionSend.disabled = true;
+        setActionStatus('Sending...', 'queued');
+
+        fetch(API_BASE + '/action', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + TOKEN,
+            },
+            body: JSON.stringify({ action: text, source: 'voice' }),
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    pendingActionId = data.action_id;
+                    setActionStatus('Action sent', 'queued');
+                    setTimeout(function () {
+                        if (pendingActionId === data.action_id) {
+                            setActionStatus('', '');
+                        }
+                    }, 3000);
+
+                    var el = createMessageEl('message--action', PLAYER_NAME, text, new Date().toISOString());
+                    appendToFeed(el);
+                } else {
+                    setActionStatus('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            })
+            .catch(function (err) {
+                setActionStatus('Failed to send action', 'error');
+                console.error('Voice action submission error:', err);
+            })
+            .finally(function () {
+                if (dom.actionInput) dom.actionInput.disabled = false;
+                if (dom.actionSend) dom.actionSend.disabled = false;
+            });
+    }
+
+    function showTranscriptPreview(text) {
+        if (!domTranscriptPreview) return;
+        domTranscriptPreview.textContent = text;
+        domTranscriptPreview.hidden = false;
+        domTranscriptPreview.classList.toggle('voice-transcript-preview--active', text !== 'Listening...');
+    }
+
+    function hideTranscriptPreview() {
+        if (!domTranscriptPreview) return;
+        domTranscriptPreview.hidden = true;
+        domTranscriptPreview.textContent = '';
+        domTranscriptPreview.classList.remove('voice-transcript-preview--active');
+    }
+
+
     // ===== Private Messages Toggle =====
 
     function togglePrivateMessages() {
@@ -1266,6 +1463,7 @@
 
     function init() {
         initEventListeners();
+        initSTT();
         connect();
     }
 
