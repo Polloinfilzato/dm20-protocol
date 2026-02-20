@@ -1652,6 +1652,22 @@ def get_game_state() -> str:
 
     return state_info
 
+def _prefetch_state_update() -> None:
+    """Feed current game state to PrefetchEngine if active."""
+    from .party.server import get_server_instance
+    server = get_server_instance()
+    if server is None:
+        return
+    if getattr(server, "prefetch_engine", None) is None:
+        return
+    try:
+        _gs = storage.get_game_state()
+        if _gs:
+            server.prefetch_engine.on_state_change(_gs.model_dump())
+    except Exception as exc:
+        logger.debug("Prefetch state update failed: %s", exc)
+
+
 # Combat Management Tools
 @mcp.tool
 def start_combat(
@@ -1687,6 +1703,7 @@ def start_combat(
     if warnings:
         result += "\n\n**Warnings:**\n" + "\n".join(warnings)
 
+    _prefetch_state_update()
     return result
 
 @mcp.tool
@@ -1787,6 +1804,7 @@ def next_turn() -> str:
             result += f"\n(Skipped dead/incapacitated: {', '.join(skipped)})"
         if effect_messages:
             result += "\n" + "\n".join(effect_messages)
+        _prefetch_state_update()
         return result
 
     # All participants are dead or incapacitated - end combat
@@ -1795,6 +1813,7 @@ def next_turn() -> str:
         initiative_order=[],
         current_turn=None
     )
+    _prefetch_state_update()
     return "All remaining participants are dead or incapacitated. **Combat ended automatically.**"
 
 
@@ -2449,7 +2468,18 @@ def summarize_session(
     Returns:
         Prompt for LLM to generate SessionNote
     """
-    return _summarize_session_impl(transcription, session_number, detail_level, speaker_map)
+    result = _summarize_session_impl(transcription, session_number, detail_level, speaker_map)
+
+    # Append prefetch token stats if engine is active
+    from .party.server import get_server_instance
+    _srv = get_server_instance()
+    if _srv and getattr(_srv, "prefetch_engine", None):
+        try:
+            result += "\n\n**Prefetch stats:** " + _srv.prefetch_engine.get_token_summary()
+        except Exception:
+            pass
+
+    return result
 
 
 def _create_overlapping_chunks(text: str, chunk_size: int, overlap_size: int) -> list[str]:
@@ -4742,6 +4772,37 @@ def start_party_mode(
     except Exception as e:
         return f"Error starting Party Mode server: {e}"
 
+    # --- TTS Router: background async init ---
+    import asyncio as _asyncio
+
+    async def _init_tts(srv):
+        try:
+            from .voice import TTSRouter
+            srv.tts_router = TTSRouter()
+            await srv.tts_router.initialize()
+            logger.info("TTSRouter ready: %s", srv.tts_router.get_status())
+        except Exception as exc:
+            logger.warning("TTSRouter init failed, TTS disabled: %s", exc)
+            srv.tts_router = None
+
+    if server._loop and not server._loop.is_closed():
+        _asyncio.run_coroutine_threadsafe(_init_tts(server), server._loop)
+
+    # --- PrefetchEngine init ---
+    try:
+        from .prefetch import PrefetchEngine
+        from .claudmaster.llm_client import AnthropicLLMClient
+        _haiku = AnthropicLLMClient(model="claude-haiku-4-5-20251001")
+        server.prefetch_engine = PrefetchEngine(
+            main_model=_haiku,
+            refinement_model=_haiku,
+            intensity="conservative",
+        )
+        logger.info("PrefetchEngine ready (intensity=conservative)")
+    except Exception as exc:
+        logger.warning("PrefetchEngine init failed, prefetch disabled: %s", exc)
+        server.prefetch_engine = None
+
     # Generate tokens and QR codes
     host_ip = server.host_ip
     lines = []
@@ -4974,12 +5035,14 @@ def _party_tts_speak(narrative: str, server) -> None:
         else:
             text = truncated.rstrip() + "…"
 
-    # 5. Lazy-init the router singleton
-    global _tts_router_instance
-    if _tts_router_instance is None:
-        _tts_router_instance = TTSRouter()
-
-    router = _tts_router_instance
+    # 5. Use pre-initialized router from server if available, else lazy-init singleton
+    if getattr(server, "tts_router", None) is not None:
+        router = server.tts_router
+    else:
+        global _tts_router_instance
+        if _tts_router_instance is None:
+            _tts_router_instance = TTSRouter()
+        router = _tts_router_instance
 
     # 6. Run async synthesis on the server event loop
     async def _synth_and_play():
@@ -4999,6 +5062,20 @@ def _party_tts_speak(narrative: str, server) -> None:
                 "TTS playing narrative (%d chars, engine=%s, %.0fms)",
                 len(text), result.engine_name, result.duration_ms,
             )
+
+            # Broadcast audio to connected players via WebSocket
+            try:
+                import base64 as _b64
+                audio_b64 = _b64.b64encode(result.audio_data).decode("ascii")
+                audio_msg = {
+                    "type": "audio",
+                    "format": "mp3",
+                    "data": audio_b64,
+                }
+                await server.connection_manager.broadcast(audio_msg)
+            except Exception as ws_exc:
+                logger.warning("Audio WebSocket broadcast failed: %s", ws_exc)
+
         except Exception as exc:
             logger.warning("TTS synthesis/playback failed: %s", exc)
 
@@ -5048,6 +5125,15 @@ def party_resolve_action(
 
     # --- TTS narration (macOS local audio) ---
     _party_tts_speak(narrative, server)
+
+    # --- Prefetch: feed updated game state ---
+    if getattr(server, "prefetch_engine", None):
+        try:
+            _gs = storage.get_game_state()
+            if _gs:
+                server.prefetch_engine.on_state_change(_gs.model_dump())
+        except Exception as exc:
+            logger.debug("Prefetch state update failed: %s", exc)
 
     return f"Response broadcast to connected players (response_id: {response_id})."
 

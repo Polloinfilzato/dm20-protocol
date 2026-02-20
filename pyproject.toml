@@ -32,10 +32,9 @@ rag = [
     "chromadb>=0.4.0",
 ]
 voice = [
-    "mlx-audio",
-    "kokoro",
-    "edge-tts",
-    "piper-tts",
+    "edge-tts>=6.1",
+    "kokoro>=0.9; sys_platform == 'darwin'",
+    "mlx-audio; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 dev = [
     "pytest>=7.0.0",

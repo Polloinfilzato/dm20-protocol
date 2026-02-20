@@ -1152,6 +1152,22 @@
     }
 
     function handleAudioChunk(msg) {
+        // Simple single-message audio (no chunking metadata)
+        if (!msg.total_chunks && !msg.sequence) {
+            try {
+                var bytes = Uint8Array.from(atob(msg.data), function (c) { return c.charCodeAt(0); });
+                var blob = new Blob([bytes], { type: "audio/" + (msg.format || "mpeg") });
+                var url = URL.createObjectURL(blob);
+                var audio = new Audio(url);
+                audio.onended = function () { URL.revokeObjectURL(url); };
+                audio.play().catch(function () {});  // Silently ignore autoplay policy
+            } catch (e) {
+                console.warn("Audio playback failed:", e);
+            }
+            return;
+        }
+
+        // Chunked audio reassembly
         var seq = msg.sequence || 0;
         var total = msg.total_chunks || 1;
 
