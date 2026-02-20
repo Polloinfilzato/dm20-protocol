@@ -5084,7 +5084,7 @@ def _party_tts_speak(narrative: str, server) -> None:
                 audio_b64 = _b64.b64encode(result.audio_data).decode("ascii")
                 audio_msg = {
                     "type": "audio",
-                    "format": "mp3",
+                    "format": result.format.value,
                     "data": audio_b64,
                 }
                 await server.connection_manager.broadcast(audio_msg)

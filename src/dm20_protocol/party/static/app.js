@@ -267,7 +267,14 @@
     function addNarrativeMessage(msg) {
         // Server sends narrative text in "narrative" field, not "content"
         var text = msg.content || msg.narrative || '';
-        var el = createMessageEl('message--narrative', 'Narrator', text, msg.timestamp);
+        var el = document.createElement('div');
+        el.className = 'message message--narrative';
+        el.innerHTML =
+            '<div class="message__header">' +
+            '<span class="message__sender">Narrator</span>' +
+            '<span class="message__timestamp">' + formatTime(msg.timestamp) + '</span>' +
+            '</div>' +
+            '<div class="message__content">' + renderMarkdown(text) + '</div>';
         appendToFeed(el);
     }
 
@@ -275,18 +282,28 @@
         var sender = msg.from || 'DM';
         // Server sends private text in "private" field
         var text = msg.content || msg.private || msg.narrative || '';
-        var el = createMessageEl('message--private', sender + ' (private)', text, msg.timestamp);
+
+        function makePrivateEl() {
+            var el = document.createElement('div');
+            el.className = 'message message--private';
+            el.innerHTML =
+                '<div class="message__header">' +
+                '<span class="message__sender">' + escapeHtml(sender) + ' (private)</span>' +
+                '<span class="message__timestamp">' + formatTime(msg.timestamp) + '</span>' +
+                '</div>' +
+                '<div class="message__content">' + renderMarkdown(text) + '</div>';
+            return el;
+        }
 
         if (dom.privateMessages) {
-            dom.privateMessages.appendChild(el);
+            dom.privateMessages.appendChild(makePrivateEl());
             privateMessageCount++;
             if (dom.privateCount) {
                 dom.privateCount.textContent = privateMessageCount;
             }
         }
 
-        var feedEl = createMessageEl('message--private', sender + ' (private)', text, msg.timestamp);
-        appendToFeed(feedEl);
+        appendToFeed(makePrivateEl());
     }
 
     function addSystemMessage(content) {
@@ -306,6 +323,20 @@
         var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Minimal markdown renderer — escapes HTML first, then applies inline patterns.
+    // Safe: markup is injected only after HTML escaping prevents XSS.
+    function renderMarkdown(text) {
+        if (!text) return '';
+        var s = escapeHtml(text);
+        // Bold: **text**
+        s = s.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+        // Italic: *text*
+        s = s.replace(/\*([\s\S]*?)\*/g, '<em>$1</em>');
+        // Newlines → <br>
+        s = s.replace(/\n/g, '<br>');
+        return s;
     }
 
 
