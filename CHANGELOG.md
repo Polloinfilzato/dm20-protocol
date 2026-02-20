@@ -5,6 +5,20 @@ All notable changes to DM20 Protocol will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-02-20
+
+### Added
+- **Voice Narration (TTS) in Party Mode** — `TTSRouter` and `PrefetchEngine` are now wired into the live Party Mode game loop. `start_party_mode` initialises `TTSRouter` in the background; after every `party_resolve_action` the DM's narrative is synthesised and played via `afplay` on the DM's Mac, then broadcast as audio chunks to connected browser players over WebSocket. Audio message format: `{"type": "audio", "format": "mp3", "data": "<base64>"}`. Warm-path init avoids cold-start delay on first action
+- **Prefetch Engine Integration** — `PrefetchEngine` is instantiated at Party Mode startup with `AnthropicLLMClient` (Haiku, intensity=conservative). A shared `_prefetch_state_update()` helper is called from `party_resolve_action`, `next_turn`, and `start_combat` to keep the context observer in sync. On combat turns, variants are pre-generated in an asyncio background task; `summarize_session` includes the prefetch token summary
+- **`--voice` installer flag** — `bash <(curl ...) --voice` adds TTS voice narration support to an existing installation. Auto-detects the play directory (same logic as `--upgrade`), shows platform-aware engine info (Apple Silicon: Kokoro + mlx-audio + Edge-TTS; Intel: Edge-TTS only), reinstalls the package with `[voice]` extras, and prints instructions to enable narrated mode via `/dm:profile`
+- **`[voice]` optional dependency group** — `edge-tts>=6.1` (cloud fallback, always available), `kokoro>=0.9` (local speed tier, macOS only), `mlx-audio` (Apple Silicon arm64 only). Install with `pip install dm20-protocol[voice]`
+- **`add_event` accepts `"social"` event type** — `EventType.SOCIAL` added to the enum; `add_event(event_type="social", ...)` no longer fails
+- **`add_event` accepts JSON strings for list fields** — `characters_involved` and `tags` now accept both native lists and JSON-encoded strings (`'["id1","id2"]'`) via `_parse_json_list()`, matching the pattern used by `update_character`
+- **TTS mode guard logging** — `_party_tts_speak` now emits `logger.info` when skipping due to `interaction_mode="classic"`, making it visible in session logs instead of silently returning
+
+### Changed
+- **Player UI audio fast-path** — `app.js` audio handler now supports single-shot `{"type":"audio","format":"mp3","data":"..."}` messages alongside the existing chunked Web Audio API protocol. Both paths are supported simultaneously
+
 ## [Unreleased]
 
 ### Added

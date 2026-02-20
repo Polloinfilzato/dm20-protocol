@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dm20-protocol"
-version = "0.3.0"
+version = "0.4.0"
 description = "A comprehensive MCP server for AI-assisted D&D campaign management. 50+ tools for campaigns, characters, combat, quests, PDF rulebooks, and more."
 authors = [{name = "Polloinfilzato"}]
 license = "MIT"

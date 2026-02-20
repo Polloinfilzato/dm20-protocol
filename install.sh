@@ -3,6 +3,7 @@
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh)
 # Or:    bash install.sh           (from the repo root)
 # Or:    bash install.sh --upgrade [play_dir]   (update existing install — auto-detects play dir)
+# Or:    bash install.sh --voice   [play_dir]   (add TTS voice narration support)
 
 set -euo pipefail
 
@@ -12,6 +13,7 @@ RAW_BASE="https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main"
 _remote_ver=$(curl -fsSL "${RAW_BASE}/pyproject.toml" 2>/dev/null | grep -E '^version' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 VERSION="${_remote_ver:-0.3.0}"  # Fallback if fetch fails
 UPGRADE_MODE=false       # true when running with --upgrade flag
+VOICE_MODE=false         # true when running with --voice flag
 
 # ─── Global State ─────────────────────────────────────────────────────────────
 
@@ -1508,6 +1510,122 @@ do_upgrade() {
     echo ""
 }
 
+# ─── Voice Mode ───────────────────────────────────────────────────────────────
+# Usage: bash install.sh --voice [play_dir]
+# Adds voice/TTS dependencies to an existing installation.
+
+do_install_voice() {
+    local play_dir="${1:-}"
+
+    echo ""
+    echo -e "${BOLD}DM20 Protocol — Voice Install${NC}"
+    echo ""
+
+    # ── Auto-detect play directory (same logic as --upgrade) ──────────────
+    if [[ -n "$play_dir" ]]; then
+        play_dir="${play_dir/#\~/$HOME}"
+        [[ ! "$play_dir" == /* ]] && play_dir="$(pwd)/${play_dir}"
+    else
+        local candidates=()
+        if is_dm20_play_dir "$(pwd)"; then
+            candidates+=("$(pwd)")
+        fi
+        if [[ "$(pwd)" != "$HOME/dm20" ]] && is_dm20_play_dir "$HOME/dm20"; then
+            candidates+=("$HOME/dm20")
+        fi
+        if [[ -n "${DM20_STORAGE_DIR:-}" ]]; then
+            local env_parent
+            env_parent="$(dirname "$DM20_STORAGE_DIR")"
+            if is_dm20_play_dir "$env_parent"; then
+                local already_found=false
+                for c in "${candidates[@]}"; do
+                    [[ "$c" == "$env_parent" ]] && already_found=true
+                done
+                [[ "$already_found" == false ]] && candidates+=("$env_parent")
+            fi
+        fi
+
+        if [[ ${#candidates[@]} -eq 1 ]]; then
+            play_dir="${candidates[0]}"
+            info "Found play directory: ${play_dir}"
+        elif [[ ${#candidates[@]} -gt 1 ]]; then
+            echo -e "${BOLD}Multiple DM20 play directories found:${NC}"
+            local i=1
+            for c in "${candidates[@]}"; do
+                echo "  ${i}) ${c}"
+                ((i++))
+            done
+            echo ""
+            local choice
+            read -rp "Which one? [1]: " choice
+            choice="${choice:-1}"
+            play_dir="${candidates[$((choice - 1))]}"
+        else
+            error "Could not find a DM20 play directory."
+            echo ""
+            echo -e "  ${BOLD}Option 1:${NC} cd into your play directory and run:"
+            echo -e "    ${DIM}cd ~/dm20 && bash install.sh --voice${NC}"
+            echo ""
+            echo -e "  ${BOLD}Option 2:${NC} specify the path explicitly:"
+            echo -e "    ${DIM}bash install.sh --voice /path/to/your/dm20${NC}"
+            echo ""
+            exit 1
+        fi
+    fi
+
+    if [[ ! -d "$play_dir" ]] || ! is_dm20_play_dir "$play_dir"; then
+        error "Not a valid DM20 play directory: ${play_dir}"
+        exit 1
+    fi
+
+    # ── Platform info ─────────────────────────────────────────────────────
+    echo ""
+    if [[ "$PLATFORM" == "macos-arm" ]]; then
+        echo -e "  ${GREEN}${BOLD}Apple Silicon detected${NC} — Full local TTS stack:"
+        echo -e "    ${BOLD}Tier 1${NC} (speed):   Kokoro 82M — local, <300ms"
+        echo -e "    ${BOLD}Tier 2${NC} (quality):  mlx-audio  — local, ~800ms"
+        echo -e "    ${BOLD}Tier 3${NC} (fallback): Edge-TTS   — cloud, free"
+    elif [[ "$PLATFORM" == "macos-intel" ]]; then
+        echo -e "  ${YELLOW}${BOLD}Intel Mac detected${NC} — Cloud TTS fallback:"
+        echo -e "    ${BOLD}Tier 3${NC} (fallback): Edge-TTS   — cloud, free"
+        echo -e "  ${DIM}Local models (Kokoro, mlx-audio) require Apple Silicon.${NC}"
+    else
+        echo -e "  ${BOLD}Platform:${NC} ${PLATFORM}"
+        echo -e "    ${BOLD}Tier 3${NC} (fallback): Edge-TTS   — cloud, free"
+    fi
+    echo ""
+
+    # ── Install voice extras ──────────────────────────────────────────────
+    step "Installing voice dependencies..."
+
+    local installed=false
+    if uv tool install "dm20-protocol[voice] @ git+${REPO_URL}" --force 2>&1; then
+        success "Voice dependencies installed"
+        installed=true
+    else
+        warn "Install failed with default Python. Retrying with Python 3.12..."
+        if uv tool install --python 3.12 "dm20-protocol[voice] @ git+${REPO_URL}" --force 2>&1; then
+            success "Voice dependencies installed (using Python 3.12)"
+            installed=true
+        else
+            error "Voice installation failed. Check the output above."
+            exit 1
+        fi
+    fi
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    echo ""
+    echo -e "${BOLD}${GREEN}✅ Voice installed!${NC}"
+    echo ""
+    echo -e "  ${BOLD}Enable narrated mode:${NC}"
+    echo -e "    Open Claude Code in ${play_dir}"
+    echo -e "    Run ${BOLD}/dm:profile${NC} → set mode to ${BOLD}Narrated${NC} or ${BOLD}Immersive${NC}"
+    echo ""
+    echo -e "  ${DIM}Narrated: DM speaks the narrative aloud after each action${NC}"
+    echo -e "  ${DIM}Immersive: Narrated + players can speak their actions${NC}"
+    echo ""
+}
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
@@ -1517,6 +1635,15 @@ main() {
         banner
         detect_platform
         do_upgrade "${2:-}"
+        exit 0
+    fi
+
+    # Parse --voice flag
+    if [[ "${1:-}" == "--voice" ]]; then
+        VOICE_MODE=true
+        banner
+        detect_platform
+        do_install_voice "${2:-}"
         exit 0
     fi
 
