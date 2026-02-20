@@ -65,6 +65,7 @@ The installer offers two modes. **Most users should pick "User"** — it's the d
 | **Disk footprint** | Minimal (~50 MB) | Full dev environment (~200+ MB) |
 | **Prerequisites** | None (auto-installed) | None (auto-installed) |
 | **How to update** | Re-run the install command with `--upgrade` | `git pull && uv sync` |
+| **Add voice narration** | Re-run with `--voice` | `uv sync --extra voice` |
 
 > Running `bash install.sh` from inside an existing clone? The installer auto-detects it and switches to Developer mode.
 
@@ -242,6 +243,42 @@ uv sync --extra rag
 </details>
 
 > **Note:** RAG is not available on **macOS Intel (x86_64)** due to missing ML library support. Everything else works perfectly without it — keyword search covers most use cases just fine.
+
+## Optional: Voice Narration
+
+By default, DM20 narrates through text only. With voice enabled, the DM reads narration and NPC dialogue aloud in real time using **text-to-speech (TTS)** — no cloud subscriptions or API keys needed.
+
+DM20 automatically selects the best TTS engine available on your hardware:
+
+| Engine | Platform | Quality | Requires internet? |
+|---|---|---|---|
+| **Kokoro** (via mlx-audio) | Apple Silicon Mac (M1/M2/M3/M4) | Excellent — natural, expressive | No |
+| **Edge-TTS** | All other platforms | Good — Microsoft neural voices | Yes |
+
+To add voice narration to an existing install:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh) --voice
+```
+
+After installation, activate voice inside Claude Code with `/dm:profile` — it shows an interactive menu to set the interaction mode. Or set it directly:
+
+```
+configure_claudmaster interaction_mode="narrated"
+```
+
+Audio is streamed to your **browser** through the Party Mode interface. Start it with `/dm:party-mode`, open the URL shown, and narration will play automatically as you game.
+
+The complete voice setup walkthrough — interaction modes, engine selection, Party Mode audio, and troubleshooting — is in the [User Guide](docs/GUIDE.md#voice-narration).
+
+<details>
+<summary>Manual installation (developer mode only)</summary>
+
+```bash
+uv sync --extra voice
+```
+
+</details>
 
 ## Development
 

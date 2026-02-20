@@ -262,6 +262,63 @@ Game sessions consume context window quickly. When context reaches ~50-60%, save
 
 For detailed instructions, see the [Player Guide](PLAYER_GUIDE.md).
 
+### Voice Narration
+
+DM20 supports three **interaction modes** that control whether the DM speaks out loud via text-to-speech (TTS). Modes are completely independent of model profiles — any combination of mode × profile works.
+
+| Mode | Text | TTS Audio | Voice Deps | Best For |
+|------|------|-----------|------------|----------|
+| `classic` | Yes | No | None | Text-only play, minimal setup, any platform |
+| `narrated` | Yes | Yes | `[voice]` | Immersive solo or party play with spoken narration |
+| `immersive` | Yes | Yes + STT input | `[voice]` | Hands-free voice-driven play (STT coming soon) |
+
+#### Installing Voice Dependencies
+
+Voice narration requires the `[voice]` optional dependency group. The easiest way is with the installer's `--voice` flag:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh) --voice
+```
+
+This auto-detects your platform and installs the best TTS engine available on your hardware:
+
+| Engine | When selected | Quality | Network |
+|--------|--------------|---------|---------|
+| **Kokoro** (via mlx-audio) | Apple Silicon Mac (M1/M2/M3/M4) only | Excellent — natural, expressive | Fully offline |
+| **Edge-TTS** | All other platforms (Intel Mac, Linux, Windows/WSL) | Good — Microsoft neural voices | Requires internet |
+
+If neither engine initializes successfully, TTS degrades gracefully — play continues without audio, and a log message explains what happened.
+
+For developer installs: `uv sync --extra voice`.
+
+#### Enabling Voice After Installation
+
+**Option 1 — Interactive menu (recommended):** Run `/dm:profile` inside Claude Code. It shows a menu where you can set the interaction mode without remembering parameter names.
+
+**Option 2 — Direct tool call:** Set the mode programmatically at any time:
+
+```
+configure_claudmaster interaction_mode="narrated"
+```
+
+**Option 3 — At campaign creation:** Set it when the campaign is created so every session defaults to voice:
+
+```
+create_campaign name="My Campaign" interaction_mode="narrated"
+```
+
+To switch back to text-only at any point: `configure_claudmaster interaction_mode="classic"`.
+
+#### How Audio Is Delivered
+
+TTS audio is streamed to your **browser** through the Party Mode WebSocket interface — it does not play in the Claude Code terminal. To hear narration:
+
+1. Start the Party Mode server: `/dm:party-mode`
+2. Open the URL shown in any browser on the same machine (or scan the QR code from another device)
+3. Begin play normally — narration audio plays automatically in the browser tab
+
+The full text narrative still appears in Claude Code as usual. The browser adds the audio layer on top without replacing anything.
+
 ---
 
 ## Available Tools (86)
@@ -369,7 +426,7 @@ Track the live state of the campaign and maintain a detailed adventure log acros
 | `add_session_note` | Add structured session notes: summary, events, characters present, NPCs encountered, quest updates, combat encounters, XP, treasure |
 | `summarize_session` | Generate structured session notes from raw transcription text or file; supports speaker mapping and large transcription chunking |
 | `get_sessions` | Get all session notes ordered by session number |
-| `add_event` | Add a typed event (combat, roleplay, exploration, quest, character, world, session) to the adventure log with importance rating and tags |
+| `add_event` | Add a typed event (`combat`, `roleplay`, `exploration`, `quest`, `character`, `world`, `session`, `social`) to the adventure log with importance rating and tags |
 | `get_events` | Get events from the adventure log with optional type filter, search, and limit |
 
 **Example:** "Log a quest event: 'The party accepted the dragon-slaying quest from Durgan' at importance 4."
