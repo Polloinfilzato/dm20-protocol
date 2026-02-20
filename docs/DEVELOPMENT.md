@@ -146,7 +146,9 @@ Tools should use the decorator pattern suggested by the FastMCP documentation.
 @mcp.tool
 def create_campaign(
     name: Annotated[str, Field(description="Campaign name")],
-    description: Annotated[str, Field(description="Campaign description")]
+    description: Annotated[str, Field(description="Campaign description")],
+    rules_version: Annotated[str, Field(description="D&D rules version: '2014' or '2024'")] = "2024",
+    interaction_mode: Annotated[Literal["classic", "narrated", "immersive"], Field(description="Interaction mode")] = "classic",
 ) -> str:
     """Create a new D&D campaign."""
     # Implementation
@@ -329,7 +331,7 @@ These methods handle the direct file I/O operations.
 These methods provide a clean, high-level interface for the MCP server tools to interact with the data.
 
 #### **Campaign Management**
-- **`create_campaign(...) -> Campaign`**: Creates a new `Campaign` object, sets it as the `_current_campaign`, and saves it to a new JSON file.
+- **`create_campaign(...) -> Campaign`**: Creates a new `Campaign` object with optional `rules_version` ('2014'/'2024') and `interaction_mode` ('classic'/'narrated'/'immersive'), sets it as the `_current_campaign`, and saves it using split storage format.
 - **`get_current_campaign() -> Campaign | None`**: Returns the currently loaded campaign object.
 - **`list_campaigns() -> list[str]`**: Returns a list of names of all available campaigns by scanning the `campaigns` directory.
 - **`load_campaign(name: str) -> Campaign`**: Loads a specific campaign from its JSON file into `_current_campaign`.
@@ -630,9 +632,10 @@ async def test_create_campaign():
     # Tools can be tested as regular Python functions
     result = create_campaign(
         name="Test Campaign",
-        description="A test campaign"
+        description="A test campaign",
+        interaction_mode="classic",
     )
-    assert "Created campaign 'Test Campaign'" in result
+    assert "Created campaign" in result
 
 # Or test via MCP client
 from fastmcp import Client

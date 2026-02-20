@@ -36,7 +36,7 @@ This prevents the backend from automatically loading campaigns when used as a ba
 Modified to use split storage backend for all new campaigns:
 
 ```python
-def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None) -> Campaign:
+def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None, rules_version: str = "2024", interaction_mode: str = "classic") -> Campaign:
     """Create a new campaign using split storage format."""
     # Use split backend to create the campaign
     campaign = self._split_backend.create_campaign(

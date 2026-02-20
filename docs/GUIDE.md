@@ -274,7 +274,7 @@ Create, load, and switch between campaigns. Every other tool operates on the cur
 
 | Tool | Description |
 |------|-------------|
-| `create_campaign` | Create a new campaign with name, description, optional DM name and setting |
+| `create_campaign` | Create a new campaign with name, description, optional DM name, setting, rules version (`2014`/`2024`), and interaction mode (`classic`/`narrated`/`immersive`) |
 | `get_campaign_info` | Get current campaign information (entity counts, game state summary) |
 | `list_campaigns` | List all available campaigns in the data directory |
 | `load_campaign` | Switch to a different campaign by name |
@@ -436,7 +436,7 @@ A complete AI DM system for solo D&D play. Configurable narrative style, difficu
 
 | Tool | Description |
 |------|-------------|
-| `configure_claudmaster` | View or update AI DM settings: LLM model, temperature, narrative/dialogue style, difficulty (easy/normal/hard/deadly), improvisation level, fudge rolls |
+| `configure_claudmaster` | View or update AI DM settings: LLM model, temperature, narrative/dialogue style, difficulty (easy/normal/hard/deadly), improvisation level, fudge rolls, model profile, interaction mode |
 | `start_claudmaster_session` | Start a new session or resume an existing one for a named campaign; optionally load a D&D module |
 | `end_claudmaster_session` | Pause or end a session, saving all state and optional DM notes |
 | `get_claudmaster_session_state` | Get current session state, action history, and game context at minimal/standard/full detail |
