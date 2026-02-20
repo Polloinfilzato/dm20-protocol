@@ -630,6 +630,8 @@ def update_character(
     # Progression
     experience_points: Annotated[int | None, Field(description="Experience points", ge=0)] = None,
     speed: Annotated[int | None, Field(description="Movement speed in feet", ge=0)] = None,
+    character_level: Annotated[int | None, Field(description="Set the primary class level directly (e.g. to downgrade to level 1). Recalculates proficiency bonus automatically.", ge=1, le=20)] = None,
+    hit_dice_remaining: Annotated[str | None, Field(description="Remaining hit dice, e.g. '1d8' or '3d10'. Use after a level change or manual rest.")] = None,
     # Misc
     inspiration: Annotated[bool | None, Field(description="Inspiration status")] = None,
     notes: Annotated[str | None, Field(description="Additional notes about the character")] = None,
@@ -676,11 +678,24 @@ def update_character(
         "name", "player_name", "description", "bio", "background", "alignment",
         "hit_points_current", "hit_points_max", "temporary_hit_points",
         "armor_class", "experience_points", "speed", "inspiration", "notes",
+        "hit_dice_remaining",
     }
     scalar_updates = {
         k: all_params[k] for k in scalar_fields
         if all_params.get(k) is not None
     }
+
+    # 1b. character_level: set primary class level and recalculate proficiency bonus
+    if character_level is not None:
+        if character.classes:
+            old_level = character.classes[0].level
+            character.classes[0].level = character_level
+            character.proficiency_bonus = 2 + (character.total_level - 1) // 4
+            scalar_updates["classes"] = character.classes
+            scalar_updates["proficiency_bonus"] = character.proficiency_bonus
+            messages.append(f"level: {old_level} → {character_level} (proficiency bonus → +{character.proficiency_bonus})")
+        else:
+            messages.append("⚠️ Cannot set level: character has no classes defined.")
 
     # 2. Ability score updates (need special handling via abilities dict)
     ability_updates = {
