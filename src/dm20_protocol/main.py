@@ -2324,27 +2324,45 @@ def add_session_note(
     session_number: Annotated[int, Field(description="Session number", ge=1)],
     summary: Annotated[str, Field(description="Session summary")],
     title: Annotated[str | None, Field(description="Session title")] = None,
-    events: Annotated[list[str] | None, Field(description="Key events that occurred")] = None,
-    characters_present: Annotated[list[str] | None, Field(description="Characters present in session")] = None,
-    npcs_encountered: Annotated[list[str] | None, Field(description="NPCs encountered in session")] = None,
-    quest_updates: Annotated[dict[str, str] | None, Field(description="Quest name to progress mapping")] = None,
-    combat_encounters: Annotated[list[str] | None, Field(description="Combat encounter summaries")] = None,
+    events: Annotated[str | None, Field(description="Key events that occurred (JSON list or comma-separated)")] = None,
+    characters_present: Annotated[str | None, Field(description="Characters present in session (JSON list or comma-separated)")] = None,
+    npcs_encountered: Annotated[str | None, Field(description="NPCs encountered in session (JSON list or comma-separated)")] = None,
+    quest_updates: Annotated[str | None, Field(description="Quest name to progress mapping (JSON object)")] = None,
+    combat_encounters: Annotated[str | None, Field(description="Combat encounter summaries (JSON list or comma-separated)")] = None,
     experience_gained: Annotated[int | None, Field(description="Experience points gained", ge=0)] = None,
-    treasure_found: Annotated[list[str] | None, Field(description="Treasure or items found")] = None,
+    treasure_found: Annotated[str | None, Field(description="Treasure or items found (JSON list or comma-separated)")] = None,
     notes: Annotated[str, Field(description="Additional notes")] = "",
 ) -> str:
     """Add notes for a game session."""
+    def _to_list(val) -> list[str]:
+        if val is None:
+            return []
+        if isinstance(val, list):
+            return val
+        return _parse_json_list(str(val))
+
+    def _to_dict(val) -> dict[str, str]:
+        if val is None:
+            return {}
+        if isinstance(val, dict):
+            return val
+        try:
+            parsed = json.loads(val)
+            return {str(k): str(v) for k, v in parsed.items()} if isinstance(parsed, dict) else {}
+        except (json.JSONDecodeError, AttributeError):
+            return {}
+
     session_note = SessionNote(
         session_number=session_number,
         title=title,
         summary=summary,
-        events=events or [],
-        characters_present=characters_present or [],
-        npcs_encountered=npcs_encountered or [],
-        quest_updates=quest_updates or {},
-        combat_encounters=combat_encounters or [],
+        events=_to_list(events),
+        characters_present=_to_list(characters_present),
+        npcs_encountered=_to_list(npcs_encountered),
+        quest_updates=_to_dict(quest_updates),
+        combat_encounters=_to_list(combat_encounters),
         experience_gained=experience_gained,
-        treasure_found=treasure_found or [],
+        treasure_found=_to_list(treasure_found),
         notes=notes
     )
 
