@@ -42,6 +42,7 @@
     let audioChunkBuffers = {};  // keyed by stream id (sequence tracking)
     let audioPlaybackQueue = [];
     let isPlayingAudio = false;
+    let audioMuted = localStorage.getItem('audioMuted') === 'true';
 
     // ===== DOM References =====
     const $ = (sel) => document.querySelector(sel);
@@ -67,6 +68,7 @@
         speedValue: $('#stat-speed'),
         initValue: $('#stat-init'),
         initBadge: $('#stat-init-badge'),
+        muteBtn: $('#mute-btn'),
         conditions: $('.header__conditions'),
         combatBanner: $('.combat-banner'),
         combatInfo: $('.combat-banner__info'),
@@ -1152,6 +1154,8 @@
     }
 
     function handleAudioChunk(msg) {
+        if (audioMuted) return;
+
         // Simple single-message audio (no chunking metadata)
         if (!msg.total_chunks && !msg.sequence) {
             try {
@@ -1472,6 +1476,16 @@
         // Private messages toggle
         if (dom.privateToggle) {
             dom.privateToggle.addEventListener('click', togglePrivateMessages);
+        }
+
+        // Mute button
+        if (dom.muteBtn) {
+            dom.muteBtn.textContent = audioMuted ? '🔇' : '🔊';
+            dom.muteBtn.addEventListener('click', function () {
+                audioMuted = !audioMuted;
+                localStorage.setItem('audioMuted', audioMuted);
+                dom.muteBtn.textContent = audioMuted ? '🔇' : '🔊';
+            });
         }
     }
 
