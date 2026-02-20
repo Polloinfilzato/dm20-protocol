@@ -248,12 +248,15 @@ uv sync --extra rag
 
 By default, DM20 narrates through text only. With voice enabled, the DM reads narration and NPC dialogue aloud in real time using **text-to-speech (TTS)** — no cloud subscriptions or API keys needed.
 
-DM20 automatically selects the best TTS engine available on your hardware:
+On **Apple Silicon**, DM20 uses a 3-tier engine system that picks the best engine for each context. Other platforms use Edge-TTS for all tiers:
 
-| Engine | Platform | Quality | Requires internet? |
+| Tier | When used | Apple Silicon | Other platforms |
 |---|---|---|---|
-| **Kokoro** (via mlx-audio) | Apple Silicon Mac (M1/M2/M3/M4) | Excellent — natural, expressive | No |
-| **Edge-TTS** | All other platforms | Good — Microsoft neural voices | Yes |
+| **Speed** | Combat, quick actions | Kokoro — offline | Piper — offline |
+| **Quality** | DM narration, NPC dialogue | Qwen3-TTS — offline | Edge-TTS — internet |
+| **Fallback** | If above tiers fail | Edge-TTS — internet | Edge-TTS — internet |
+
+> **First-use note (Apple Silicon):** The Qwen3-TTS model downloads ~1.2 GB from Hugging Face on first narrated session. The `--voice` install step itself is only ~50 MB (packages). The model is then cached and never re-downloaded.
 
 To add voice narration to an existing install:
 
@@ -267,9 +270,9 @@ After installation, activate voice inside Claude Code with `/dm:profile` — it 
 configure_claudmaster interaction_mode="narrated"
 ```
 
-Audio is streamed to your **browser** through the Party Mode interface. Start it with `/dm:party-mode`, open the URL shown, and narration will play automatically as you game.
+> **Audio plays in your browser, not the terminal.** Run `/dm:party-mode`, open the URL shown, and leave that tab playing. For **LAN sessions** (everyone at the same table), only one device should have audio on — mute the browser tab on player devices to avoid the same narration playing from multiple speakers simultaneously.
 
-The complete voice setup walkthrough — interaction modes, engine selection, Party Mode audio, and troubleshooting — is in the [User Guide](docs/GUIDE.md#voice-narration).
+The complete voice setup walkthrough — interaction modes, 3-tier engine details, and LAN vs remote scenarios — is in the [User Guide](docs/GUIDE.md#voice-narration).
 
 <details>
 <summary>Manual installation (developer mode only)</summary>
