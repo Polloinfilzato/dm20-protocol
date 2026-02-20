@@ -86,6 +86,9 @@ dmypy.json
 .fastmcp/
 fastmcp_cache/
 
+# Rulebook cache (downloaded/generated at runtime)
+rulebook_cache/
+
 # uv
 .uv_cache/
 

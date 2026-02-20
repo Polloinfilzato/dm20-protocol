@@ -42,14 +42,13 @@ class TestTokenManager:
         assert manager.validate_token(token1) == "player1"
         assert manager.validate_token(token2) == "player2"
 
-    def test_generate_token_replaces_existing(self) -> None:
-        """Test that generating a new token for same player invalidates old one."""
+    def test_generate_token_is_deterministic(self) -> None:
+        """Test that generating a token for same player is deterministic (stable tokens)."""
         manager = TokenManager()
         old_token = manager.generate_token("player1")
         new_token = manager.generate_token("player1")
 
-        assert old_token != new_token
-        assert manager.validate_token(old_token) is None
+        assert old_token == new_token  # Deterministic: token = player_id
         assert manager.validate_token(new_token) == "player1"
         assert len(manager._tokens) == 1
 
@@ -76,13 +75,13 @@ class TestTokenManager:
         assert player_id is None
 
     def test_refresh_token(self) -> None:
-        """Test token refresh."""
+        """Test token refresh (deterministic tokens produce same value)."""
         manager = TokenManager()
         old_token = manager.generate_token("player1")
         new_token = manager.refresh_token("player1")
 
-        assert old_token != new_token
-        assert manager.validate_token(old_token) is None
+        # With deterministic tokens, refresh returns the same stable token
+        assert old_token == new_token
         assert manager.validate_token(new_token) == "player1"
 
     def test_refresh_token_nonexistent_player(self) -> None:

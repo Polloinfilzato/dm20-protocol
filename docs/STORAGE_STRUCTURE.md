@@ -28,7 +28,7 @@ Each campaign is a directory with separate JSON files for each data type. This f
 ```
 campaigns/
 └── {campaign-name}/
-    ├── campaign.json               # Campaign metadata (id, name, description, dm_name, setting)
+    ├── campaign.json               # Campaign metadata (id, name, description, dm_name, setting, rules_version, interaction_mode)
     ├── characters.json             # All player characters (dict of name -> Character)
     ├── npcs.json                   # All NPCs (dict of name -> NPC)
     ├── locations.json              # All locations (dict of name -> Location)

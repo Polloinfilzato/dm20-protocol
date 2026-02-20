@@ -296,6 +296,16 @@ A **DM Persona** (`.claude/dm-persona.md`) orchestrates the game loop: gather co
 
 Switch mid-session with `/dm:profile economy` or via `configure_claudmaster(model_profile="quality")`. The profile updates both the Python-side config and the Claude Code agent files at once.
 
+**Interaction Modes** control how the DM communicates with players. They are orthogonal to model profiles — any combination of mode × profile is valid (3 × 3 = 9 combos):
+
+| Mode | Text | TTS Audio | STT Input | Voice Deps |
+|------|------|-----------|-----------|------------|
+| `classic` | Yes | No | No | None |
+| `narrated` | Yes | Yes | No | `[voice]` |
+| `immersive` | Yes | Yes | Yes | `[voice]` |
+
+Set at campaign creation with `create_campaign(interaction_mode="narrated")` or switch mid-session via `configure_claudmaster(interaction_mode="immersive")`. Default is `classic` (text-only, no extra dependencies). Non-classic modes require `pip install dm20-protocol[voice]`.
+
 > **Note:** Model profiles and effort levels are a **Claude-specific feature**. The effort parameter is only supported on Anthropic's Opus models via the Claude API. If you're using dm20-protocol with a different MCP client or LLM backend, the effort setting will have no effect — the system still works, but you won't get the quality/cost scaling that effort provides. CC agent file updates (`.claude/agents/*.md`) are specific to Claude Code.
 
 Based on [academic research](https://arxiv.org/html/2502.19519v2) showing multi-agent GM outperforms single-agent approaches. Built on the Claudmaster architecture with session persistence, difficulty scaling, and configurable narrative style.

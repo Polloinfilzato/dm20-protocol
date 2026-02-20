@@ -48,16 +48,19 @@ class TokenManager:
 
     def generate_token(self, player_id: str) -> str:
         """
-        Generate a new session token for a player.
+        Generate a deterministic session token for a player.
 
-        If a token already exists for this player_id, it is invalidated
-        and a new one is created.
+        The token equals the player_id itself, ensuring stable URLs across
+        server restarts. OBSERVER always gets "OBSERVER" as its token.
+
+        If a token already exists for this player_id, the old mapping is
+        cleaned up before re-registering.
 
         Args:
             player_id: Unique identifier for the player (character_id or "OBSERVER")
 
         Returns:
-            An 8-character URL-safe token string
+            The deterministic token string (equal to player_id)
         """
         # Invalidate existing token if present
         if player_id in self._reverse_index:
@@ -65,15 +68,19 @@ class TokenManager:
             self._tokens.pop(old_token, None)
             self._created_at.pop(old_token, None)
 
-        # Generate new token
-        token = secrets.token_urlsafe(6)  # ~8 chars
+        # Deterministic token: token = player_id (stable across restarts)
+        # OBSERVER always gets the fixed string "OBSERVER"
+        token = player_id
+
+        # OLD random token generation (preserved for reference):
+        # token = secrets.token_urlsafe(6)  # ~8 chars
 
         # Store mapping
         self._tokens[token] = player_id
         self._reverse_index[player_id] = token
         self._created_at[token] = datetime.now()
 
-        logger.info(f"Generated token for player_id={player_id}")
+        logger.info(f"Generated stable token for player_id={player_id}")
         return token
 
     def validate_token(self, token: str) -> Optional[str]:
@@ -150,11 +157,48 @@ class TokenManager:
 
 class QRCodeGenerator:
     """
-    Generates QR code PNGs for Party Mode tokens.
+    Generates QR code PNGs and terminal-rendered ASCII art for Party Mode tokens.
 
     QR codes encode the full URL (http://host:port/play?token=xxx) for
     easy mobile access. Players can scan the code to join the session.
+    Terminal rendering uses Unicode block characters for in-terminal display.
     """
+
+    @staticmethod
+    def render_qr_terminal(url: str, label: str) -> str:
+        """
+        Render a QR code as ASCII/Unicode art for terminal display.
+
+        Uses Unicode block characters (half-blocks) for compact rendering
+        that works in standard terminal emulators (iTerm2, Terminal.app).
+
+        Args:
+            url: The full URL to encode in the QR code
+            label: Human-readable label (e.g., character name) displayed above the QR
+
+        Returns:
+            A string containing the labeled QR code in Unicode art, ready for print().
+            Returns a URL-only fallback string if rendering fails.
+        """
+        try:
+            qr = qrcode.QRCode(
+                border=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+            )
+            qr.add_data(url)
+            qr.make(fit=True)
+
+            # Capture ASCII output to string
+            from io import StringIO
+            buffer = StringIO()
+            qr.print_ascii(out=buffer)
+            ascii_art = buffer.getvalue()
+
+            separator = "-" * 50
+            return f"\n{separator}\n  {label}\n{separator}\n{ascii_art}  {url}\n{separator}"
+        except Exception as e:
+            logger.warning(f"Failed to render QR terminal art for {label}: {e}")
+            return f"\n  {label}: {url}\n  (QR terminal rendering failed)"
 
     @staticmethod
     def generate_qr_code(

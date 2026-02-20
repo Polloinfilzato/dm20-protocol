@@ -89,6 +89,7 @@
                 <!-- Action Bar (inside Game tab, above tab nav) -->
                 <footer class="action-bar">
                     <div class="action-bar__status"></div>
+                    <div class="voice-transcript-preview" hidden></div>
                     <form class="action-bar__form">
                         <input
                             type="text"
@@ -98,6 +99,10 @@
                             autocorrect="off"
                             autocapitalize="sentences"
                         >
+                        <button type="button" class="action-bar__mic" title="Speak your action" hidden>
+                            <span class="mic-icon">&#127908;</span>
+                            <span class="mic-listening-dot" hidden></span>
+                        </button>
                         <button type="submit" class="action-bar__send" title="Send action">&#9654;</button>
                     </form>
                 </footer>

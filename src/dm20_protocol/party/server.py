@@ -51,6 +51,7 @@ from .queue import ActionQueue, ResponseQueue
 
 if TYPE_CHECKING:
     from dm20_protocol.claudmaster.turn_manager import TurnManager
+    from dm20_protocol.voice.streaming import AudioStreamManager
 
 logger = logging.getLogger("dm20-protocol.party")
 
@@ -405,6 +406,9 @@ class PartyServer:
         # TurnManager reference — set externally when combat starts
         self.turn_manager: Optional["TurnManager"] = None
 
+        # Audio streaming — set via setup_audio() when voice is available
+        self._audio_manager: Optional["AudioStreamManager"] = None
+
         # Event loop reference (set when server thread starts)
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -686,6 +690,77 @@ This page is for the DM to verify the server is running.</p></body></html>"""
             asyncio.run_coroutine_threadsafe(_do_combat_broadcast(), self._loop)
         except RuntimeError as e:
             logger.error(f"Failed to schedule combat broadcast: {e}")
+
+    def setup_audio(
+        self,
+        tts_router: object,
+        voice_registry: object,
+        chunk_size: int = 4096,
+    ) -> None:
+        """
+        Attach a VoiceRegistry and TTSRouter to enable audio streaming.
+
+        Call this after the TTS subsystem is initialised and a campaign
+        is loaded.  Once set up, ``stream_audio`` can deliver TTS audio
+        to connected players over WebSocket.
+
+        Args:
+            tts_router: Initialised TTSRouter instance.
+            voice_registry: Campaign VoiceRegistry instance.
+            chunk_size: Audio chunk size in bytes (default 4096).
+        """
+        from dm20_protocol.voice.streaming import AudioStreamManager
+
+        self._audio_manager = AudioStreamManager(
+            tts_router=tts_router,
+            voice_registry=voice_registry,
+            connection_manager=self.connection_manager,
+            chunk_size=chunk_size,
+        )
+        logger.info("Audio streaming enabled for Party Mode")
+
+    def stream_audio(
+        self,
+        text: str,
+        *,
+        speaker: str = "dm",
+        context: str = "default",
+        player_id: Optional[str] = None,
+    ) -> None:
+        """
+        Schedule TTS synthesis and audio streaming from any thread.
+
+        Thread-safe method that bridges to the server's event loop.
+        If audio is not set up or streaming fails, this is a no-op
+        (text delivery still works via the regular response queue).
+
+        Args:
+            text: Text to synthesise.
+            speaker: Speaker identifier for voice lookup.
+            context: Synthesis context for engine selection.
+            player_id: Specific player, or None to broadcast to all.
+        """
+        if self._audio_manager is None:
+            return
+
+        if not self._loop or self._loop.is_closed():
+            logger.warning("No event loop available for audio streaming")
+            return
+
+        mgr = self._audio_manager
+
+        async def _do_stream() -> None:
+            if player_id:
+                await mgr.stream_to_player(
+                    player_id, text, speaker=speaker, context=context
+                )
+            else:
+                await mgr.stream_to_all(text, speaker=speaker, context=context)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_do_stream(), self._loop)
+        except RuntimeError as e:
+            logger.error(f"Failed to schedule audio streaming: {e}")
 
     def _check_turn_gate(self, player_id: str) -> Optional[str]:
         """

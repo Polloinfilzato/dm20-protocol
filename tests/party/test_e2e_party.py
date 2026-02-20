@@ -223,29 +223,18 @@ class TestTokenSecurity:
             with client.websocket_connect("/ws"):
                 pass
 
-    def test_token_refresh_invalidates_old(
+    def test_token_refresh_returns_stable_token(
         self, e2e_server: PartyServer
     ) -> None:
-        """After refresh, old token fails and new token works."""
+        """With deterministic tokens, refresh returns the same stable token."""
         client = TestClient(e2e_server.app)
         old_token = e2e_server.token_manager.get_all_tokens()["thorin"]
 
-        # Refresh
+        # Refresh — deterministic tokens produce the same value
         new_token = e2e_server.token_manager.refresh_token("thorin")
-        assert new_token != old_token
+        assert new_token == old_token
 
-        # Old token should fail
-        resp = client.get(f"/play?token={old_token}")
-        assert resp.status_code == 401
-
-        resp = client.post(
-            "/action",
-            json={"action": "test"},
-            headers={"Authorization": f"Bearer {old_token}"},
-        )
-        assert resp.status_code == 401
-
-        # New token should work
+        # Token still works after refresh
         resp = client.get(f"/play?token={new_token}")
         assert resp.status_code == 200
 
