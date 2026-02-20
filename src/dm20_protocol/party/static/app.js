@@ -36,6 +36,12 @@
     let activeTab = 'game';
     let cachedCharacterData = null;
 
+    // Audio playback state
+    let audioContext = null;
+    let audioChunkBuffers = {};  // keyed by stream id (sequence tracking)
+    let audioPlaybackQueue = [];
+    let isPlayingAudio = false;
+
     // ===== DOM References =====
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
@@ -213,6 +219,10 @@
 
             case 'system':
                 addSystemMessage(msg.content);
+                break;
+
+            case 'audio':
+                handleAudioChunk(msg);
                 break;
 
             default:
@@ -1103,6 +1113,114 @@
         var m = Math.floor(seconds / 60);
         var s = seconds % 60;
         return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+
+    // ===== Audio Playback =====
+
+    function getAudioContext() {
+        if (!audioContext) {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn('Web Audio API not available:', e);
+                return null;
+            }
+        }
+        // Resume if suspended (browser autoplay policy)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        return audioContext;
+    }
+
+    function base64ToArrayBuffer(base64) {
+        var binary = atob(base64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function handleAudioChunk(msg) {
+        var seq = msg.sequence || 0;
+        var total = msg.total_chunks || 1;
+
+        // Use a simple stream ID based on the first chunk's arrival
+        // (all chunks of a single synthesis share the same total_chunks + duration_ms)
+        var streamId = 'stream_' + total + '_' + (msg.duration_ms || 0);
+
+        if (!audioChunkBuffers[streamId]) {
+            audioChunkBuffers[streamId] = {
+                chunks: new Array(total),
+                received: 0,
+                total: total,
+                format: msg.format || 'wav',
+                sampleRate: msg.sample_rate || 24000,
+            };
+        }
+
+        var stream = audioChunkBuffers[streamId];
+        stream.chunks[seq] = base64ToArrayBuffer(msg.data);
+        stream.received++;
+
+        // All chunks received — reassemble and queue for playback
+        if (stream.received >= stream.total) {
+            var totalSize = 0;
+            stream.chunks.forEach(function (buf) {
+                if (buf) totalSize += buf.byteLength;
+            });
+
+            var combined = new Uint8Array(totalSize);
+            var offset = 0;
+            stream.chunks.forEach(function (buf) {
+                if (buf) {
+                    combined.set(new Uint8Array(buf), offset);
+                    offset += buf.byteLength;
+                }
+            });
+
+            delete audioChunkBuffers[streamId];
+            queueAudioPlayback(combined.buffer);
+        }
+    }
+
+    function queueAudioPlayback(arrayBuffer) {
+        audioPlaybackQueue.push(arrayBuffer);
+        if (!isPlayingAudio) {
+            playNextAudio();
+        }
+    }
+
+    function playNextAudio() {
+        if (audioPlaybackQueue.length === 0) {
+            isPlayingAudio = false;
+            return;
+        }
+
+        isPlayingAudio = true;
+        var ctx = getAudioContext();
+        if (!ctx) {
+            audioPlaybackQueue.length = 0;
+            isPlayingAudio = false;
+            return;
+        }
+
+        var buffer = audioPlaybackQueue.shift();
+
+        ctx.decodeAudioData(buffer, function (audioBuffer) {
+            var source = ctx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(ctx.destination);
+            source.onended = function () {
+                playNextAudio();
+            };
+            source.start(0);
+        }, function (err) {
+            console.warn('Failed to decode audio:', err);
+            playNextAudio();
+        });
     }
 
 
