@@ -5015,10 +5015,42 @@ def party_pop_action() -> str:
 # --- TTS helper for Party Mode narration (macOS local audio) ----------
 
 # Maximum characters sent to TTS to avoid excessively long audio
-_TTS_MAX_CHARS = 500
+_TTS_MAX_CHARS = 3000
 
 # Singleton router (lazy-initialized)
 _tts_router_instance = None
+
+
+def _strip_markdown_for_tts(text: str) -> str:
+    """Remove Markdown formatting so TTS does not read symbols aloud."""
+    import re
+
+    # Headers: ## Title → Title
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Bold+italic: ***text*** / ___text___
+    text = re.sub(r"\*{3}(.+?)\*{3}", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"_{3}(.+?)_{3}", r"\1", text, flags=re.DOTALL)
+    # Bold: **text** / __text__
+    text = re.sub(r"\*{2}(.+?)\*{2}", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"_{2}(.+?)_{2}", r"\1", text, flags=re.DOTALL)
+    # Italic: *text* / _text_
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"_(.+?)_", r"\1", text)
+    # Inline code: `code`
+    text = re.sub(r"`(.+?)`", r"\1", text)
+    # Links: [text](url) → text
+    text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", text)
+    # Horizontal rules
+    text = re.sub(r"^[-*_]{3,}\s*$", "", text, flags=re.MULTILINE)
+    # Blockquotes
+    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    # Unordered list markers
+    text = re.sub(r"^[-*+]\s+", "", text, flags=re.MULTILINE)
+    # Ordered list markers: 1. 2. etc.
+    text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)
+    # Collapse excess blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _party_tts_speak(narrative: str, server) -> None:
@@ -5058,7 +5090,7 @@ def _party_tts_speak(narrative: str, server) -> None:
         return
 
     # 4. Truncate long narratives
-    text = narrative.strip()
+    text = _strip_markdown_for_tts(narrative)
     if not text:
         return
     if len(text) > _TTS_MAX_CHARS:
