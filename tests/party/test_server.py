@@ -573,18 +573,17 @@ class TestMCPNonInterference:
 class TestServerEdgeCases:
     """Edge case tests for Party Mode server."""
 
-    def test_multiple_tokens_same_player(self, party_server: PartyServer) -> None:
-        """Test that only the latest token works after refresh."""
+    def test_stable_token_after_refresh(self, party_server: PartyServer) -> None:
+        """Test that deterministic tokens remain stable after refresh."""
         client = TestClient(party_server.app)
 
         old_token = party_server.token_manager.get_all_tokens()["aragorn"]
         new_token = party_server.token_manager.refresh_token("aragorn")
 
-        # Old token should not work
-        response = client.get(f"/play?token={old_token}")
-        assert response.status_code == 401
+        # Deterministic tokens: refresh returns the same value
+        assert old_token == new_token
 
-        # New token should work
+        # Token still works
         response = client.get(f"/play?token={new_token}")
         assert response.status_code == 200
 
