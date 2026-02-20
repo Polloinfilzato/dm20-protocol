@@ -272,6 +272,31 @@ DM20 supports three **interaction modes** that control whether the DM speaks out
 | `narrated` | Yes | Yes | `[voice]` | Immersive solo or party play with spoken narration |
 | `immersive` | Yes | Yes + STT input | `[voice]` | Hands-free voice-driven play (STT coming soon) |
 
+#### How Audio Is Delivered
+
+> **Audio does NOT play in the Claude Code terminal.** The terminal is text-only. To hear narration you must open a browser.
+
+Here is the full path from narration to sound:
+
+```
+Claude Code (terminal) — text only
+    ↓  generates narration text
+    ↓  TTS engine converts it to MP3 audio
+    ↓  WebSocket broadcast to all connected browsers
+Browser tab (Party Mode URL) — audio plays here
+    ↓  receives {"type":"audio","format":"mp3","data":"..."}
+    ↓  decodes and feeds to Web Audio API
+    →  you hear the narration
+```
+
+Steps to set up audio before a session:
+
+1. **Start the Party Mode server** — run `/dm:party-mode` in Claude Code
+2. **Open the URL** shown (e.g. `http://localhost:8080/play?token=...`) in any browser on the same machine, or scan the QR code from another device on the same network
+3. **Begin play normally** — narration audio plays automatically in the browser tab
+
+The full text narrative still appears in Claude Code as usual. The browser adds audio on top without replacing anything. The `OBSERVER` token lets you listen in without acting as a player.
+
 #### Installing Voice Dependencies
 
 Voice narration requires the `[voice]` optional dependency group. The easiest way is with the installer's `--voice` flag:
@@ -280,14 +305,21 @@ Voice narration requires the `[voice]` optional dependency group. The easiest wa
 bash <(curl -fsSL https://raw.githubusercontent.com/Polloinfilzato/dm20-protocol/main/install.sh) --voice
 ```
 
-This auto-detects your platform and installs the best TTS engine available on your hardware:
+On **Apple Silicon**, DM20 uses a **3-tier engine system** that automatically picks the best engine for each context:
 
-| Engine | When selected | Quality | Network |
-|--------|--------------|---------|---------|
-| **Kokoro** (via mlx-audio) | Apple Silicon Mac (M1/M2/M3/M4) only | Excellent — natural, expressive | Fully offline |
-| **Edge-TTS** | All other platforms (Intel Mac, Linux, Windows/WSL) | Good — Microsoft neural voices | Requires internet |
+| Tier | When used | Engine — Apple Silicon | Engine — other platforms |
+|------|-----------|------------------------|--------------------------|
+| **Speed** | Combat, quick action descriptions | Kokoro | Piper |
+| **Quality** | DM narration, NPC dialogue | Qwen3-TTS | Edge-TTS |
+| **Fallback** | If the above tiers fail | Edge-TTS | Edge-TTS |
 
-If neither engine initializes successfully, TTS degrades gracefully — play continues without audio, and a log message explains what happened.
+- **Kokoro** and **Qwen3-TTS** run fully offline via `mlx-audio` — no internet needed once downloaded.
+- **Edge-TTS** uses Microsoft neural voices — free, but requires an internet connection.
+- **Piper** is a lightweight offline engine used on Intel Mac, Linux, and Windows/WSL.
+
+> **First-use download (Apple Silicon only):** The Qwen3-TTS model (`mlx-community/Qwen3-TTS-0.6B-bf16`) is downloaded from Hugging Face the first time you start a narrated session — approximately **1.2 GB**. This is separate from the `--voice` install step, which only installs the packages (~50 MB). The model is cached in `~/.cache/huggingface/` and never re-downloaded.
+
+If no engine initializes successfully, play continues without audio and a log message explains why.
 
 For developer installs: `uv sync --extra voice`.
 
@@ -308,16 +340,6 @@ create_campaign name="My Campaign" interaction_mode="narrated"
 ```
 
 To switch back to text-only at any point: `configure_claudmaster interaction_mode="classic"`.
-
-#### How Audio Is Delivered
-
-TTS audio is streamed to your **browser** through the Party Mode WebSocket interface — it does not play in the Claude Code terminal. To hear narration:
-
-1. Start the Party Mode server: `/dm:party-mode`
-2. Open the URL shown in any browser on the same machine (or scan the QR code from another device)
-3. Begin play normally — narration audio plays automatically in the browser tab
-
-The full text narrative still appears in Claude Code as usual. The browser adds the audio layer on top without replacing anything.
 
 ---
 
