@@ -150,16 +150,33 @@ def create_campaign(
         Campaign setting - a full description of the setting of the campaign in markdown format, or the path to a `.txt` or `.md` file containing the same.
         """)] = None,
     rules_version: Annotated[str, Field(description="D&D rules version: '2014' or '2024' (default: '2024')")] = "2024",
+    interaction_mode: Annotated[Literal["classic", "narrated", "immersive"], Field(description="Interaction mode: 'classic' (text-only), 'narrated' (TTS audio + text), 'immersive' (narrated + STT input). Default: 'classic'")] = "classic",
 ) -> str:
     """Create a new D&D campaign.
 
     The rules_version parameter selects which edition of the D&D 5e rules
     to use for this campaign. '2024' uses the revised 2024 rules, '2014'
-    uses the original 5th edition rules. The chosen version is stored in
-    the campaign manifest and used when loading rulebooks.
+    uses the original 5th edition rules.
+
+    The interaction_mode parameter controls how the DM communicates:
+    - classic: Text-only, no voice dependencies required.
+    - narrated: DM responses delivered as TTS audio + text via WebSocket.
+    - immersive: Narrated + player STT input from browser.
+
+    Interaction mode and model profile are independent axes — any combination is valid.
     """
     if rules_version not in ("2014", "2024"):
         return f"❌ Invalid rules_version '{rules_version}'. Must be '2014' or '2024'."
+
+    # Check voice dependencies for non-classic modes
+    if interaction_mode in ("narrated", "immersive"):
+        try:
+            from dm20_protocol.voice import TTSRouter
+        except ImportError:
+            return (
+                f"❌ Cannot use '{interaction_mode}' mode: voice dependencies not installed.\n"
+                "Run: pip install dm20-protocol[voice]"
+            )
 
     campaign = storage.create_campaign(
         name=name,
@@ -167,11 +184,14 @@ def create_campaign(
         dm_name=dm_name,
         setting=setting,
         rules_version=rules_version,
+        interaction_mode=interaction_mode,
     )
     # Start sheet sync for the new campaign
     _sheets_dir = data_path / "campaigns" / campaign.name / "sheets"
     sync_manager.start(_sheets_dir)
-    return f"🌟 Created campaign: '{campaign.name}' (rules: {rules_version}) and set as active 🌟"
+
+    mode_label = {"classic": "text-only", "narrated": "TTS + text", "immersive": "TTS + STT"}
+    return f"🌟 Created campaign: '{campaign.name}' (rules: {rules_version}, mode: {interaction_mode} — {mode_label[interaction_mode]}) and set as active 🌟"
 
 @mcp.tool
 def get_campaign_info() -> str:
@@ -3723,6 +3743,7 @@ def _configure_claudmaster_impl(
     agent_timeout=None,
     fudge_rolls=None,
     model_profile=None,
+    interaction_mode=None,
     reset_to_defaults=False,
 ) -> str:
     """Implementation for configure_claudmaster (testable without MCP wrapper)."""
@@ -3740,10 +3761,39 @@ def _configure_claudmaster_impl(
         storage_ref.save_claudmaster_config(config)
         # Also reset agent files to balanced defaults
         updated_agents = update_agent_files("balanced")
-        header = "Claudmaster Configuration Reset to Defaults"
+        # Also reset interaction mode to classic
+        storage_ref.set_interaction_mode("classic")
+        header = "Claudmaster Configuration Reset to Defaults (interaction mode: classic)"
         if updated_agents:
             header += f" (agents updated: {', '.join(updated_agents)})"
-        return _format_claudmaster_config(config, header=header)
+        return _format_claudmaster_config(config, header=header, interaction_mode="classic")
+
+    # ── Interaction mode switch (orthogonal to model profile) ──
+    if interaction_mode is not None:
+        valid_modes = ("classic", "narrated", "immersive")
+        if interaction_mode not in valid_modes:
+            return f"❌ Invalid interaction_mode '{interaction_mode}'. Must be one of: {', '.join(valid_modes)}"
+
+        # Check voice dependencies for non-classic modes
+        if interaction_mode in ("narrated", "immersive"):
+            try:
+                from dm20_protocol.voice import TTSRouter  # noqa: F811
+            except ImportError:
+                return (
+                    f"❌ Cannot switch to '{interaction_mode}' mode: voice dependencies not installed.\n"
+                    "Run: pip install dm20-protocol[voice]"
+                )
+
+        try:
+            storage_ref.set_interaction_mode(interaction_mode)
+        except ValueError as e:
+            return f"❌ {e}"
+
+        mode_labels = {"classic": "text-only", "narrated": "TTS + text", "immersive": "TTS + STT"}
+        return (
+            f"🔄 **Interaction Mode Changed:** {interaction_mode} ({mode_labels[interaction_mode]})\n\n"
+            f"Takes effect immediately. Model profile unchanged ({storage_ref.get_claudmaster_config().model_profile})."
+        )
 
     config = storage_ref.get_claudmaster_config()
 
@@ -3760,7 +3810,7 @@ def _configure_claudmaster_impl(
         storage_ref.save_claudmaster_config(config)
 
         # Build rich output
-        lines = [_format_claudmaster_config(config, header=f"Profile Applied: {model_profile.upper()}")]
+        lines = [_format_claudmaster_config(config, header=f"Profile Applied: {model_profile.upper()}", interaction_mode=storage_ref.interaction_mode)]
         if updated_agents:
             lines.append("")
             lines.append(f"**CC Agent files updated:** {', '.join(a + '.md' for a in updated_agents)}")
@@ -3801,7 +3851,7 @@ def _configure_claudmaster_impl(
         updates["fudge_rolls"] = fudge_rolls
 
     if not updates:
-        return _format_claudmaster_config(config, header="Claudmaster Configuration (Current)")
+        return _format_claudmaster_config(config, header="Claudmaster Configuration (Current)", interaction_mode=storage_ref.interaction_mode)
 
     # If user changed a model field individually, mark profile as "custom"
     model_fields = {"llm_model", "narrator_model", "arbiter_model",
@@ -3820,7 +3870,7 @@ def _configure_claudmaster_impl(
 
     storage_ref.save_claudmaster_config(config)
     changed = ", ".join(updates.keys())
-    return _format_claudmaster_config(config, header=f"Claudmaster Configuration Updated ({changed})")
+    return _format_claudmaster_config(config, header=f"Claudmaster Configuration Updated ({changed})", interaction_mode=storage_ref.interaction_mode)
 
 
 @mcp.tool
@@ -3835,6 +3885,7 @@ def configure_claudmaster(
     agent_timeout: Annotated[float | None, Field(description="Maximum seconds per agent call (> 0)")] = None,
     fudge_rolls: Annotated[bool | None, Field(description="Whether DM can fudge dice rolls for narrative purposes")] = None,
     model_profile: Annotated[Literal["quality", "balanced", "economy"] | None, Field(description="Switch model quality profile. Updates all model settings and CC agent files at once.")] = None,
+    interaction_mode: Annotated[Literal["classic", "narrated", "immersive"] | None, Field(description="Switch interaction mode: 'classic' (text-only), 'narrated' (TTS + text), 'immersive' (TTS + STT). Takes effect immediately.")] = None,
     reset_to_defaults: Annotated[bool, Field(description="Reset all settings to defaults")] = False,
 ) -> str:
     """Configure the Claudmaster AI DM settings for the current campaign.
@@ -3842,13 +3893,15 @@ def configure_claudmaster(
     Call with no arguments to view current configuration.
     Provide specific fields to update only those settings (partial update).
     Set model_profile to switch all model settings at once (quality/balanced/economy).
+    Set interaction_mode to switch how the DM communicates (independent of model_profile).
     Set reset_to_defaults=True to restore all settings to their default values.
     """
     return _configure_claudmaster_impl(
         storage, llm_model=llm_model, temperature=temperature, max_tokens=max_tokens,
         narrative_style=narrative_style, dialogue_style=dialogue_style, difficulty=difficulty,
         improvisation_level=improvisation_level, agent_timeout=agent_timeout,
-        fudge_rolls=fudge_rolls, model_profile=model_profile, reset_to_defaults=reset_to_defaults,
+        fudge_rolls=fudge_rolls, model_profile=model_profile,
+        interaction_mode=interaction_mode, reset_to_defaults=reset_to_defaults,
     )
 
 
@@ -3930,7 +3983,7 @@ async def player_action(
     )
 
 
-def _format_claudmaster_config(config, header: str = "Claudmaster Configuration") -> str:
+def _format_claudmaster_config(config, header: str = "Claudmaster Configuration", interaction_mode: str | None = None) -> str:
     """Format ClaudmasterConfig as a readable string."""
     improv_labels = {"none": "None", "low": "Low", "medium": "Medium", "high": "High", "full": "Full"}
     improv_index = {"none": 0, "low": 1, "medium": 2, "high": 3, "full": 4}
@@ -3939,11 +3992,16 @@ def _format_claudmaster_config(config, header: str = "Claudmaster Configuration"
     improv_num = improv_index.get(level_value, "?")
 
     profile_display = getattr(config, "model_profile", "balanced").upper()
+    mode_labels = {"classic": "text-only", "narrated": "TTS + text", "immersive": "TTS + STT"}
 
     lines = [
         f"**{header}**",
         "",
         f"**Model Profile:** {profile_display}",
+    ]
+    if interaction_mode:
+        lines.append(f"**Interaction Mode:** {interaction_mode} ({mode_labels.get(interaction_mode, interaction_mode)})")
+    lines += [
         "",
         "**LLM Settings:**",
         f"  Provider: {config.llm_provider}",

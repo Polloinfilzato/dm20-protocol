@@ -83,6 +83,9 @@ class DnDStorage:
         # Rules version for the current campaign ('2014' or '2024')
         self._rules_version: str = "2024"
 
+        # Interaction mode for the current campaign
+        self._interaction_mode: str = "classic"
+
         # Library manager (lazy initialization)
         self._library_manager: LibraryManager | None = None
 
@@ -111,6 +114,16 @@ class DnDStorage:
             Rules version string ('2014' or '2024'). Defaults to '2024'.
         """
         return self._rules_version
+
+    @property
+    def interaction_mode(self) -> str:
+        """Get the interaction mode for the current campaign.
+
+        Returns:
+            Interaction mode string ('classic', 'narrated', or 'immersive').
+            Defaults to 'classic'.
+        """
+        return self._interaction_mode
 
     @property
     def rulebooks_dir(self) -> Path | None:
@@ -431,7 +444,7 @@ class DnDStorage:
             logger.error(f"❌ Error loading events: {e}")
 
     # Campaign Management
-    def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None, rules_version: str = "2024") -> Campaign:
+    def create_campaign(self, name: str, description: str, dm_name: str | None = None, setting: str | Path | None = None, rules_version: str = "2024", interaction_mode: str = "classic") -> Campaign:
         """Create a new campaign using split storage format.
 
         Args:
@@ -440,8 +453,9 @@ class DnDStorage:
             dm_name: Dungeon Master name
             setting: Campaign setting
             rules_version: D&D rules version ('2014' or '2024', default '2024')
+            interaction_mode: Interaction mode ('classic', 'narrated', or 'immersive', default 'classic')
         """
-        logger.info(f"✨ Creating new campaign: '{name}' (rules: {rules_version})")
+        logger.info(f"✨ Creating new campaign: '{name}' (rules: {rules_version}, mode: {interaction_mode})")
 
         # Use split backend to create the campaign
         campaign = self._split_backend.create_campaign(
@@ -455,8 +469,9 @@ class DnDStorage:
         self._current_campaign = campaign
         self._current_format = StorageFormat.SPLIT
 
-        # Store rules_version in campaign metadata
+        # Store rules_version and interaction_mode in campaign metadata
         self._rules_version = rules_version
+        self._interaction_mode = interaction_mode
 
         # Create rulebooks directory structure
         campaign_dir = self._split_backend._get_campaign_dir(name)
@@ -465,8 +480,9 @@ class DnDStorage:
         (rulebooks_dir / "custom").mkdir(exist_ok=True)
         logger.debug(f"📂 Created rulebooks directory structure at {rulebooks_dir}")
 
-        # Save rules_version to campaign.json metadata
+        # Save rules_version and interaction_mode to campaign.json metadata
         self._save_rules_version(campaign_dir, rules_version)
+        self._save_interaction_mode(campaign_dir, interaction_mode)
 
         # Rebuild indexes for new campaign
         self._rebuild_character_index()
@@ -482,7 +498,7 @@ class DnDStorage:
         self._discovery_tracker = DiscoveryTracker(campaign_dir)
         logger.debug(f"Initialized empty DiscoveryTracker for campaign '{name}'")
 
-        logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format (rules: {rules_version}).")
+        logger.info(f"✅ Campaign '{name}' created and set as active using {self._current_format} format (rules: {rules_version}, mode: {interaction_mode}).")
         return campaign
 
     def get_current_campaign(self) -> Campaign | None:
@@ -536,8 +552,9 @@ class DnDStorage:
         self._rebuild_character_index()
         self._campaign_hash = self._compute_campaign_hash()
 
-        # Load rules version from campaign metadata
+        # Load rules version and interaction mode from campaign metadata
         self._load_rules_version()
+        self._load_interaction_mode()
 
         # Load RulebookManager if manifest exists (split campaigns only)
         self._load_rulebook_manager()
@@ -604,6 +621,7 @@ class DnDStorage:
             self._campaign_hash = ""
             self._rulebook_manager = None
             self._rules_version = "2024"
+            self._interaction_mode = "classic"
             self._library_bindings = None
             self._discovery_tracker = None
             if hasattr(self, '_split_backend'):
@@ -667,6 +685,94 @@ class DnDStorage:
             logger.debug(f"📖 Loaded rules_version: {self._rules_version}")
         except Exception as e:
             logger.warning(f"⚠️ Failed to load rules_version: {e}")
+
+    VALID_INTERACTION_MODES = ("classic", "narrated", "immersive")
+
+    def _save_interaction_mode(self, campaign_dir: Path, interaction_mode: str) -> None:
+        """Save interaction_mode to the campaign.json metadata file.
+
+        Updates the existing campaign.json with the interaction_mode field.
+
+        Args:
+            campaign_dir: Path to campaign directory
+            interaction_mode: Mode string ('classic', 'narrated', or 'immersive')
+        """
+        file_path = campaign_dir / "campaign.json"
+        if not file_path.exists():
+            logger.warning(f"Cannot save interaction_mode: {file_path} not found")
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+
+            metadata["interaction_mode"] = interaction_mode
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
+
+            logger.debug(f"💾 Saved interaction_mode '{interaction_mode}' to {file_path}")
+        except Exception as e:
+            logger.error(f"❌ Failed to save interaction_mode: {e}")
+
+    def _load_interaction_mode(self) -> None:
+        """Load interaction_mode from the current campaign's metadata.
+
+        Reads the interaction_mode field from campaign.json.
+        Defaults to 'classic' if not present (backward compatible).
+        """
+        self._interaction_mode = "classic"  # Default
+
+        if not self._current_campaign:
+            return
+
+        if self._current_format == StorageFormat.SPLIT:
+            campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+        else:
+            return  # Monolithic campaigns don't support interaction_mode
+
+        file_path = campaign_dir / "campaign.json"
+        if not file_path.exists():
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+
+            mode = metadata.get("interaction_mode", "classic")
+            if mode in self.VALID_INTERACTION_MODES:
+                self._interaction_mode = mode
+            else:
+                logger.warning(f"⚠️ Invalid interaction_mode '{mode}', defaulting to 'classic'")
+                self._interaction_mode = "classic"
+            logger.debug(f"📖 Loaded interaction_mode: {self._interaction_mode}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load interaction_mode: {e}")
+
+    def set_interaction_mode(self, mode: str) -> None:
+        """Change the interaction mode for the current campaign.
+
+        Validates the mode, updates the in-memory state, and persists to disk.
+
+        Args:
+            mode: New interaction mode ('classic', 'narrated', or 'immersive')
+
+        Raises:
+            ValueError: If mode is invalid or no campaign is loaded.
+        """
+        if mode not in self.VALID_INTERACTION_MODES:
+            raise ValueError(f"Invalid interaction_mode '{mode}'. Must be one of: {', '.join(self.VALID_INTERACTION_MODES)}")
+
+        if not self._current_campaign:
+            raise ValueError("No active campaign")
+
+        self._interaction_mode = mode
+
+        if self._current_format == StorageFormat.SPLIT:
+            campaign_dir = self._split_backend._get_campaign_dir(self._current_campaign.name)
+            self._save_interaction_mode(campaign_dir, mode)
+
+        logger.info(f"🔄 Interaction mode changed to '{mode}'")
 
     def _load_rulebook_manager(self) -> None:
         """Load RulebookManager for the current campaign if manifest exists.
