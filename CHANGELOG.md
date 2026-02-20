@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **TTS markdown stripping** — `_strip_markdown_for_tts()` removes bold, italic, headers, links, list markers, and blockquotes before passing narrative text to Edge-TTS. Prevents the engine from reading formatting symbols aloud (e.g. "asterisco asterisco Tassly asterisco asterisco")
+- **TTS character limit raised** — `_TTS_MAX_CHARS` raised from 500 to 3000. Previously, most of the narrative was silently truncated after the first paragraph
+- **TTS language defaulting to English** — `VoiceConfig(language="en")` was hardcoded in `_party_tts_speak`, causing Edge-TTS to use `en-US-GuyNeural` for Italian text. Now uses the DM voice config from `VoiceRegistry` (language `"it"`, voice `it-IT-DiegoNeural`)
+- **VoiceRegistry not wired into Party Mode** — `VoiceRegistry` and `AudioStreamManager` were initialized nowhere in the live game loop. `start_party_mode._init_tts()` now creates a `VoiceRegistry` from the campaign directory and calls `server.setup_audio()` to activate the full audio stack
+- **WebSocket ping handler missing** — `app.js` `handleMessage` switch had no `case 'ping':` branch, logging "Unknown message type: ping" on every server heartbeat (every 30s). Now responds with `{"type": "pong"}` as expected by the server's stale-connection detector
+
+### Changed
+- **Voice speed increased +30%** — All speed values in `DEFAULT_REGISTRY` shifted by +0.3 (DM narrator: 0.95 → 1.25, human baseline: 1.0 → 1.3, dwarf: 0.85 → 1.15, orc: 0.80 → 1.10). Relative differences between archetypes are preserved
+- **Voice registry default language** — `default_language` in `DEFAULT_REGISTRY` template changed from `"en"` to `"it"`. New campaigns get Italian voice defaults out of the box
+- **Voice registry archetypes expanded** — `DEFAULT_REGISTRY` now includes pitch/speed presets for 9 races (human, dwarf, elf, halfling, gnome, orc, half-orc, tiefling) with male/female variants and gender wildcards (`male_*`, `female_*`) as final fallback
+
 ### Added
 - **Party Mode per-device audio mute** — 🔊/🔇 toggle button in the player UI header. State is persisted in `localStorage` so each device remembers its preference across page reloads. Muting one client does not affect other connected clients. Default is unmuted (no regression). Closes #178
 - **Voice Registry** — Per-campaign `voice_registry.yaml` maps speakers (DM narrator, combat narrator, NPCs) to specific TTS engine/voice configurations. Wildcard archetype cascade: exact NPC override → exact archetype (gender_race) → gender wildcard (male_*) → race wildcard (*_dwarf) → DM default. Qwen3-TTS voice design via text description for NPC voices. CRUD API for managing overrides and archetype defaults. YAML auto-created with sensible defaults on first load. 24 tests covering cascade resolution, mutations, and persistence
