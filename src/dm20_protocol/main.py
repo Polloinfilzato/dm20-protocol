@@ -2646,26 +2646,28 @@ def get_sessions() -> str:
 # Adventure Log Tools
 @mcp.tool
 def add_event(
-    event_type: Annotated[Literal["combat", "roleplay", "exploration", "quest", "character", "world", "session"], Field(description="Type of event")],
+    event_type: Annotated[Literal["combat", "roleplay", "exploration", "quest", "character", "world", "session", "social"], Field(description="Type of event")],
     description: Annotated[str, Field(description="Event description")],
     title: Annotated[str | None, Field(description="Event title (optional, auto-generated from description if omitted)")] = None,
     session_number: Annotated[int | None, Field(description="Session number", ge=1)] = None,
-    characters_involved: Annotated[list[str] | None, Field(description="Characters involved in the event")] = None,
+    characters_involved: Annotated[str | None, Field(description="Characters involved — list or JSON array string, e.g. '[\"name1\",\"name2\"]'")] = None,
     location: Annotated[str | None, Field(description="Location where event occurred")] = None,
     importance: Annotated[int, Field(description="Event importance (1-5)", ge=1, le=5)] = 3,
-    tags: Annotated[list[str] | None, Field(description="Tags for categorizing the event")] = None,
+    tags: Annotated[str | None, Field(description="Tags for categorizing the event — list or JSON array string, e.g. '[\"npc\",\"story\"]'")] = None,
 ) -> str:
     """Add an event to the adventure log."""
     resolved_title = title or (description[:60].rstrip() + ("..." if len(description) > 60 else ""))
+    chars_list = _parse_json_list(characters_involved) if characters_involved else []
+    tags_list = _parse_json_list(tags) if tags else []
     event = AdventureEvent(
         event_type=EventType(event_type),
         title=resolved_title,
         description=description,
         session_number=session_number,
-        characters_involved=characters_involved or [],
+        characters_involved=chars_list,
         location=location,
         importance=importance,
-        tags=tags or []
+        tags=tags_list
     )
 
     storage.add_event(event)
@@ -4941,6 +4943,10 @@ def _party_tts_speak(narrative: str, server) -> None:
 
     # 1. Check interaction mode
     if storage.interaction_mode not in ("narrated", "immersive"):
+        logger.info(
+            "TTS skipped — interaction_mode is '%s'. Use /dm:profile to enable voice.",
+            storage.interaction_mode,
+        )
         return
 
     # 2. macOS-only guard

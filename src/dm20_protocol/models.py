@@ -553,6 +553,7 @@ class EventType(str, Enum):
     CHARACTER = "character"
     WORLD = "world"
     SESSION = "session"
+    SOCIAL = "social"
 
 
 class AdventureEvent(BaseModel):

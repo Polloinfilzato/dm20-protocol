@@ -25,6 +25,8 @@ Call `get_party_status` to verify the server is running.
 Party Mode is not running. Start it with /dm:party-mode first.
 ```
 
+**For voice narration:** Run `/dm:profile` and set mode to **Narrated** or **Immersive** before starting the session. Requires `pip install dm20-protocol[voice]`.
+
 ## Instructions
 
 ### Startup Banner
