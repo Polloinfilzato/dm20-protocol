@@ -568,14 +568,15 @@ This page is for the DM to verify the server is running.</p></body></html>"""
         try:
             body = await request.json()
             action_text = body.get("action", "")
+            is_private = bool(body.get("private", False))
         except Exception as e:
             return JSONResponse({"error": f"Invalid request: {e}"}, status_code=400)
 
         if not action_text.strip():
             return JSONResponse({"error": "Empty action"}, status_code=400)
 
-        action_id = self.action_queue.push(player_id, action_text)
-        logger.info(f"Action queued: {action_id} from {player_id}")
+        action_id = self.action_queue.push(player_id, action_text, private=is_private)
+        logger.info(f"Action queued: {action_id} from {player_id} (private={is_private})")
 
         return JSONResponse({
             "success": True,

@@ -5172,6 +5172,95 @@ def party_resolve_action(
 
 
 @mcp.tool
+def party_thinking(
+    message: Annotated[str | None, Field(description="Short message shown to players, e.g. 'The Dungeon Master consults the ancient scrolls…'")] = None,
+) -> str:
+    """Signal to players that the DM is preparing the next narrative.
+
+    Call this immediately after party_pop_action to give players instant
+    visual feedback (animated dots + message) while you think and generate
+    the response. The indicator disappears automatically when you call
+    party_resolve_action.
+    """
+    import asyncio as _asyncio
+    from .party.server import get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return "Party Mode is not running."
+
+    thinking_msg = {
+        "type": "thinking",
+        "message": message or "The Dungeon Master is consulting the dice\u2026",
+    }
+
+    if server._loop and not server._loop.is_closed():
+        try:
+            _asyncio.run_coroutine_threadsafe(
+                server.connection_manager.broadcast(thinking_msg),
+                server._loop,
+            )
+        except Exception as exc:
+            logger.debug("party_thinking broadcast failed: %s", exc)
+
+    return "Thinking indicator shown to players."
+
+
+@mcp.tool
+def party_get_prefetch(
+    turn_id: Annotated[str, Field(description="Turn identifier — use the same format as the observer: 'round_{N}_{character_name}', e.g. 'round_3_Aria'")],
+    outcome: Annotated[str, Field(description="Actual combat outcome: 'hit', 'miss', or 'critical'")],
+    roll: Annotated[int | None, Field(description="The actual attack roll value")] = None,
+    damage: Annotated[int | None, Field(description="Damage dealt (for hit/critical)")] = None,
+    target_hp: Annotated[int | None, Field(description="Target's remaining HP after damage")] = None,
+) -> str:
+    """Retrieve a pre-generated narrative variant for a combat turn.
+
+    If the prefetch engine has a cached variant for this turn, returns a
+    refined narrative instantly (no main-model call needed). On cache miss,
+    falls back to full generation with the main model.
+
+    Call this right after party_thinking, before writing your own narrative.
+    If 'cached' is true in the response, use 'narrative' as your starting
+    point and adjust only the details that differ from actual game state.
+    """
+    import asyncio as _asyncio
+    import json as _json
+    from .party.server import get_server_instance
+
+    server = get_server_instance()
+    if server is None:
+        return _json.dumps({"cached": False, "narrative": "", "reason": "Party Mode not running"})
+
+    prefetch_engine = getattr(server, "prefetch_engine", None)
+    if prefetch_engine is None:
+        return _json.dumps({"cached": False, "narrative": "", "reason": "Prefetch engine not initialized"})
+
+    actual_result = {
+        "outcome": outcome,
+        "roll": roll,
+        "damage": damage,
+        "target_hp": target_hp,
+    }
+
+    if not (server._loop and not server._loop.is_closed()):
+        return _json.dumps({"cached": False, "narrative": "", "reason": "Server loop unavailable"})
+
+    hits_before = prefetch_engine.token_usage.cache_hits
+    try:
+        future = _asyncio.run_coroutine_threadsafe(
+            prefetch_engine.resolve_with_actual(turn_id, actual_result),
+            server._loop,
+        )
+        narrative = future.result(timeout=8.0)
+        was_cached = prefetch_engine.token_usage.cache_hits > hits_before
+        return _json.dumps({"cached": was_cached, "narrative": narrative})
+    except Exception as exc:
+        logger.debug("party_get_prefetch failed: %s", exc)
+        return _json.dumps({"cached": False, "narrative": "", "reason": str(exc)})
+
+
+@mcp.tool
 def party_kick_player(
     player_name: Annotated[str, Field(description="Player name or character ID to kick")],
 ) -> str:

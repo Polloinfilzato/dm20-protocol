@@ -112,13 +112,14 @@ class ActionQueue:
         except OSError as e:
             logger.error(f"Failed to write action to JSONL: {e}")
 
-    def push(self, player_id: str, text: str) -> str:
+    def push(self, player_id: str, text: str, private: bool = False) -> str:
         """
         Add a new action to the queue.
 
         Args:
             player_id: The player submitting the action
             text: The action text
+            private: If True, the action is a private message to the DM only
 
         Returns:
             The generated action_id
@@ -133,6 +134,7 @@ class ActionQueue:
                 "text": text,
                 "timestamp": _now_iso(),
                 "status": "pending",
+                "private": private,
             }
 
             self._actions[action_id] = action

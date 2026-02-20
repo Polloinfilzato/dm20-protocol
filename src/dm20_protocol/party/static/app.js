@@ -34,6 +34,7 @@
     let pendingActionId = null;
     let privateMessagesExpanded = false;
     let privateMessageCount = 0;
+    let isPrivateMode = false;
     let activeTab = 'game';
     let cachedCharacterData = null;
 
@@ -59,6 +60,7 @@
         actionSend: $('.action-bar__send'),
         actionStatus: $('.action-bar__status'),
         actionForm: $('.action-bar__form'),
+        privateBtn: $('.action-bar__private-toggle'),
         headerName: $('.header__name'),
         headerSubtitle: $('.header__subtitle'),
         hpFill: $('.hp-bar__fill'),
@@ -203,6 +205,10 @@
                 addNarrativeMessage(msg);
                 break;
 
+            case 'thinking':
+                showThinkingIndicator(msg.message);
+                break;
+
             case 'private':
                 addPrivateMessage(msg);
                 break;
@@ -264,18 +270,73 @@
         dom.narrativeFeed.scrollTop = dom.narrativeFeed.scrollHeight;
     }
 
+    // Typing effect: reveal text word-by-word, apply markdown at the end
+    function typeTextInto(contentEl, text) {
+        var words = text.split(' ');
+        var i = 0;
+        var interval = setInterval(function () {
+            if (i >= words.length) {
+                clearInterval(interval);
+                contentEl.innerHTML = renderMarkdown(text);
+                if (dom.narrativeFeed) {
+                    dom.narrativeFeed.scrollTop = dom.narrativeFeed.scrollHeight;
+                }
+                return;
+            }
+            contentEl.textContent = words.slice(0, i + 1).join(' ');
+            if (dom.narrativeFeed) {
+                dom.narrativeFeed.scrollTop = dom.narrativeFeed.scrollHeight;
+            }
+            i++;
+        }, 28);  // ~35 words/sec — fast enough to feel live, slow enough to read
+    }
+
+    // Thinking indicator: shown while DM is processing, hidden when narrative arrives
+    var thinkingEl = null;
+
+    function showThinkingIndicator(message) {
+        hideThinkingIndicator();
+        thinkingEl = document.createElement('div');
+        thinkingEl.className = 'message message--thinking';
+        thinkingEl.innerHTML =
+            '<div class="message__header">' +
+            '<span class="message__sender">Narrator</span>' +
+            '</div>' +
+            '<div class="message__content message__content--thinking">' +
+            '<span class="thinking-dots"></span>' +
+            escapeHtml(message || 'The Dungeon Master is consulting the dice\u2026') +
+            '</div>';
+        appendToFeed(thinkingEl);
+    }
+
+    function hideThinkingIndicator() {
+        if (thinkingEl && thinkingEl.parentNode) {
+            thinkingEl.parentNode.removeChild(thinkingEl);
+        }
+        thinkingEl = null;
+    }
+
     function addNarrativeMessage(msg) {
-        // Server sends narrative text in "narrative" field, not "content"
+        hideThinkingIndicator();  // remove "DM is thinking" bubble if present
         var text = msg.content || msg.narrative || '';
         var el = document.createElement('div');
         el.className = 'message message--narrative';
-        el.innerHTML =
-            '<div class="message__header">' +
+
+        var headerEl = document.createElement('div');
+        headerEl.className = 'message__header';
+        headerEl.innerHTML =
             '<span class="message__sender">Narrator</span>' +
-            '<span class="message__timestamp">' + formatTime(msg.timestamp) + '</span>' +
-            '</div>' +
-            '<div class="message__content">' + renderMarkdown(text) + '</div>';
+            '<span class="message__timestamp">' + formatTime(msg.timestamp) + '</span>';
+
+        var contentEl = document.createElement('div');
+        contentEl.className = 'message__content';
+
+        el.appendChild(headerEl);
+        el.appendChild(contentEl);
         appendToFeed(el);
+
+        // Reveal text word-by-word for a live, streaming feel
+        typeTextInto(contentEl, text);
     }
 
     function addPrivateMessage(msg) {
@@ -353,20 +414,29 @@
         if (dom.actionSend) dom.actionSend.disabled = true;
         setActionStatus('Sending...', 'queued');
 
+        var sendingPrivate = isPrivateMode;
+
         fetch(API_BASE + '/action', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + TOKEN,
             },
-            body: JSON.stringify({ action: text }),
+            body: JSON.stringify({ action: text, private: sendingPrivate }),
         })
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
                     pendingActionId = data.action_id;
                     input.value = '';
-                    setActionStatus('Action sent', 'queued');
+                    setActionStatus(sendingPrivate ? 'Whisper sent' : 'Action sent', 'queued');
+
+                    // Reset private mode after send
+                    if (sendingPrivate) {
+                        isPrivateMode = false;
+                        if (dom.privateBtn) dom.privateBtn.classList.remove('action-bar__private-toggle--active');
+                        if (dom.actionInput) dom.actionInput.placeholder = 'What do you do?';
+                    }
 
                     // Clear "sent" status after 3s if not yet processing
                     setTimeout(function () {
@@ -375,7 +445,9 @@
                         }
                     }, 3000);
 
-                    var el = createMessageEl('message--action', PLAYER_NAME, text, new Date().toISOString());
+                    var cssClass = sendingPrivate ? 'message--action message--action-private' : 'message--action';
+                    var label = sendingPrivate ? PLAYER_NAME + ' \uD83E\uDD2B' : PLAYER_NAME;
+                    var el = createMessageEl(cssClass, label, text, new Date().toISOString());
                     appendToFeed(el);
                 } else {
                     setActionStatus('Error: ' + (data.error || 'Unknown'), 'error');
@@ -1187,17 +1259,13 @@
     function handleAudioChunk(msg) {
         if (audioMuted) return;
 
-        // Simple single-message audio (no chunking metadata)
+        // Simple single-message audio (no chunking metadata) — route through Web Audio API queue
         if (!msg.total_chunks && !msg.sequence) {
             try {
                 var bytes = Uint8Array.from(atob(msg.data), function (c) { return c.charCodeAt(0); });
-                var blob = new Blob([bytes], { type: "audio/" + (msg.format || "mpeg") });
-                var url = URL.createObjectURL(blob);
-                var audio = new Audio(url);
-                audio.onended = function () { URL.revokeObjectURL(url); };
-                audio.play().catch(function () {});  // Silently ignore autoplay policy
+                queueAudioPlayback(bytes.buffer);
             } catch (e) {
-                console.warn("Audio playback failed:", e);
+                console.warn("Audio decode failed:", e);
             }
             return;
         }
@@ -1293,6 +1361,7 @@
     var domMic = null;
     var domMicDot = null;
     var domTranscriptPreview = null;
+    var finalTranscript = '';  // accumulated transcript across continuous results
 
     function initSTT() {
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1303,7 +1372,7 @@
 
         sttSupported = true;
         sttRecognition = new SpeechRecognition();
-        sttRecognition.continuous = false;
+        sttRecognition.continuous = true;
         sttRecognition.interimResults = true;
         sttRecognition.maxAlternatives = 1;
 
@@ -1316,32 +1385,47 @@
         domMicDot = $('.mic-listening-dot');
         domTranscriptPreview = $('.voice-transcript-preview');
 
-        // Show mic button
+        // Show mic button — hold-to-talk (press and hold to record, release to send)
         if (domMic) {
             domMic.hidden = false;
-            domMic.addEventListener('click', toggleSTT);
+            // Desktop: mousedown to start, mouseup/mouseleave to stop
+            domMic.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                startSTT();
+            });
+            domMic.addEventListener('mouseup', function () {
+                if (sttListening) sttRecognition.stop();
+            });
+            domMic.addEventListener('mouseleave', function () {
+                if (sttListening) sttRecognition.stop();
+            });
+            // Mobile: touchstart to start, touchend to stop
+            domMic.addEventListener('touchstart', function (e) {
+                e.preventDefault();
+                startSTT();
+            });
+            domMic.addEventListener('touchend', function (e) {
+                e.preventDefault();
+                if (sttListening) sttRecognition.stop();
+            });
+            // Prevent context menu on long-press (mobile)
+            domMic.addEventListener('contextmenu', function (e) { e.preventDefault(); });
         }
 
         sttRecognition.onresult = function (event) {
-            var transcript = '';
-            var isFinal = false;
+            var interimTranscript = '';
 
             for (var i = event.resultIndex; i < event.results.length; i++) {
-                transcript = event.results[i][0].transcript;
+                var t = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    isFinal = true;
+                    finalTranscript += t + ' ';
+                } else {
+                    interimTranscript = t;
                 }
             }
 
-            if (isFinal) {
-                // Send the transcribed text as an action
-                hideTranscriptPreview();
-                submitVoiceAction(transcript.trim());
-                stopSTT();
-            } else {
-                // Show interim transcript
-                showTranscriptPreview(transcript);
-            }
+            // Show running transcript while holding
+            showTranscriptPreview((finalTranscript + interimTranscript).trim() || 'Listening...');
         };
 
         sttRecognition.onerror = function (event) {
@@ -1360,7 +1444,13 @@
         };
 
         sttRecognition.onend = function () {
-            // Recognition ended (timeout, manual stop, or after final result)
+            // Recognition ended — submit whatever was accumulated, then clean up
+            var toSend = finalTranscript.trim();
+            finalTranscript = '';
+            if (toSend) {
+                hideTranscriptPreview();
+                submitVoiceAction(toSend);
+            }
             if (sttListening) {
                 stopSTT();
             }
@@ -1383,6 +1473,8 @@
 
         // Ensure AudioContext is resumed (needed for some browsers)
         getAudioContext();
+
+        finalTranscript = '';  // reset accumulated transcript on each new hold
 
         try {
             sttRecognition.start();
@@ -1504,9 +1596,23 @@
             });
         });
 
-        // Private messages toggle
+        // Private messages toggle (section at the top)
         if (dom.privateToggle) {
             dom.privateToggle.addEventListener('click', togglePrivateMessages);
+        }
+
+        // Private mode button (🤫) — toggle DM-only message mode
+        if (dom.privateBtn) {
+            dom.privateBtn.addEventListener('click', function () {
+                isPrivateMode = !isPrivateMode;
+                dom.privateBtn.classList.toggle('action-bar__private-toggle--active', isPrivateMode);
+                if (dom.actionInput) {
+                    dom.actionInput.placeholder = isPrivateMode
+                        ? 'Whisper to the DM\u2026'
+                        : 'What do you do?';
+                    dom.actionInput.focus();
+                }
+            });
         }
 
         // Mute button
