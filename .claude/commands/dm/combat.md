@@ -35,7 +35,7 @@ Task(subagent_type="combat-handler", description="Manage combat encounter")
 #### 1. Identify Combatants
 
 From `$ARGUMENTS` or the current scene, determine:
-- Which PCs are present (`get_character` for each)
+- Which PCs are present (`get_character(name_or_id=<name>)` for each)
 - Which enemies are involved (`get_monster_info` for each type)
 - Any allied NPCs
 

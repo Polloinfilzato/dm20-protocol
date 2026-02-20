@@ -18,8 +18,9 @@ For **every player action**, follow this sequence:
 ### 1. CONTEXT
 Gather what you need before deciding anything.
 - `get_game_state` -- current location, combat status, session info
-- `get_character` -- acting PC stats, HP, inventory, abilities
-- `get_npc` / `get_location` -- if relevant to the scene
+- `get_character(name_or_id=<name>)` -- acting PC stats, HP, inventory, abilities (parameter is `name_or_id`, not `name`)
+- `get_npc(name_or_id=<name>)` -- NPC info (parameter is `name_or_id`, not `name`)
+- `get_location` -- if relevant to the scene
 
 ### 2. DECIDE
 Determine what happens. Does this need:

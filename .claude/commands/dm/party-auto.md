@@ -80,7 +80,7 @@ Keep it brief — the player is waiting for a response.
 
 Follow the **complete game loop**:
 
-1. **CONTEXT** — `get_game_state`, `get_character` for the acting PC
+1. **CONTEXT** — `get_game_state`, `get_character(name_or_id=player_id)` for the acting PC
 2. **DECIDE** — What happens? Ability check? Combat? Pure narration?
 3. **EXECUTE** — Roll dice, apply mechanics via MCP tools
 4. **PERSIST** — Update state (`update_character`, `update_game_state`, etc.)

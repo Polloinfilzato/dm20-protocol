@@ -55,8 +55,8 @@ Now process this action exactly like `/dm:action` would. You ARE the DM. Follow 
 
 **3a. CONTEXT** — Gather what you need:
 - Call `get_game_state` for current situation
-- Call `get_character` for the acting PC's stats (use `{player_id}` as the character name)
-- If the action involves a location or NPC, call `get_location` / `get_npc`
+- Call `get_character(name_or_id="{player_id}")` for the acting PC's stats
+- If the action involves a location or NPC, call `get_location` / `get_npc(name_or_id=<npc_name>)`
 - If the action involves rules, call `search_rules` / `get_spell_info`
 
 **3b. DECIDE** — What happens based on the action?

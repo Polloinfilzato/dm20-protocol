@@ -31,10 +31,10 @@ Execute the **Core Game Loop** for the player's action:
 
 Call these to understand the current situation:
 - `get_game_state` — where is the party, what's happening?
-- `get_character` — the acting PC's stats, HP, inventory, abilities
+- `get_character(name_or_id=<character_name>)` — the acting PC's stats, HP, inventory, abilities
 
 If the action involves a location or NPC:
-- `get_location` / `get_npc` — relevant details
+- `get_location` / `get_npc(name_or_id=<npc_name>)` — relevant details
 
 If the action involves rules you're unsure about:
 - `search_rules` / `get_spell_info` / `get_class_info` — look it up silently

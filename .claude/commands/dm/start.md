@@ -287,7 +287,7 @@ Check if there's a paused session to resume:
 **If resuming (previous session exists):**
 1. Read the last session note for recap material
 2. `get_location` for the current location details
-3. `get_character` for each PC — check HP, conditions, inventory
+3. `get_character(name_or_id=<character_name>)` for each PC — check HP, conditions, inventory
 4. Deliver a "Previously..." recap woven into narrative (not a bullet list)
 5. Re-establish the scene where they left off
 

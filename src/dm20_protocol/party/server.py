@@ -524,8 +524,17 @@ This page is for the DM to verify the server is running.</p></body></html>"""
             return PlainTextResponse("UI not available", status_code=503)
 
         html = static_file.read_text()
-        # Simple placeholder replacement (Task 3 will build proper UI)
-        html = html.replace("{player_name}", player_id)
+        # Resolve display name from storage (character name), fallback to player_id
+        display_name = player_id
+        if player_id != "OBSERVER":
+            try:
+                char = self.storage.get_character(player_id)
+                if char:
+                    display_name = char.name
+            except Exception:
+                pass  # Fallback to player_id if lookup fails
+        html = html.replace("{player_id}", player_id)
+        html = html.replace("{player_name}", display_name)
         html = html.replace("{token}", token)
 
         return HTMLResponse(html)

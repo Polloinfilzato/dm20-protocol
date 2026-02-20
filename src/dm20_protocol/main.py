@@ -1378,13 +1378,13 @@ def create_npc(
 
 @mcp.tool
 def get_npc(
-    name: Annotated[str, Field(description="NPC name")],
+    name_or_id: Annotated[str, Field(description="NPC name or ID")],
     player_id: Annotated[str | None, Field(description="Caller's player ID for output filtering. When provided, DM-only fields (bio, notes, stats, relationships) are stripped for non-DM callers.")] = None,
 ) -> str:
     """Get NPC information."""
-    npc = storage.get_npc(name)
+    npc = storage.get_npc(name_or_id)
     if not npc:
-        return f"NPC '{name}' not found."
+        return f"NPC '{name_or_id}' not found."
 
     # Use OutputFilter when player_id is provided
     result = output_filter.filter_npc_response(npc, player_id=player_id)
@@ -2647,8 +2647,8 @@ def get_sessions() -> str:
 @mcp.tool
 def add_event(
     event_type: Annotated[Literal["combat", "roleplay", "exploration", "quest", "character", "world", "session"], Field(description="Type of event")],
-    title: Annotated[str, Field(description="Event title")],
     description: Annotated[str, Field(description="Event description")],
+    title: Annotated[str | None, Field(description="Event title (optional, auto-generated from description if omitted)")] = None,
     session_number: Annotated[int | None, Field(description="Session number", ge=1)] = None,
     characters_involved: Annotated[list[str] | None, Field(description="Characters involved in the event")] = None,
     location: Annotated[str | None, Field(description="Location where event occurred")] = None,
@@ -2656,9 +2656,10 @@ def add_event(
     tags: Annotated[list[str] | None, Field(description="Tags for categorizing the event")] = None,
 ) -> str:
     """Add an event to the adventure log."""
+    resolved_title = title or (description[:60].rstrip() + ("..." if len(description) > 60 else ""))
     event = AdventureEvent(
         event_type=EventType(event_type),
-        title=title,
+        title=resolved_title,
         description=description,
         session_number=session_number,
         characters_involved=characters_involved or [],
@@ -2668,7 +2669,7 @@ def add_event(
     )
 
     storage.add_event(event)
-    return f"Added {event_type.lower()} event: '{event.title}'"
+    return f"Added {event_type.lower()} event: '{resolved_title}'"
 
 @mcp.tool
 def get_events(
@@ -4693,7 +4694,12 @@ def start_party_mode(
     """
     from .party.server import start_party_server, get_server_instance
     from .party.auth import QRCodeGenerator
+    from .party.firewall import ensure_firewall_allows_python, format_firewall_status
     from .claudmaster.pc_tracking import PCRegistry, MultiPlayerConfig
+
+    # Check macOS firewall authorization for incoming connections
+    firewall_status = ensure_firewall_allows_python()
+    firewall_msg = format_firewall_status(firewall_status)
 
     # Check if already running
     existing = get_server_instance()
@@ -4720,7 +4726,7 @@ def start_party_mode(
     config = MultiPlayerConfig()
     registry = PCRegistry(config)
     for char in characters:
-        registry.register_pc(char.name, char.player_name or char.name)
+        registry.register_pc(char.id, char.player_name or char.name)
 
     # Start the server in a background thread
     try:
@@ -4746,7 +4752,7 @@ def start_party_mode(
     qr_terminal_lines: list[str] = []
 
     for char in characters:
-        token = server.token_manager.generate_token(char.name)
+        token = server.token_manager.generate_token(char.id)
         url = f"http://{host_ip}:{port}/play?token={token}"
 
         # Render QR as terminal ASCII art (for DM's terminal)
@@ -4756,7 +4762,7 @@ def start_party_mode(
 
         try:
             qr_path = QRCodeGenerator.generate_player_qr(
-                char.name, token, host_ip, port, campaign_dir
+                char.id, token, host_ip, port, campaign_dir
             )
             lines.append(f"### {char.name}")
             lines.append(f"- **URL:** {url}")
@@ -4798,6 +4804,10 @@ def start_party_mode(
         print("=== End QR Codes ===\n", file=sys.stderr)
     except Exception:
         pass  # Graceful fallback: terminal rendering failure is non-fatal
+
+    # Firewall status (only shown if relevant)
+    if firewall_msg:
+        lines.append(f"\n{firewall_msg}\n")
 
     lines.append("---")
     lines.append("Players can scan QR codes or open URLs on their phones/tablets to join.")
@@ -4904,6 +4914,96 @@ def party_pop_action() -> str:
     })
 
 
+# --- TTS helper for Party Mode narration (macOS local audio) ----------
+
+# Maximum characters sent to TTS to avoid excessively long audio
+_TTS_MAX_CHARS = 500
+
+# Singleton router (lazy-initialized)
+_tts_router_instance = None
+
+
+def _party_tts_speak(narrative: str, server) -> None:
+    """Synthesize narrative text via TTS and play on the DM's Mac speakers.
+
+    Only runs when interaction_mode is 'narrated' or 'immersive'.
+    Plays audio non-blocking via macOS ``afplay`` so the MCP response
+    is not delayed.  All errors are silently logged — TTS failure must
+    never break the Party Mode flow.
+    """
+    import asyncio
+    import logging
+    import platform
+    import subprocess
+    import tempfile
+
+    logger = logging.getLogger("dm20-protocol.party.tts")
+
+    # 1. Check interaction mode
+    if storage.interaction_mode not in ("narrated", "immersive"):
+        return
+
+    # 2. macOS-only guard
+    if platform.system() != "Darwin":
+        logger.debug("TTS playback skipped: not macOS (platform=%s)", platform.system())
+        return
+
+    # 3. Import voice subsystem (optional dependency)
+    try:
+        from .voice import TTSRouter
+    except ImportError:
+        logger.debug("TTS skipped: voice dependencies not installed")
+        return
+
+    # 4. Truncate long narratives
+    text = narrative.strip()
+    if not text:
+        return
+    if len(text) > _TTS_MAX_CHARS:
+        # Cut at the last sentence boundary within the limit
+        truncated = text[:_TTS_MAX_CHARS]
+        last_period = truncated.rfind(".")
+        if last_period > _TTS_MAX_CHARS // 2:
+            text = truncated[: last_period + 1]
+        else:
+            text = truncated.rstrip() + "…"
+
+    # 5. Lazy-init the router singleton
+    global _tts_router_instance
+    if _tts_router_instance is None:
+        _tts_router_instance = TTSRouter()
+
+    router = _tts_router_instance
+
+    # 6. Run async synthesis on the server event loop
+    async def _synth_and_play():
+        try:
+            result = await router.synthesize(text, context="narration")
+            # Write WAV to a temp file and play with afplay (non-blocking)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(result.audio_data)
+                tmp_path = tmp.name
+            # afplay in background — don't wait for playback to finish
+            subprocess.Popen(
+                ["afplay", tmp_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            logger.info(
+                "TTS playing narrative (%d chars, engine=%s, %.0fms)",
+                len(text), result.engine_name, result.duration_ms,
+            )
+        except Exception as exc:
+            logger.warning("TTS synthesis/playback failed: %s", exc)
+
+    # Schedule on the server's event loop (same pattern as party_kick_player)
+    if server._loop and not server._loop.is_closed():
+        try:
+            asyncio.run_coroutine_threadsafe(_synth_and_play(), server._loop)
+        except Exception as exc:
+            logger.warning("Could not schedule TTS on server loop: %s", exc)
+
+
 @mcp.tool
 def party_resolve_action(
     action_id: Annotated[str, Field(description="The action_id returned by party_pop_action")],
@@ -4939,6 +5039,9 @@ def party_resolve_action(
 
     response_id = server.response_queue.push(response_data)
     server.action_queue.resolve(action_id, response_data)
+
+    # --- TTS narration (macOS local audio) ---
+    _party_tts_speak(narrative, server)
 
     return f"Response broadcast to connected players (response_id: {response_id})."
 

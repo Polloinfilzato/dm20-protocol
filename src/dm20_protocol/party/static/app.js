@@ -14,7 +14,8 @@
     // ===== Configuration =====
     var config = window.PARTY_CONFIG || {};
     var TOKEN = config.token || '';
-    var PLAYER_NAME = config.playerName || '';
+    var PLAYER_ID = config.playerId || '';
+    var PLAYER_NAME = config.playerName || PLAYER_ID;
     var WS_URL = 'ws://' + window.location.host + '/ws?token=' + TOKEN;
     const API_BASE = window.location.origin;
 
@@ -192,7 +193,7 @@
 
         switch (msg.type) {
             case 'connected':
-                addSystemMessage('Connected as ' + (msg.player_id || PLAYER_NAME));
+                addSystemMessage('Connected as ' + PLAYER_NAME);
                 fetchCharacter();
                 break;
 
@@ -389,7 +390,7 @@
     // ===== Character Data =====
 
     function fetchCharacter() {
-        fetch(API_BASE + '/character/' + encodeURIComponent(PLAYER_NAME) + '?token=' + TOKEN)
+        fetch(API_BASE + '/character/' + encodeURIComponent(PLAYER_ID) + '?token=' + TOKEN)
             .then(function (resp) {
                 if (!resp.ok) return null;
                 return resp.json();
@@ -613,7 +614,7 @@
                 html += '<span class="feature-item__source">(' + escapeHtml(f.source) + ')</span>';
             }
             if (f.description) {
-                html += '<div class="feature-item__desc">' + escapeHtml(f.description) + '</div>';
+                html += '<div class="feature-item__desc">' + f.description + '</div>';
             }
             li.innerHTML = html;
             dom.featuresList.appendChild(li);
@@ -990,7 +991,7 @@
             var prompt = data.prompt || 'Everyone act simultaneously!';
             var submitted = data.submitted || [];
             var waiting = data.waiting_for || [];
-            var iHaveSubmitted = submitted.indexOf(PLAYER_NAME) !== -1;
+            var iHaveSubmitted = submitted.indexOf(PLAYER_ID) !== -1 || submitted.indexOf(PLAYER_NAME) !== -1;
 
             dom.combatInfo.innerHTML =
                 '<div class="combat-banner__prompt">' + escapeHtml(prompt) + '</div>' +
@@ -1027,7 +1028,7 @@
             var name = entry.name || id;
 
             if (id === currentTurn) el.classList.add('initiative-entry--current');
-            if (id === PLAYER_NAME || name === PLAYER_NAME) el.classList.add('initiative-entry--self');
+            if (id === PLAYER_ID || id === PLAYER_NAME || name === PLAYER_NAME) el.classList.add('initiative-entry--self');
 
             var hp = entry.hp || 0;
             var maxHp = entry.max_hp || 1;
