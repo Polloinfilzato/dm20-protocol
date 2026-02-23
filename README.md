@@ -13,9 +13,10 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 ## Features
 
 - **Campaign Management** — Create and switch between multiple campaigns
-- **Character Builder** — Auto-populated characters from loaded rulebooks (Standard Array, Point Buy, Manual)
+- **Character Builder** — Auto-populated characters from loaded rulebooks (Standard Array, Point Buy, Roll 4d6, Manual). Starting spells and properly typed equipment auto-populated from rulebook data. Creation dice rolls recorded on the character sheet
+- **Character Creation Wizard** — Guided step-by-step or Quick Build modes. Asks player name, character level, race, class, ability scores, skills, equipment, and spells. Completeness validation after creation ensures nothing is missing
 - **Level-Up & Progression** — Automatic HP, class features, spell slots, ASI/feats on level-up
-- **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, death saves
+- **Character Sheets** — Full D&D 5e stats, inventory, spellcasting, death saves, creation roll history
 - **Sheet Sync** — Bidirectional Markdown↔JSON sync: edit YAML frontmatter in Obsidian or any editor, DM approves changes
 - **D&D Beyond Import** — Import characters from D&D Beyond (URL or JSON file)
 - **Rest & Recovery** — Long rest, short rest with hit dice, spell slot management, death saves
@@ -27,11 +28,13 @@ A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) serve
 - **Party Knowledge** — Track what the party knows about the world, with source attribution and bidirectional NPC knowledge sharing
 - **Multi-User Permissions** — Role-based access (DM, Player, Observer) with output filtering, session coordination, and private messaging — zero overhead in single-player
 - **Party Mode** — Multi-player web relay: players connect from their phones/tablets via QR code, each getting a personal game interface with narrative feed, character sheet, and action input — all filtered by the permission system. WebSocket real-time push, combat turn coordination, reconnection with message replay, and JSONL queue persistence
+- **Rules Edition Selection** — Choose between D&D 2024 revised rules and 2014 classic rules when creating a campaign. Both SRD and 5etools data sources loaded automatically
 - **Multi-Source Rulebooks** — Load rules from SRD, Open5e, 5etools, or custom JSON
 - **PDF Rulebook Library** — Import and query your own PDFs and homebrew content
 - **Bilingual Play** — Italian/English D&D terminology resolution (500+ terms)
 - **Session Notes** — Per-session summaries, XP, loot, attendance
 - **Adventure Log** — Searchable timeline of all campaign events
+- **Context Auto-Refresh** — `/dm:refrill` saves the session and provides instructions to clear context. Two-layer protection: proactive DM trigger at ~65% + automatic PreCompact hook at ~83.5%
 - **Dice & Utilities** — Rolls, XP calculations, rules lookup
 - **86 MCP Tools** — Full list in the [User Guide](docs/GUIDE.md)
 

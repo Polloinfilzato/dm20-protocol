@@ -1,7 +1,7 @@
 ---
 description: Begin or resume a D&D game session. Load a campaign, set the scene, and start playing.
 argument-hint: [campaign_name]
-allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__get_race_info, mcp__dm20-protocol__roll_dice, mcp__dm20-protocol__search_rules
+allowed-tools: Task, AskUserQuestion, Skill, mcp__dm20-protocol__check_for_updates, mcp__dm20-protocol__get_campaign_info, mcp__dm20-protocol__list_campaigns, mcp__dm20-protocol__load_campaign, mcp__dm20-protocol__create_campaign, mcp__dm20-protocol__list_characters, mcp__dm20-protocol__get_character, mcp__dm20-protocol__create_character, mcp__dm20-protocol__update_character, mcp__dm20-protocol__import_from_dndbeyond, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_claudmaster_session_state, mcp__dm20-protocol__start_claudmaster_session, mcp__dm20-protocol__get_sessions, mcp__dm20-protocol__get_location, mcp__dm20-protocol__list_quests, mcp__dm20-protocol__configure_claudmaster, mcp__dm20-protocol__update_game_state, mcp__dm20-protocol__discover_adventures, mcp__dm20-protocol__load_adventure, mcp__dm20-protocol__load_rulebook, mcp__dm20-protocol__start_party_mode, mcp__dm20-protocol__get_class_info, mcp__dm20-protocol__get_race_info, mcp__dm20-protocol__roll_dice, mcp__dm20-protocol__search_rules, mcp__dm20-protocol__add_spell, mcp__dm20-protocol__get_spell_info
 ---
 
 # DM Start
@@ -61,8 +61,29 @@ Options:
   - "Adventure module — start an official published adventure"
 ```
 
-- **If "Create a new campaign":** Ask for name and description conversationally, call `create_campaign()`, then `load_rulebook(source="srd")` to set up rules.
-- **If "Adventure module":** Call `discover_adventures()` to show options, let the player pick, then call `load_adventure()`.
+- **If "Create a new campaign":**
+  1. Ask for name and description conversationally.
+  2. Ask for the rules edition using `AskUserQuestion`:
+     ```
+     Question: "Which D&D rules edition?"
+     Header: "Rules"
+     Options:
+       - "2024 — D&D 2024 revised rules (Recommended)"
+       - "2014 — D&D 5e 2014 classic rules"
+     ```
+  3. Call `create_campaign()` with the chosen `rules_version` ("2024" or "2014").
+  4. Load rule sources for the chosen edition:
+     ```
+     load_rulebook(source="srd", version=chosen_version)
+     load_rulebook(source="5etools")
+     ```
+     5etools provides richer data (full spell descriptions, equipment stats, monster details) that supplements the SRD.
+  5. **Auto-launch profile configuration on first campaign:**
+     - Call `configure_claudmaster()` with no args to read current config.
+     - If this is a fresh/default config (no previous customization), invoke `/dm:profile` via the Skill tool (`skill: "dm:profile"`) to let the player set model quality, narrative style, dialogue style, and interaction mode.
+     - After profile setup, save `profile_configured:true` to game_state notes via `update_game_state(notes=...)`.
+     - On subsequent loads, skip profile setup if `profile_configured:true` exists in game_state notes.
+- **If "Adventure module":** Call `discover_adventures()` to show options, let the player pick, then call `load_adventure()`. After loading, also call `load_rulebook(source="5etools")` to supplement rule data.
   - **IMPORTANT:** When presenting the adventure list, always inform the player about the source: *"These adventure modules are indexed from the 5etools open database, which catalogs official D&D 5th Edition adventures published by Wizards of the Coast."*
 - **If an existing campaign:** Call `load_campaign(name=chosen)`.
 
@@ -124,7 +145,12 @@ After the player's character is created, proceed to AI companion setup below.
 
 ### 3c. Character Creation Flow (shared by SOLO and HUMAN PARTY)
 
-For EACH player character that needs to be created, present this choice:
+For EACH player character that needs to be created:
+
+**Step P0 — Player Name:**
+First, ask for the **player's** real name (the human playing this character). In HUMAN PARTY mode this is essential since multiple humans play. Store as `player_name` for `create_character()`.
+
+Then present this choice:
 
 Use `AskUserQuestion`:
 ```
@@ -158,9 +184,11 @@ Options:
 
 **If "Quick build":**
 - Ask only for a brief concept (e.g., "stealthy archer", "holy warrior", "chaotic wizard")
+- Ask "What level should {name} be?" — if other PCs exist, suggest matching their level. Default to 1 if no party context.
 - Auto-select race, class, subclass, ability scores, and equipment to match the concept
-- Call `create_character()` with reasonable defaults
-- Summarize the created character
+- For spellcasting classes, auto-select thematic cantrips and spells matching the concept and level
+- Call `create_character()` with reasonable defaults (include `player_name` from Step P0)
+- Proceed to **Character Completeness Check** below
 
 **If "Guided wizard":**
 Guide the player through EACH decision interactively, using `AskUserQuestion` for each step. **CRITICAL: In guided mode, NEVER auto-assign anything. Every single choice must be presented to the player.**
@@ -213,7 +241,16 @@ Options:
   - "Manual — tell me exactly what scores you want"
 ```
 
-- **Standard Array / Roll:** Present the scores and ask the player to assign each to STR/DEX/CON/INT/WIS/CHA. Suggest an optimal distribution for their class but let them override.
+- **Standard Array:** Present the scores and ask the player to assign each to STR/DEX/CON/INT/WIS/CHA. Suggest an optimal distribution for their class but let them override.
+- **Roll 4d6 drop lowest:** Call `roll_dice("4d6kh3")` 6 times. For EACH roll, display the individual dice results (e.g., "Rolled: 4, 3, 6, 5 → dropped 3 → **15**"). Record the roll data in a `creation_rolls` dict:
+  ```
+  creation_rolls = {
+      "strength": {"rolls": [4, 3, 6, 5], "dropped": 3, "total": 15},
+      "dexterity": {"rolls": [2, 6, 6, 4], "dropped": 2, "total": 16},
+      ...
+  }
+  ```
+  After all 6 rolls, present the totals and ask the player to assign each to an ability score. Save `creation_rolls` to pass to `create_character()` or set via `update_character()` after creation.
 - **Manual:** Let the player specify each score.
 
 After base scores, apply racial bonuses (asking the player if distributable — see Step W2 note).
@@ -230,11 +267,30 @@ Options:
   - "Let me choose from the starting equipment options"
 ```
 
-Call `create_character()` with all the player's choices. Summarize the final character sheet.
+**Step W8 — Spells (spellcasting classes only):**
+If the chosen class has spellcasting ability:
+1. Use `search_rules()` and `get_spell_info()` to get the available cantrips and spells for this class at the chosen level.
+2. Determine how many cantrips and spells the character knows/prepares at their level (per PHB rules for their class).
+3. Present the available **cantrips** with name, school, and brief description. Let the player pick the correct number.
+4. Present the available **level 1+ spells** (up to the highest spell slot level available). Let the player pick their known/prepared spells.
+5. For **Quick Build**, auto-select thematic spells instead of asking.
+
+Call `create_character()` with all the player's choices (include `player_name` from Step P0). Summarize the final character sheet.
+
+### Character Completeness Check
+
+After EVERY `create_character()` call (both Quick Build and Guided Wizard), perform this validation:
+
+1. Call `get_character(name_or_id=<character_id>)` to inspect the created character.
+2. **Spells check:** If the character's class has spellcasting but `spells_known` is empty, use `add_spell()` to add appropriate starting spells from the rulebook data. For Quick Build, auto-select thematic spells. For Guided Wizard, the player already chose in Step W8.
+3. **Inventory check:** If `inventory` is empty, warn and add class default starting equipment.
+4. **AC check:** Verify armor_class is correct (base 10 + DEX mod, or armor-based if wearing armor). Update via `update_character()` if needed.
+5. **Creation rolls:** If ability scores were rolled (4d6 drop lowest), save `creation_rolls` to the character via `update_character(creation_rolls=...)`.
+6. Present a **Character Review** summary showing: name, player, race, class, level, all ability scores (with roll details if rolled), HP, AC, speed, skills, equipment, spells (if any), and features. Ask for confirmation before proceeding.
 
 **Important:** If other PCs in the party are above level 1, proactively suggest matching their level but always let the player decide.
 
-After each character is created/imported, confirm before proceeding to the next one.
+After each character is created/imported and reviewed, confirm before proceeding to the next one.
 
 ---
 

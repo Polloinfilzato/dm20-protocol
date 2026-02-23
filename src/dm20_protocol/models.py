@@ -374,6 +374,10 @@ class Character(BaseModel):
     # Misc
     inspiration: bool = False
     notes: str = ""
+    creation_rolls: dict[str, Any] | None = Field(
+        default=None,
+        description="Dice rolls from character creation (ability scores, HP, gold, etc.)"
+    )
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 

@@ -4860,7 +4860,9 @@ def start_party_mode(
 
         try:
             qr_path = QRCodeGenerator.generate_player_qr(
-                char.id, token, host_ip, port, campaign_dir
+                char.id, token, host_ip, port, campaign_dir,
+                player_name=char.player_name or "",
+                character_name=char.name,
             )
             lines.append(f"### {char.name}")
             lines.append(f"- **URL:** {url}")

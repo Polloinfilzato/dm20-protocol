@@ -233,6 +233,23 @@ def _render_body(character: Character) -> str:
     row = "| " + " | ".join(vals) + " |"
     parts.append(f"{header}\n{sep}\n{row}\n")
 
+    # Creation Rolls (if recorded)
+    if c.creation_rolls:
+        parts.append("### Ability Score Rolls\n")
+        parts.append("| Ability | Rolls | Dropped | Total |")
+        parts.append("|---------|-------|---------|:-----:|")
+        for ability_name in ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]:
+            roll_data = c.creation_rolls.get(ability_name)
+            if roll_data and isinstance(roll_data, dict):
+                rolls = roll_data.get("rolls", [])
+                dropped = roll_data.get("dropped", "")
+                total = roll_data.get("total", "")
+                rolls_str = ", ".join(str(r) for r in rolls) if rolls else "—"
+                parts.append(
+                    f"| {ability_name.upper()[:3]} | {rolls_str} | {dropped} | {total} |"
+                )
+        parts.append("")
+
     # Combat
     parts.append("## Combat\n")
     prof_bonus = c.proficiency_bonus

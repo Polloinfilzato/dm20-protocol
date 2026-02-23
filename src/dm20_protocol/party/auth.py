@@ -243,26 +243,42 @@ class QRCodeGenerator:
         token: str,
         host: str,
         port: int,
-        campaign_dir: Path
+        campaign_dir: Path,
+        *,
+        player_name: str = "",
+        character_name: str = "",
     ) -> Path:
         """
         Generate a QR code for a specific player's session.
 
-        The QR code is saved to {campaign_dir}/party/qr-{player_id}.png
-        and encodes the URL: http://{host}:{port}/play?token={token}
+        When both player_name and character_name are provided, the file is saved as
+        "QR {player_name}-{character_name}.png". Otherwise falls back to
+        "qr-{player_id}.png". Both cases save under {campaign_dir}/party/.
+
+        The QR encodes the URL: http://{host}:{port}/play?token={token}
 
         Args:
-            player_id: The player's identifier
+            player_id: The player's identifier (used as fallback filename)
             token: The session token
             host: Server host IP address
             port: Server port
             campaign_dir: Campaign directory for saving QR codes
+            player_name: Optional player name for the filename
+            character_name: Optional character name for the filename
 
         Returns:
             Path to the generated QR code PNG
         """
         url = f"http://{host}:{port}/play?token={token}"
-        output_path = campaign_dir / "party" / f"qr-{player_id}.png"
+
+        if player_name and character_name:
+            # Sanitize names for filesystem safety
+            safe_player = "".join(c for c in player_name if c.isalnum() or c in " _-")
+            safe_char = "".join(c for c in character_name if c.isalnum() or c in " _-")
+            filename = f"QR {safe_player}-{safe_char}.png"
+        else:
+            filename = f"qr-{player_id}.png"
+        output_path = campaign_dir / "party" / filename
 
         QRCodeGenerator.generate_qr_code(url, output_path)
         return output_path

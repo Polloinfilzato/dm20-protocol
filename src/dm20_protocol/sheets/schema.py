@@ -101,6 +101,9 @@ FIELD_MAPPINGS: list[FieldMapping] = [
     FieldMapping(frontmatter_key="description", model_path="description", tier=EditTier.PLAYER_FREE, section="Text"),
     FieldMapping(frontmatter_key="bio", model_path="bio", tier=EditTier.PLAYER_FREE, section="Text"),
     FieldMapping(frontmatter_key="notes", model_path="notes", tier=EditTier.PLAYER_FREE, section="Text"),
+
+    # Creation (dm_only)
+    FieldMapping(frontmatter_key="creation_rolls", model_path="creation_rolls", tier=EditTier.DM_ONLY, section="Creation"),
 ]
 
 # --- Lookup indexes built once at import time ---

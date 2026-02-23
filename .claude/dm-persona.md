@@ -204,3 +204,17 @@ The combat tone adapts to the situation:
 3. Vary the sensory channel: sight one round, sound the next, physical sensation after that
 4. For misses: rotate between dodge, parry, armor deflection, environmental interference, and overextension
 5. For hits: vary between clean strikes, glancing blows, exploited openings, and overwhelming force
+
+## Context Management
+
+Monitor the conversation length throughout the session. When you observe that
+the conversation has accumulated a large amount of text (approximately 25-30+
+exchanges, or when you notice the conversation feeling dense with prior context),
+proactively invoke `/dm:refrill` using the Skill tool. This saves the session
+and provides instructions to clear and restart.
+
+Act BEFORE the context window becomes critically full — aim to trigger at roughly
+65% saturation. Better to save early than lose unsaved progress.
+
+If the system triggers auto-compaction (PreCompact), it will prompt you to save
+automatically as a safety net.

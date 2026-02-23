@@ -17,6 +17,7 @@ from .models import (
     Feature,
     Item,
     Race,
+    Spell,
 )
 from .rulebooks.manager import RulebookManager
 from .rulebooks.models import (
@@ -49,6 +50,54 @@ ALL_ABILITIES = list(ABILITY_ABBREV.values())
 def _normalize_index(name: str) -> str:
     """Convert user-facing name to rulebook index format (lowercase, hyphenated)."""
     return name.strip().lower().replace(" ", "-").replace("_", "-")
+
+
+def _infer_item_type(name: str) -> str:
+    """Infer item type from equipment name using keyword matching."""
+    lower = name.lower()
+
+    # Weapons
+    weapon_keywords = {
+        "sword", "axe", "mace", "dagger", "bow", "crossbow", "spear",
+        "halberd", "pike", "rapier", "scimitar", "warhammer", "maul",
+        "glaive", "javelin", "handaxe", "trident", "whip", "club",
+        "greatclub", "sling", "dart", "quarterstaff", "lance",
+        "morningstar", "flail", "greataxe", "greatsword", "longsword",
+        "shortsword", "longbow", "shortbow",
+    }
+    if any(kw in lower for kw in weapon_keywords):
+        return "weapon"
+
+    # Armor
+    armor_keywords = {
+        "armor", "mail", "plate", "leather", "hide", "breastplate",
+        "half plate", "studded", "padded", "scale",
+    }
+    if any(kw in lower for kw in armor_keywords):
+        return "armor"
+
+    # Shield
+    if "shield" in lower:
+        return "shield"
+
+    # Tools
+    tool_keywords = {
+        "tools", "kit", "supplies", "instrument", "set",
+        "thieves", "herbalism", "poisoner", "tinker",
+    }
+    if any(kw in lower for kw in tool_keywords):
+        return "tool"
+
+    # Packs
+    if "pack" in lower:
+        return "gear"
+
+    # Focus / holy symbol / arcane focus
+    focus_keywords = {"focus", "holy symbol", "totem", "component pouch", "spellbook"}
+    if any(kw in lower for kw in focus_keywords):
+        return "focus"
+
+    return "misc"
 
 
 class CharacterBuilderError(Exception):
@@ -155,6 +204,9 @@ class CharacterBuilder:
             )
             spell_slots = self._get_spell_slots(class_def, level)
 
+        # 6b. Starting spells
+        starting_spells = self._get_starting_spells(class_def, level)
+
         # 7. Hit dice
         hit_dice_type = f"d{class_def.hit_die}"
 
@@ -195,6 +247,7 @@ class CharacterBuilder:
             inventory=equipment,
             spellcasting_ability=spellcasting_ability,
             spell_slots=spell_slots,
+            spells_known=starting_spells,
             experience_points=0,
         )
 
@@ -533,15 +586,18 @@ class CharacterBuilder:
         class_def: ClassDefinition,
         bg_def: BackgroundDefinition | None,
     ) -> list[Item]:
-        """Build starting equipment inventory from class and background."""
+        """Build starting equipment inventory from class and background.
+
+        Infers item_type from equipment name when possible.
+        """
         items: list[Item] = []
 
         for eq_name in class_def.starting_equipment:
-            items.append(Item(name=eq_name, item_type="misc"))
+            items.append(Item(name=eq_name, item_type=_infer_item_type(eq_name)))
 
         if bg_def:
             for eq_name in bg_def.starting_equipment:
-                items.append(Item(name=eq_name, item_type="misc"))
+                items.append(Item(name=eq_name, item_type=_infer_item_type(eq_name)))
 
         return items
 
@@ -593,6 +649,79 @@ class CharacterBuilder:
                 result[spell_level] = count
 
         return result
+
+    # ------------------------------------------------------------------
+    # Starting Spells
+    # ------------------------------------------------------------------
+
+    def _get_starting_spells(
+        self, class_def: ClassDefinition, level: int
+    ) -> list[Spell]:
+        """Get starting spells for a spellcasting class at the given level.
+
+        Uses class spellcasting info to determine cantrips and spell counts.
+        Returns Spell objects with basic info (name, level, school).
+        Actual spell selection is deferred to the wizard flow.
+        """
+        if not class_def.spellcasting:
+            return []
+
+        spells: list[Spell] = []
+        sc = class_def.spellcasting
+
+        # Cantrips known (from spellcasting info or class_levels)
+        cantrips_known = 0
+        if sc.cantrips_known and level in sc.cantrips_known:
+            cantrips_known = sc.cantrips_known[level]
+
+        # Spells known / prepared count
+        spells_known_count = 0
+        if sc.spells_known and level in sc.spells_known:
+            spells_known_count = sc.spells_known[level]
+
+        # Try to find spells from rulebook data
+        class_index = _normalize_index(class_def.name)
+        available_spells = (
+            self.rm.get_class_spells(class_index)
+            if hasattr(self.rm, "get_class_spells")
+            else []
+        )
+
+        if available_spells:
+            # Pick cantrips (level 0)
+            cantrip_pool = [s for s in available_spells if s.get("level", -1) == 0]
+            for s in cantrip_pool[:cantrips_known]:
+                spells.append(Spell(
+                    name=s.get("name", "Unknown"),
+                    level=0,
+                    school=s.get("school", ""),
+                    casting_time=s.get("casting_time", "1 action"),
+                    duration=s.get("duration", "Instantaneous"),
+                    components=s.get("components", []),
+                    description=s.get("description", ""),
+                    prepared=True,
+                ))
+
+            # Pick level 1+ spells up to spells_known_count
+            slot_count = len(class_def.spellcasting.spell_slots.get(level, []))
+            max_spell_level = max(slot_count, 1)
+            spell_pool = [
+                s for s in available_spells
+                if 0 < s.get("level", 0) <= max_spell_level
+            ]
+            for s in spell_pool[:spells_known_count]:
+                spells.append(Spell(
+                    name=s.get("name", "Unknown"),
+                    level=s.get("level", 1),
+                    school=s.get("school", ""),
+                    casting_time=s.get("casting_time", "1 action"),
+                    duration=s.get("duration", "Instantaneous"),
+                    components=s.get("components", []),
+                    description=s.get("description", ""),
+                    prepared=True,
+                ))
+
+        return spells
 
     # ------------------------------------------------------------------
     # Lookups

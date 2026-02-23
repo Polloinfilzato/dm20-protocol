@@ -103,10 +103,14 @@ class Qwen3TTSEngine(TTSEngine):
 
         if self._tts is None:
             try:
-                from mlx_audio.tts import TTS
+                from mlx_audio.tts.utils import load_model
 
-                self._tts = TTS(self._model_id)
-                logger.info("Qwen3-TTS model loaded: %s", self._model_id)
+                start = time.monotonic()
+                self._tts = load_model(self._model_id)
+                elapsed = (time.monotonic() - start) * 1000
+                logger.info(
+                    "Qwen3-TTS model loaded: %s (%.0fms)", self._model_id, elapsed
+                )
             except Exception as exc:
                 logger.warning("Failed to load Qwen3-TTS model: %s", exc)
                 self._available = False
@@ -137,49 +141,54 @@ class Qwen3TTSEngine(TTSEngine):
 
         try:
             if self._tts is None:
-                from mlx_audio.tts import TTS
+                from mlx_audio.tts.utils import load_model
 
-                self._tts = TTS(self._model_id)
+                self._tts = load_model(self._model_id)
 
             start_time = time.monotonic()
-
-            # mlx-audio TTS.generate() returns audio data
-            # The exact API depends on the mlx-audio version
-            result = self._tts.generate(
-                text=text,
-                language=config.language,
-                speed=config.speed,
+            logger.info(
+                "Qwen3-TTS synthesizing %d chars, lang=%s, speed=%.1f",
+                len(text),
+                config.language or "it",
+                config.speed or 1.0,
             )
 
-            # Handle different return types from mlx-audio
-            if hasattr(result, "tolist"):
-                samples = result.tolist()
-            elif hasattr(result, "numpy"):
-                samples = result.numpy().tolist()
-            elif isinstance(result, (list, tuple)):
-                samples = list(result)
-            else:
-                # May return a dict or object with audio field
-                audio = getattr(result, "audio", result)
+            # mlx-audio 0.2.10+ model.generate() returns a generator of result objects
+            results = list(self._tts.generate(
+                text,
+                lang_code=config.language or "it",
+                speed=config.speed or 1.0,
+                verbose=False,
+            ))
+
+            # Concatenate audio from result chunks
+            all_samples: list[float] = []
+            sample_rate = _DEFAULT_SAMPLE_RATE
+            for r in results:
+                audio = getattr(r, "audio", r)
                 if hasattr(audio, "tolist"):
-                    samples = audio.tolist()
-                else:
-                    samples = list(audio)
+                    all_samples.extend(audio.tolist())
+                elif hasattr(audio, "numpy"):
+                    all_samples.extend(audio.numpy().tolist())
+                elif isinstance(audio, (list, tuple)):
+                    all_samples.extend(list(audio))
+                if hasattr(r, "sample_rate") and r.sample_rate:
+                    sample_rate = r.sample_rate
 
             # Flatten if nested
-            if samples and isinstance(samples[0], list):
-                samples = [s for sublist in samples for s in sublist]
+            if all_samples and isinstance(all_samples[0], list):
+                all_samples = [s for sublist in all_samples for s in sublist]
 
             elapsed_ms = (time.monotonic() - start_time) * 1000
-            sample_rate = _DEFAULT_SAMPLE_RATE
-            duration_ms = (len(samples) / sample_rate) * 1000
+            duration_ms = (len(all_samples) / sample_rate) * 1000
 
-            wav_data = _audio_to_wav(samples, sample_rate)
+            wav_data = _audio_to_wav(all_samples, sample_rate)
 
             logger.info(
-                "Qwen3-TTS synthesis: %.0fms latency, %.0fms audio duration",
+                "Qwen3-TTS synthesis complete: %.0fms latency, %.0fms audio, %d samples",
                 elapsed_ms,
                 duration_ms,
+                len(all_samples),
             )
 
             return TTSResult(

@@ -19,17 +19,17 @@ from .base import AudioFormat, TTSEngine, TTSResult, VoiceConfig
 logger = logging.getLogger("dm20-protocol.voice.kokoro")
 
 # Map language codes to Kokoro language identifiers
+# Kokoro only supports: "a" (American English), "b" (British English),
+# "j" (Japanese), "z" (Chinese). Italian is NOT supported.
 _LANGUAGE_MAP: dict[str, str] = {
     "en": "en-us",
     "en-us": "en-us",
     "en-gb": "en-gb",
-    "it": "it",
 }
 
 # Default voice IDs per language
 _DEFAULT_VOICES: dict[str, str] = {
     "en": "af_heart",
-    "it": "af_heart",
 }
 
 
@@ -90,7 +90,7 @@ class KokoroEngine(TTSEngine):
     """
 
     def __init__(self) -> None:
-        self._pipeline: object | None = None
+        self._pipelines: dict[str, object] = {}
         self._available: bool | None = None
 
     @property
@@ -104,17 +104,23 @@ class KokoroEngine(TTSEngine):
                 logger.debug("Kokoro package not installed")
         return self._available
 
+    def _get_pipeline(self, lang_code: str) -> object:
+        """Get or create a cached Kokoro pipeline for the given language code."""
+        if lang_code not in self._pipelines:
+            from kokoro import KPipeline
+
+            self._pipelines[lang_code] = KPipeline(lang_code=lang_code)
+            logger.info("Kokoro pipeline loaded for lang_code=%s", lang_code)
+        return self._pipelines[lang_code]
+
     async def warmup(self) -> None:
         """Preload the Kokoro pipeline for faster first synthesis."""
         if not self.is_available():
             return
 
-        if self._pipeline is None:
+        if "a" not in self._pipelines:
             try:
-                from kokoro import KPipeline
-
-                self._pipeline = KPipeline(lang_code="a")
-                logger.info("Kokoro pipeline loaded successfully")
+                self._get_pipeline("a")
             except Exception as exc:
                 logger.warning("Failed to load Kokoro pipeline: %s", exc)
                 self._available = False
@@ -147,10 +153,8 @@ class KokoroEngine(TTSEngine):
             voice_id = _DEFAULT_VOICES.get(lang, "af_heart")
 
         try:
-            if self._pipeline is None:
-                from kokoro import KPipeline
-
-                self._pipeline = KPipeline(lang_code=kokoro_lang[0])
+            # Kokoro lang_code is the first letter of the language identifier
+            pipeline = self._get_pipeline(kokoro_lang[0])
 
             start_time = time.monotonic()
 
@@ -158,7 +162,7 @@ class KokoroEngine(TTSEngine):
             all_samples: list[float] = []
             sample_rate = 24000  # Kokoro default
 
-            for _gs, _ps, audio in self._pipeline(
+            for _gs, _ps, audio in pipeline(
                 text, voice=voice_id, speed=config.speed
             ):
                 if audio is not None:
@@ -197,8 +201,8 @@ class KokoroEngine(TTSEngine):
 
     async def shutdown(self) -> None:
         """Release the Kokoro pipeline."""
-        self._pipeline = None
-        logger.debug("Kokoro pipeline released")
+        self._pipelines.clear()
+        logger.debug("Kokoro pipelines released")
 
     def supported_languages(self) -> list[str]:
-        return ["en", "it"]
+        return ["en"]
