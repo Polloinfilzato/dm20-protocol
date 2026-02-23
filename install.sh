@@ -982,17 +982,28 @@ AGENTEOF
         fi
     fi
 
-    # ── Project settings (PreCompact hook, etc.) ──────────────────────────
+    # ── Project settings (hooks for session management) ────────────────────
     local settings_target="${PLAY_DIR}/.claude/settings.json"
     if [[ ! -f "$settings_target" ]]; then
-        info "Creating project settings with PreCompact hook..."
+        info "Creating project settings (PreCompact + SessionStart hooks)..."
         cat > "$settings_target" << 'SETTINGSEOF'
 {
   "hooks": {
     "PreCompact": [
       {
-        "type": "prompt",
-        "prompt": "IMPORTANT: Context compaction is about to trigger. Before compaction happens, you MUST invoke /dm:refrill immediately using the Skill tool. This will save the current game session. After compaction, remind the user to run /dm:start to resume with full context."
+        "type": "command",
+        "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\".claude/last-campaign.txt\"; if [ -f \"$f\" ]; then campaign=$(cat \"$f\"); rm -f \"$f\"; echo \"🎲 Session checkpoint detected for campaign: $campaign. Auto-resuming — invoke /dm:start $campaign now.\"; fi'"
+          }
+        ]
       }
     ]
   }
@@ -1517,24 +1528,35 @@ do_upgrade() {
         fi
     fi
 
-    # ── Step 4: Update project settings (PreCompact hook, etc.) ───────────
+    # ── Step 4: Update project settings (PreCompact + SessionStart hooks) ──
     local settings_target="${play_dir}/.claude/settings.json"
     local settings_needs_update=true
 
-    # Check if settings.json already has PreCompact hook
-    if [[ -f "$settings_target" ]] && grep -q "PreCompact" "$settings_target" 2>/dev/null; then
+    # Check if settings.json already has BOTH correct hooks
+    if [[ -f "$settings_target" ]] && grep -q "SessionStart" "$settings_target" 2>/dev/null && grep -q '"type": "command"' "$settings_target" 2>/dev/null; then
         settings_needs_update=false
     fi
 
     if [[ "$settings_needs_update" == true ]]; then
-        step "Updating project settings (PreCompact hook)..."
+        step "Updating project settings (PreCompact + SessionStart hooks)..."
         cat > "$settings_target" << 'SETTINGSEOF'
 {
   "hooks": {
     "PreCompact": [
       {
-        "type": "prompt",
-        "prompt": "IMPORTANT: Context compaction is about to trigger. Before compaction happens, you MUST invoke /dm:refrill immediately using the Skill tool. This will save the current game session. After compaction, remind the user to run /dm:start to resume with full context."
+        "type": "command",
+        "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\".claude/last-campaign.txt\"; if [ -f \"$f\" ]; then campaign=$(cat \"$f\"); rm -f \"$f\"; echo \"🎲 Session checkpoint detected for campaign: $campaign. Auto-resuming — invoke /dm:start $campaign now.\"; fi'"
+          }
+        ]
       }
     ]
   }

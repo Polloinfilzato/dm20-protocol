@@ -211,10 +211,11 @@ Monitor the conversation length throughout the session. When you observe that
 the conversation has accumulated a large amount of text (approximately 25-30+
 exchanges, or when you notice the conversation feeling dense with prior context),
 proactively invoke `/dm:refrill` using the Skill tool. This saves the session
-and provides instructions to clear and restart.
+and creates a recovery checkpoint — the player only needs to type `/compact`
+and the campaign auto-resumes via the SessionStart hook.
 
 Act BEFORE the context window becomes critically full — aim to trigger at roughly
 65% saturation. Better to save early than lose unsaved progress.
 
-If the system triggers auto-compaction (PreCompact), it will prompt you to save
-automatically as a safety net.
+If the system triggers auto-compaction (PreCompact hook), it will warn you to
+run `/dm:refrill` before context is lost.

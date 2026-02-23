@@ -1,33 +1,62 @@
 ---
 description: Auto-save and refresh the session to free context window space.
-allowed-tools: Skill, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_campaign_info
+allowed-tools: Skill, Write, mcp__dm20-protocol__get_game_state, mcp__dm20-protocol__get_campaign_info
 ---
 
 # DM Refrill
 
-Auto-save the current session and provide instructions to refresh the context window.
+Autonomous session save and context refresh. Saves the full session, creates a recovery checkpoint, and prepares for automatic campaign resume after compaction.
+
+## Usage
+```
+/dm:refrill
+```
+
+No arguments needed.
 
 ## Instructions
 
-1. Call `get_game_state()` to capture the current campaign name and session info.
-2. Call `get_campaign_info()` to get the campaign name.
-3. Invoke `/dm:save` using the Skill tool (`skill: "dm:save"`) to save the current session.
-4. After save completes, output the following message to the user:
+### 1. Gather State
+
+Call in parallel:
+- `get_game_state()` — current session info, location, notes
+- `get_campaign_info()` — active campaign name
+
+If no active session: "No active session — nothing to refresh."
+
+### 2. Save Session
+
+Invoke `/dm:save` using the Skill tool:
+```
+skill: "dm:save"
+```
+
+Wait for save to complete before proceeding.
+
+### 3. Create Recovery Checkpoint
+
+Write the campaign name to `.claude/last-campaign.txt` using the Write tool:
+```
+Write(".claude/last-campaign.txt", campaign_name)
+```
+
+This file is read by the SessionStart hook after compaction to auto-resume.
+
+### 4. Trigger Compaction
+
+After save and checkpoint are confirmed, output ONLY this message — nothing else:
 
 ```
 ---
-**Context refresh in progress.**
+✅ **Session saved. Checkpoint created.**
 
-Session saved successfully. To free context window space, run these commands in order:
-
-1. `/clear` — clears conversation context
-2. `/dm:start {campaign_name}` — resumes your campaign
-
-Or just copy-paste this after clearing:
-`/dm:start {campaign_name}`
-
-Your game state, characters, quests, and session notes are all safely persisted.
+Digita **`/compact`** per completare il refresh.
+La campagna ripartirà automaticamente dopo la compattazione.
 ---
 ```
 
-Replace `{campaign_name}` with the actual campaign name from the game state.
+**CRITICAL RULES:**
+- Do NOT list manual steps or additional commands
+- Do NOT tell the user to run `/dm:start` — the SessionStart hook handles auto-resume
+- Do NOT add explanations or caveats — keep the output minimal
+- The ONLY manual action the user needs is typing `/compact`

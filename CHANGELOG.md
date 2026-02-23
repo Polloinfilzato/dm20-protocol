@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **PreCompact hook type wrong** — Hook was using `"type": "prompt"` which is not supported by the `PreCompact` event (command-only). Changed to `"type": "command"` in both `settings.local.json` and installer templates. Upgrade now also detects and replaces the old broken prompt-type hook
+- **`/dm:refrill` now autonomous** — Previously just ran `/dm:save` and printed manual instructions. Now creates a recovery checkpoint (`.claude/last-campaign.txt`) so that after the user types `/compact`, a `SessionStart` hook (matcher: `"compact"`) auto-detects the checkpoint and instructs Claude to invoke `/dm:start` automatically. Reduces manual steps from 2 (`/clear` + `/dm:start`) to 1 (`/compact`), with fully automatic resume
 - **TTS markdown stripping** — `_strip_markdown_for_tts()` removes bold, italic, headers, links, list markers, and blockquotes before passing narrative text to Edge-TTS. Prevents the engine from reading formatting symbols aloud (e.g. "asterisco asterisco Tassly asterisco asterisco")
 - **TTS character limit raised** — `_TTS_MAX_CHARS` raised from 500 to 3000. Previously, most of the narrative was silently truncated after the first paragraph
 - **TTS language defaulting to English** — `VoiceConfig(language="en")` was hardcoded in `_party_tts_speak`, causing Edge-TTS to use `en-US-GuyNeural` for Italian text. Now uses the DM voice config from `VoiceRegistry` (language `"it"`, voice `it-IT-DiegoNeural`)
