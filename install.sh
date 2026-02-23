@@ -26,6 +26,7 @@ CLONE_NEEDED=false       # developer mode: whether to git clone
 MCP_CLIENT=""            # "desktop", "code", or "both"
 CODE_SCOPE="global"      # "global" or "project"
 INSTALL_RAG=false        # whether to install RAG extras
+INSTALL_VOICE=false      # whether to install voice/TTS extras
 DM20_BINARY_PATH=""      # user mode: resolved path to dm20-protocol binary
 ON_ICLOUD=false          # true if target dir is on iCloud Drive
 MODEL_PROFILE="balanced" # model quality profile: quality, balanced, economy
@@ -686,6 +687,27 @@ gather_options_user() {
         echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
+
+    # ── Voice / TTS dependencies ─────────────────────────────────────────
+    INSTALL_VOICE=false
+    echo ""
+    echo -e "${BOLD}Install Voice Narration (TTS)?${NC}"
+    if [[ "$PLATFORM" == "macos-arm" ]]; then
+        echo "  Enables AI-narrated gameplay with 3-tier local+cloud TTS:"
+        echo "    Tier 1 (speed):   Kokoro 82M — local, <300ms"
+        echo "    Tier 2 (quality): mlx-audio  — local, ~800ms"
+        echo "    Tier 3 (fallback): Edge-TTS  — cloud, free"
+    elif [[ "$PLATFORM" == "macos-intel" ]]; then
+        echo "  Enables AI-narrated gameplay via cloud TTS:"
+        echo "    Edge-TTS — Microsoft cloud voices, free, no API key"
+        echo -e "  ${DIM}Local models (Kokoro, mlx-audio) require Apple Silicon.${NC}"
+    else
+        echo "  Enables AI-narrated gameplay via cloud TTS:"
+        echo "    Edge-TTS — Microsoft cloud voices, free, no API key"
+    fi
+    echo "  Not required — game works perfectly in text-only mode"
+    echo "  Can also be installed later with: bash install.sh --voice"
+    prompt_yn "Install Voice/TTS?" "n" INSTALL_VOICE
 }
 
 gather_options_developer() {
@@ -785,6 +807,27 @@ gather_options_developer() {
         echo "  Not required — all tools including ask_books work without it"
         prompt_yn "Install RAG dependencies?" "n" INSTALL_RAG
     fi
+
+    # ── Voice / TTS dependencies ─────────────────────────────────────────
+    INSTALL_VOICE=false
+    echo ""
+    echo -e "${BOLD}Install Voice Narration (TTS)?${NC}"
+    if [[ "$PLATFORM" == "macos-arm" ]]; then
+        echo "  Enables AI-narrated gameplay with 3-tier local+cloud TTS:"
+        echo "    Tier 1 (speed):   Kokoro 82M — local, <300ms"
+        echo "    Tier 2 (quality): mlx-audio  — local, ~800ms"
+        echo "    Tier 3 (fallback): Edge-TTS  — cloud, free"
+    elif [[ "$PLATFORM" == "macos-intel" ]]; then
+        echo "  Enables AI-narrated gameplay via cloud TTS:"
+        echo "    Edge-TTS — Microsoft cloud voices, free, no API key"
+        echo -e "  ${DIM}Local models (Kokoro, mlx-audio) require Apple Silicon.${NC}"
+    else
+        echo "  Enables AI-narrated gameplay via cloud TTS:"
+        echo "    Edge-TTS — Microsoft cloud voices, free, no API key"
+    fi
+    echo "  Not required — game works perfectly in text-only mode"
+    echo "  Can also be installed later with: bash install.sh --voice"
+    prompt_yn "Install Voice/TTS?" "n" INSTALL_VOICE
 }
 
 # ─── Installation (User mode) ─────────────────────────────────────────────────
@@ -792,34 +835,40 @@ gather_options_developer() {
 do_tool_install() {
     step "Installing dm20-protocol"
 
-    local installed=false
-    local rag_installed=false
+    # ── Build extras string dynamically ──────────────────────────────────
+    local extras=""
+    [[ "$INSTALL_RAG" == true ]] && extras="rag"
+    [[ "$INSTALL_VOICE" == true ]] && extras="${extras:+$extras,}voice"
 
-    if [[ "$INSTALL_RAG" == true ]]; then
-        # ── Attempt 1: RAG with current Python ────────────────────────────
-        info "Installing with RAG dependencies..."
-        if uv tool install "dm20-protocol[rag] @ git+${REPO_URL}" --force 2>&1; then
-            success "dm20-protocol installed with RAG"
+    local installed=false
+    local extras_installed=false
+
+    if [[ -n "$extras" ]]; then
+        # ── Attempt 1: with extras, current Python ───────────────────────
+        info "Installing with extras [$extras]..."
+        if uv tool install "dm20-protocol[$extras] @ git+${REPO_URL}" --force 2>&1; then
+            success "dm20-protocol installed with [$extras]"
             installed=true
-            rag_installed=true
+            extras_installed=true
         else
-            # ── Attempt 2: RAG with Python 3.12 (broader library compat) ──
-            warn "RAG install failed with default Python. Retrying with Python 3.12..."
-            if uv tool install --python 3.12 "dm20-protocol[rag] @ git+${REPO_URL}" --force 2>&1; then
-                success "dm20-protocol installed with RAG (using Python 3.12)"
+            # ── Attempt 2: with extras, Python 3.12 ──────────────────────
+            warn "Install with [$extras] failed. Retrying with Python 3.12..."
+            if uv tool install --python 3.12 "dm20-protocol[$extras] @ git+${REPO_URL}" --force 2>&1; then
+                success "dm20-protocol installed with [$extras] (using Python 3.12)"
                 installed=true
-                rag_installed=true
+                extras_installed=true
             else
-                # ── Attempt 3: give up on RAG, install base ───────────────
-                warn "RAG dependencies are not available on this platform/Python combination."
-                warn "Installing without RAG — TF-IDF keyword search will be used instead."
+                # ── Attempt 3: give up on extras ─────────────────────────
+                warn "Optional dependencies [$extras] are not available on this platform."
+                warn "Installing base package instead."
                 INSTALL_RAG=false
+                INSTALL_VOICE=false
             fi
         fi
     fi
 
     if [[ "$installed" == false ]]; then
-        # ── Base install (no RAG) ─────────────────────────────────────────
+        # ── Base install (no extras) ─────────────────────────────────────
         info "Installing dm20-protocol (base)..."
         if uv tool install "dm20-protocol @ git+${REPO_URL}" --force 2>&1; then
             success "dm20-protocol installed"
@@ -1052,20 +1101,26 @@ do_install_deps() {
     uv sync
     success "Core dependencies installed"
 
-    if [[ "$INSTALL_RAG" == true ]]; then
-        info "Installing RAG dependencies..."
-        if uv sync --extra rag; then
-            success "RAG dependencies installed"
+    # ── Install optional extras (RAG, voice) ────────────────────────────
+    local extra_args=""
+    [[ "$INSTALL_RAG" == true ]] && extra_args="$extra_args --extra rag"
+    [[ "$INSTALL_VOICE" == true ]] && extra_args="$extra_args --extra voice"
+
+    if [[ -n "$extra_args" ]]; then
+        info "Installing optional dependencies:$extra_args..."
+        # shellcheck disable=SC2086
+        if uv sync $extra_args; then
+            success "Optional dependencies installed"
         else
-            # ── Fallback: recreate venv with Python 3.12 ──────────────────
-            warn "RAG failed with default Python. Retrying with Python 3.12..."
-            if uv sync --python 3.12 --extra rag; then
-                success "RAG dependencies installed (using Python 3.12)"
+            warn "Install failed with default Python. Retrying with Python 3.12..."
+            # shellcheck disable=SC2086
+            if uv sync --python 3.12 $extra_args; then
+                success "Optional dependencies installed (using Python 3.12)"
             else
-                warn "RAG dependencies are not available on this platform."
-                info "The server will work without RAG — TF-IDF keyword search used instead."
-                info "You can try again later with: cd ${INSTALL_DIR} && uv sync --extra rag"
-                # Re-sync without RAG to ensure clean venv state
+                warn "Optional dependencies are not available on this platform."
+                info "The server will work without them."
+                INSTALL_RAG=false
+                INSTALL_VOICE=false
                 uv sync
             fi
         fi
@@ -1277,6 +1332,7 @@ print_summary_user() {
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
     echo -e "  ${BOLD}Profile:${NC}      ${MODEL_PROFILE}"
     echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
+    echo -e "  ${BOLD}Voice (TTS):${NC}  $([ "$INSTALL_VOICE" == true ] && echo "Installed" || echo "Skipped")"
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
     echo ""
 
@@ -1305,6 +1361,11 @@ print_summary_user() {
     echo -e "  ${BOLD}Add PDF rulebooks:${NC}"
     echo "    Drop .pdf or .md files into: ${DATA_DIR}/library/pdfs/"
     echo ""
+    if [[ "$INSTALL_VOICE" == true ]]; then
+        echo -e "  ${BOLD}Enable voice narration:${NC}"
+        echo "    Run ${BOLD}/dm:profile${NC} in Claude Code → set mode to Narrated or Immersive"
+        echo ""
+    fi
     echo -e "  ${BOLD}Update later:${NC}"
     echo "    uv tool upgrade dm20-protocol"
     echo ""
@@ -1319,6 +1380,7 @@ print_summary_developer() {
     echo -e "  ${BOLD}Platform:${NC}     ${PLATFORM}"
     echo -e "  ${BOLD}Profile:${NC}      ${MODEL_PROFILE}"
     echo -e "  ${BOLD}RAG:${NC}          $([ "$INSTALL_RAG" == true ] && echo "Installed" || echo "Skipped")"
+    echo -e "  ${BOLD}Voice (TTS):${NC}  $([ "$INSTALL_VOICE" == true ] && echo "Installed" || echo "Skipped")"
     echo -e "  ${BOLD}MCP client:${NC}   ${MCP_CLIENT}"
     if [[ "$ON_ICLOUD" == true ]]; then
         echo -e "  ${BOLD}iCloud:${NC}       Protected (.venv.nosync + PYTHONPATH)"
