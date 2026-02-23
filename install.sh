@@ -991,8 +991,12 @@ AGENTEOF
   "hooks": {
     "PreCompact": [
       {
-        "type": "command",
-        "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -1532,9 +1536,15 @@ do_upgrade() {
     local settings_target="${play_dir}/.claude/settings.json"
     local settings_needs_update=true
 
-    # Check if settings.json already has BOTH correct hooks
-    if [[ -f "$settings_target" ]] && grep -q "SessionStart" "$settings_target" 2>/dev/null && grep -q '"type": "command"' "$settings_target" 2>/dev/null; then
-        settings_needs_update=false
+    # Check if settings.json already has correct nested hook format (matcher+hooks pattern)
+    # The correct format has "hooks": [ inside PreCompact; the old broken format has "type": directly
+    if [[ -f "$settings_target" ]] && grep -q "SessionStart" "$settings_target" 2>/dev/null && grep -q '"hooks": \[' "$settings_target" 2>/dev/null; then
+        # Extra check: if PreCompact still uses old flat format (type directly under PreCompact), force update
+        if grep -A2 '"PreCompact"' "$settings_target" 2>/dev/null | grep -q '"type"'; then
+            settings_needs_update=true
+        else
+            settings_needs_update=false
+        fi
     fi
 
     if [[ "$settings_needs_update" == true ]]; then
@@ -1544,8 +1554,12 @@ do_upgrade() {
   "hooks": {
     "PreCompact": [
       {
-        "type": "command",
-        "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️ Context compaction triggered. Run /dm:refrill to save session before context is lost.'"
+          }
+        ]
       }
     ],
     "SessionStart": [
