@@ -954,7 +954,7 @@ AGENTEOF
     else
         # Try 2: download from GitHub
         info "Downloading slash commands from GitHub..."
-        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
+        local dm_commands=(start action combat save profile help campaigns install-rag refrill party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
         local download_ok=true
 
         for cmd in "${dm_commands[@]}"; do
@@ -980,6 +980,25 @@ AGENTEOF
             warn "Some files could not be downloaded. /dm: commands may not work."
             warn "You can copy them manually from the repo: .claude/commands/dm/ and .claude/dm-persona.md"
         fi
+    fi
+
+    # ── Project settings (PreCompact hook, etc.) ──────────────────────────
+    local settings_target="${PLAY_DIR}/.claude/settings.json"
+    if [[ ! -f "$settings_target" ]]; then
+        info "Creating project settings with PreCompact hook..."
+        cat > "$settings_target" << 'SETTINGSEOF'
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "prompt",
+        "prompt": "IMPORTANT: Context compaction is about to trigger. Before compaction happens, you MUST invoke /dm:refrill immediately using the Skill tool. This will save the current game session. After compaction, remind the user to run /dm:start to resume with full context."
+      }
+    ]
+  }
+}
+SETTINGSEOF
+        success "Project settings created"
     fi
 }
 
@@ -1470,7 +1489,7 @@ do_upgrade() {
         local update_ok=true
 
         # Slash commands
-        local dm_commands=(start action combat save profile help campaigns install-rag party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
+        local dm_commands=(start action combat save profile help campaigns install-rag refrill party-auto party-kick party-mode party-next party-status party-stop party-token release-notes)
         for cmd in "${dm_commands[@]}"; do
             if ! curl -fsSL "${RAW_BASE}/.claude/commands/dm/${cmd}.md" -o "${play_dir}/.claude/commands/dm/${cmd}.md" 2>/dev/null; then
                 update_ok=false
@@ -1496,6 +1515,32 @@ do_upgrade() {
             warn "Some files could not be downloaded."
             warn "Backup preserved at: ${backup_dir}"
         fi
+    fi
+
+    # ── Step 4: Update project settings (PreCompact hook, etc.) ───────────
+    local settings_target="${play_dir}/.claude/settings.json"
+    local settings_needs_update=true
+
+    # Check if settings.json already has PreCompact hook
+    if [[ -f "$settings_target" ]] && grep -q "PreCompact" "$settings_target" 2>/dev/null; then
+        settings_needs_update=false
+    fi
+
+    if [[ "$settings_needs_update" == true ]]; then
+        step "Updating project settings (PreCompact hook)..."
+        cat > "$settings_target" << 'SETTINGSEOF'
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "prompt",
+        "prompt": "IMPORTANT: Context compaction is about to trigger. Before compaction happens, you MUST invoke /dm:refrill immediately using the Skill tool. This will save the current game session. After compaction, remind the user to run /dm:start to resume with full context."
+      }
+    ]
+  }
+}
+SETTINGSEOF
+        success "Project settings updated"
     fi
 
     # ── Summary ───────────────────────────────────────────────────────────
