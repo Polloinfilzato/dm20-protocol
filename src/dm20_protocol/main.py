@@ -5116,6 +5116,10 @@ def _party_tts_speak(narrative: str, server) -> None:
     # 6. Run async synthesis on the server event loop
     async def _synth_and_play():
         try:
+            # Ensure the router is initialized (lazy singleton path)
+            if not router._initialized:
+                await router.initialize()
+                logger.info("Lazy TTSRouter initialized: %s", router.get_status())
             _vr = getattr(server, "voice_registry", None)
             _vc = _vr.get_dm_voice() if _vr is not None else VoiceConfig(language="it")
             result = await router.synthesize(text, context="narration", voice_config=_vc)
