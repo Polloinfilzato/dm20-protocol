@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Inconsistent MCP tool parameter names** — `apply_effect` and `remove_effect` used `character_name` while all other character tools used `character_name_or_id`, causing AI callers to mix up parameter names. Renamed to `character_name_or_id` for consistency
+- **`add_item_to_character` item_type too restrictive** — `item_type` was a `Literal["weapon", "armor", "consumable", "misc"]` but the `Item` model accepts any string. Changed to `str` so AI callers can use values like `"treasure"`, `"tool"`, `"quest"`, etc.
 - **PreCompact hook type wrong** — Hook was using `"type": "prompt"` which is not supported by the `PreCompact` event (command-only). Changed to `"type": "command"` in both `settings.local.json` and installer templates. Upgrade now also detects and replaces the old broken prompt-type hook
 - **`/dm:refrill` now autonomous** — Previously just ran `/dm:save` and printed manual instructions. Now creates a recovery checkpoint (`.claude/last-campaign.txt`) so that after the user types `/compact`, a `SessionStart` hook (matcher: `"compact"`) auto-detects the checkpoint and instructs Claude to invoke `/dm:start` automatically. Reduces manual steps from 2 (`/clear` + `/dm:start`) to 1 (`/compact`), with fully automatic resume
 - **TTS lazy router never initialized** — `_party_tts_speak()` lazy singleton path created `TTSRouter()` but never called `await initialize()`, leaving `_engines` empty. Synthesis would silently fail via the catch-all exception handler. Now initializes the router inside the async coroutine before first use

@@ -845,7 +845,7 @@ def add_item_to_character(
     item_name: Annotated[str, Field(description="Item name")],
     description: Annotated[str | None, Field(description="Item description")] = None,
     quantity: Annotated[int, Field(description="Quantity", ge=1)] = 1,
-    item_type: Annotated[Literal["weapon", "armor", "consumable", "misc"], Field(description="Item type")] = "misc",
+    item_type: Annotated[str, Field(description="Item type (e.g., 'weapon', 'armor', 'consumable', 'misc', 'treasure', 'tool', 'quest')")] = "misc",
     weight: Annotated[float | None, Field(description="Item weight", ge=0)] = None,
     value: Annotated[str | None, Field(description="Item value (e.g., '50 gp')")] = None,
     player_id: Annotated[str | None, Field(description="Player ID for permission check (omit for single-player DM mode)")] = None,
@@ -2195,7 +2195,7 @@ def show_map(
 
 @mcp.tool
 def apply_effect(
-    character_name: Annotated[str, Field(description="Name of the character to apply the effect to")],
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")],
     effect_name: Annotated[str, Field(description="Effect name (SRD condition like 'blinded', 'poisoned', or custom name)")],
     source: Annotated[str | None, Field(description="Source of the effect (e.g., 'Poison trap', 'Hold Person spell')")] = None,
     duration: Annotated[int | None, Field(description="Duration in rounds. None for permanent effects.")] = None,
@@ -2212,9 +2212,9 @@ def apply_effect(
     from .combat.effects import EffectsEngine, SRD_CONDITIONS
     from .models import ActiveEffect as ActiveEffectModel, Modifier as ModifierModel
 
-    character = storage.get_character(character_name)
+    character = storage.get_character(character_name_or_id)
     if not character:
-        return f"Character '{character_name}' not found."
+        return f"Character '{character_name_or_id}' not found."
 
     effect_key = effect_name.lower()
 
@@ -2233,7 +2233,7 @@ def apply_effect(
         applied = EffectsEngine.apply_effect(character, effect)
 
         # Persist
-        storage.update_character(character_name, active_effects=character.active_effects)
+        storage.update_character(str(character.id), active_effects=character.active_effects)
 
         dur_text = f" ({duration} rounds)" if duration else " (permanent)"
         return (
@@ -2262,7 +2262,7 @@ def apply_effect(
         applied = EffectsEngine.apply_effect(character, effect)
 
         # Persist
-        storage.update_character(character_name, active_effects=character.active_effects)
+        storage.update_character(str(character.id), active_effects=character.active_effects)
 
         dur_text = f" ({duration} rounds)" if duration else " (permanent)"
         mod_text = ""
@@ -2280,7 +2280,7 @@ def apply_effect(
 
 @mcp.tool
 def remove_effect(
-    character_name: Annotated[str, Field(description="Name of the character to remove the effect from")],
+    character_name_or_id: Annotated[str, Field(description="Character name, ID, or player name.")],
     effect_id_or_name: Annotated[str, Field(description="Effect ID (exact match) or effect name (removes all with that name)")],
 ) -> str:
     """Remove an active effect from a character by ID or name.
@@ -2290,9 +2290,9 @@ def remove_effect(
     """
     from .combat.effects import EffectsEngine
 
-    character = storage.get_character(character_name)
+    character = storage.get_character(character_name_or_id)
     if not character:
-        return f"Character '{character_name}' not found."
+        return f"Character '{character_name_or_id}' not found."
 
     if not character.active_effects:
         return f"{character.name} has no active effects."
@@ -2300,13 +2300,13 @@ def remove_effect(
     # Try by ID first
     removed = EffectsEngine.remove_effect(character, effect_id_or_name)
     if removed:
-        storage.update_character(character_name, active_effects=character.active_effects)
+        storage.update_character(str(character.id), active_effects=character.active_effects)
         return f"Removed effect **{removed.name}** (ID: {removed.id}) from {character.name}."
 
     # Try by name
     removed_list = EffectsEngine.remove_effects_by_name(character, effect_id_or_name)
     if removed_list:
-        storage.update_character(character_name, active_effects=character.active_effects)
+        storage.update_character(str(character.id), active_effects=character.active_effects)
         names = ", ".join(f"{e.name} (ID: {e.id})" for e in removed_list)
         return f"Removed {len(removed_list)} effect(s) from {character.name}: {names}"
 
